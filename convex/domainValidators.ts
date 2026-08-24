@@ -29,6 +29,20 @@ export const workflowStageValidator = v.object({
   purpose: workflowStagePurposeValidator,
 });
 
+export const projectOutputReviewStateValidator = v.union(
+  v.literal("draft"),
+  v.literal("sent_to_client"),
+  v.literal("changes_requested"),
+  v.literal("approved"),
+  v.literal("final_delivered")
+);
+
+export const mediaSourceValidator = v.union(
+  v.object({ kind: v.literal("youtube"), url: v.string(), videoId: v.string() }),
+  v.object({ kind: v.literal("vimeo"), url: v.string(), videoId: v.string() }),
+  v.object({ kind: v.literal("link"), url: v.string() })
+);
+
 export const fileCategoryValidator = v.union(
   v.literal("Deliverable"),
   v.literal("Reference"),

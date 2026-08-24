@@ -344,3 +344,61 @@ test("moves a Project on the board with the stage menu and pointer drag", async 
   await page.getByRole("menuitem", { name: /Editing/ }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.completedAt)).toBeUndefined();
 });
+
+test("keeps Project Outputs and linked Media Version history separate from Project counts", async ({ page }) => {
+  await chooseLocalMode(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("video-editing-work-tracker:v1", JSON.stringify([{
+      id: "outputs-project",
+      profileId: "video-editor",
+      title: "Outputs Project",
+      client: "E2E Client",
+      clientId: "client-e2e",
+      status: "Planned",
+      workflowStageId: "planned",
+      workflowStages: [
+        { id: "planned", label: "Planned", purpose: "planned" },
+        { id: "delivered", label: "Delivered", purpose: "delivered" },
+      ],
+      workType: "Job / Salary",
+      startDate: "2026-08-01",
+      dueDate: "2026-08-20",
+      earnings: 0,
+      notes: "",
+      templateDeliverables: [
+        { title: "Main film", category: "Deliverable", initialStatus: "draft" },
+        { title: "Thumbnail", category: "Asset", initialStatus: "draft" },
+      ],
+    }]));
+    window.localStorage.setItem("video-editing-work-tracker:settings:v1", JSON.stringify({
+      salaryWorkType: "Job / Salary",
+      clients: [{ id: "client-e2e", name: "E2E Client", company: "", contactName: "", email: "", phone: "", notes: "", archived: false }],
+    }));
+  });
+  await openApp(page, "/projects/outputs-project?view=outputs");
+
+  const outputs = page.getByRole("region", { name: "Project Outputs" });
+  await expect(outputs.getByRole("heading", { name: "Main film" })).toBeVisible();
+  await expect(outputs.getByRole("heading", { name: "Thumbnail" })).toBeVisible();
+  const film = outputs.getByRole("article").filter({ hasText: "Main film" });
+  await film.getByRole("button", { name: "Media Version" }).click();
+  await page.getByLabel("YouTube, Vimeo, or link").fill("https://youtu.be/dQw4w9WgXcQ");
+  await page.getByLabel("Version label").fill("Client cut");
+  await page.getByRole("button", { name: "Add Media Version" }).click();
+  await expect(film.getByText("Current: Client cut")).toBeVisible();
+
+  await film.getByRole("button", { name: "Media Version" }).click();
+  await page.getByLabel("YouTube, Vimeo, or link").fill("https://vimeo.com/123456789");
+  await page.getByLabel("Version label").fill("Final review");
+  await page.getByRole("button", { name: "Add Media Version" }).click();
+  await expect(film.getByText("Current: Final review")).toBeVisible();
+  await expect(film.getByText("Version history (2)")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Project Outputs" }).getByText("Current: Final review")).toBeVisible();
+  expect(await page.evaluate(() => {
+    const projects = JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]");
+    const batches = JSON.parse(localStorage.getItem("video-editing-work-tracker:salary-batches:v1") ?? '{"batches":[]}');
+    return { projectCount: projects.length, status: projects[0]?.status, batchCount: batches.batches?.length ?? 0 };
+  })).toEqual({ projectCount: 1, status: "Planned", batchCount: 0 });
+});

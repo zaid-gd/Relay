@@ -81,6 +81,7 @@ import { PrecisionProjects } from "@/components/precision-projects";
 import { PrecisionCalendar, PrecisionTimeline } from "@/components/precision-schedule";
 import { PrecisionClients, PrecisionFeedback, PrecisionReports } from "@/components/precision-workspaces";
 import { PrecisionMedia } from "@/components/precision-media";
+import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
@@ -960,7 +961,6 @@ export function TrackerApp({
       onEdit={openEditProject}
       onDelete={(project) => requestDeleteProject(project.id)}
       onStatusChange={updateProjectStatus}
-      onChecklistChange={updateProjectChecklist}
       onPaymentChange={updateProjectPayment}
     /> : <PageEmptyState icon={<FolderKanban />} title="Project not found" description="This Project does not exist or you cannot access it." />
   ) : page === "dashboard" && personalProjects.length === 0 && !isSample ? (
@@ -4737,7 +4737,7 @@ function normalizeChecklistCompleted(items: string[] = [], completed: Record<str
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
 }
 
-function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: {
+function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
   project: WorkItem;
   projectGroup?: import("@/lib/types").ProjectGroup;
   settings: SettingsState;
@@ -4753,15 +4753,12 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
   onEdit: (project: WorkItem) => void;
   onDelete: (project: WorkItem) => void;
   onStatusChange: (project: WorkItem, status: ProjectStatus) => void;
-  onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void;
   onPaymentChange: (project: WorkItem, paid: boolean) => void;
 }) {
   const isClientBillable = !isSalaryWorkType(project.workType, settings) && isDoneStatus(project.status) && safeMoneyValue(project.earnings) > 0;
   const amount = isSalaryWorkType(project.workType, settings) ? "Batch tracked" : money(project.earnings, settings.currencyCode);
   const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
   const lead = teamMembers.find((member) => member.userId === project.ownerUserId)?.name || settings.profileName || "You";
-  const checklistItems = project.checklistItems ?? [];
-  const checklistCompleted = normalizeChecklistCompleted(checklistItems, project.checklistCompleted);
   const configuredLinks = integrationServices.map((service) => ({ service, link: project.integrationLinks?.[service.id] })).filter(({ link }) => hasIntegrationLink(link));
   const views: Array<{ id: ProjectWorkspaceView; label: string }> = [
     { id: "overview", label: "Overview" },
@@ -4777,7 +4774,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
         eyebrow={`${project.client || "No Client"}${projectGroup ? ` / ${projectGroup.name}` : ""}`}
         title={project.title}
         description={`Due ${formatDate(project.dueDate, settings.dateFormat)} · Lead ${lead} · ${assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "No assignees"}`}
-        actions={<><OwnedButton variant="ghost" onClick={onBack}>Back to Projects</OwnedButton>{canEdit ? <OwnedButton variant="outline" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}{canDelete ? <OwnedButton variant="ghost" className="text-destructive" onClick={() => onDelete(project)}>Delete</OwnedButton> : null}</>}
+        actions={<><OwnedButton variant="ghost" onClick={onBack}>Back to Projects</OwnedButton>{canEdit ? <OwnedButton onClick={() => { onViewChange("outputs"); window.setTimeout(() => document.getElementById("add-project-output")?.click(), 0); }}>Add Output</OwnedButton> : null}{canEdit ? <OwnedButton variant="outline" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}{canDelete ? <OwnedButton variant="ghost" className="text-destructive" onClick={() => onDelete(project)}>Delete</OwnedButton> : null}</>}
       />
       <PageContent mode="fill">
         <PageToolbar
@@ -4800,10 +4797,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
           <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
         </div> : null}
 
-        {view === "outputs" ? <ContentSection title="Project Outputs and Media Versions" description="Template outputs become working output slots. Media Version records arrive in the next feature slice.">
-          <div className="divide-y divide-border">{(project.templateDeliverables ?? []).length ? project.templateDeliverables?.map((output, index) => <div key={`${output.title}-${index}`} className="flex items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{output.title}</p><p className="mt-1 text-xs text-muted-foreground">{output.category}</p></div><OwnedBadge variant="outline">No Media Version</OwnedBadge></div>) : <p className="py-8 text-center text-sm text-muted-foreground">No Project Outputs yet.</p>}</div>
-          {checklistItems.length ? <div className="mt-5 border-t pt-4"><h3 className="text-sm font-semibold">Setup checklist</h3><div className="mt-3 grid gap-2">{checklistItems.map((item, index) => { const key = checklistItemKey(item, index); const checked = Boolean(checklistCompleted[key]); return <label key={key} className="flex items-center gap-3 text-sm"><OwnedSwitch checked={checked} disabled={!canEdit} onCheckedChange={(next) => onChecklistChange(project, key, next)} /><span className={checked ? "text-muted-foreground line-through" : ""}>{item}</span></label>; })}</div></div> : null}
-        </ContentSection> : null}
+        {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} /> : null}
 
         {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ClientPortalManager project={project} canEdit={canEdit} /></div> : null}
 
@@ -4835,7 +4829,6 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
   const checklistItems = project.checklistItems ?? [];
   const checklistCompleted = normalizeChecklistCompleted(checklistItems, project.checklistCompleted);
   const checklistDone = checklistItems.filter((item, index) => checklistCompleted[checklistItemKey(item, index)]).length;
-  const deliverableTargets = project.templateDeliverables ?? [];
 
   function openLink(url: string) {
     if (typeof window === "undefined" || !isValidIntegrationUrl(url)) return;
@@ -4886,45 +4879,28 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
               </div>
               <ProjectStageTracker status={project.status} />
             </section>
-            {(checklistItems.length || deliverableTargets.length) ? (
+            {checklistItems.length ? (
               <section className="mb-4 rounded-lg border bg-card p-4 text-card-foreground">
                 <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
                     <h3 className="font-semibold">Template setup</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {checklistItems.length ? `${checklistDone}/${checklistItems.length} checklist items complete` : "Suggested deliverables for this workflow"}
+                      {`${checklistDone}/${checklistItems.length} checklist items complete`}
                     </p>
                   </div>
                   {checklistItems.length ? <OwnedBadge variant="secondary">{Math.round((checklistDone / checklistItems.length) * 100)}%</OwnedBadge> : null}
                 </div>
-                <div className={`grid gap-3 ${checklistItems.length && deliverableTargets.length ? "md:grid-cols-[minmax(0,1fr)_minmax(240px,.8fr)]" : ""}`}>
-                  {checklistItems.length ? (
-                    <div className="grid gap-2">
-                      {checklistItems.map((item, index) => {
-                        const itemKey = checklistItemKey(item, index);
-                        const checked = Boolean(checklistCompleted[itemKey]);
-                        return (
-                          <div key={itemKey} className={`flex items-center gap-3 rounded-md border p-3 ${checked ? "bg-primary/10" : "bg-muted/20"}`}>
-                            <OwnedSwitch checked={checked} disabled={!canEdit} aria-label={`${checked ? "Mark incomplete" : "Mark complete"}: ${item}`} onCheckedChange={(nextChecked) => onChecklistChange(project, itemKey, nextChecked)} />
-                            <span className={`text-sm leading-relaxed ${checked ? "text-muted-foreground line-through" : ""}`}>{item}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                  {deliverableTargets.length ? (
-                    <div className="grid gap-2">
-                      {deliverableTargets.map((deliverable, index) => (
-                        <div key={`${deliverable.title}-${index}`} className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 p-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{deliverable.title}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{deliverable.category}</p>
-                          </div>
-                          <OwnedBadge variant="outline">{APPROVAL_STATUS_LABELS[deliverable.initialStatus] ?? deliverable.initialStatus}</OwnedBadge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                <div className="grid gap-2">
+                  {checklistItems.map((item, index) => {
+                    const itemKey = checklistItemKey(item, index);
+                    const checked = Boolean(checklistCompleted[itemKey]);
+                    return (
+                      <div key={itemKey} className={`flex items-center gap-3 rounded-md border p-3 ${checked ? "bg-primary/10" : "bg-muted/20"}`}>
+                        <OwnedSwitch checked={checked} disabled={!canEdit} aria-label={`${checked ? "Mark incomplete" : "Mark complete"}: ${item}`} onCheckedChange={(nextChecked) => onChecklistChange(project, itemKey, nextChecked)} />
+                        <span className={`text-sm leading-relaxed ${checked ? "text-muted-foreground line-through" : ""}`}>{item}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             ) : null}

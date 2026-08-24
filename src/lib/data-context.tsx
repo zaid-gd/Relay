@@ -1625,6 +1625,11 @@ function cloudProjectInput(item: WorkItem, clients: readonly import("./types").C
     notes: item.notes,
     templateId: item.templateId,
     templateProjectType: item.templateProjectType,
+    starterOutputs: item.templateDeliverables?.map((output) => ({
+      title: output.title,
+      category: output.category,
+      reviewState: output.initialStatus,
+    })),
   };
 }
 

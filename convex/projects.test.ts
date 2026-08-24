@@ -26,7 +26,12 @@ const workflowStages = [
   { id: "done", label: "Ship it", purpose: "delivered" as const },
 ];
 
-function project(id: string, overrides: { teamId?: string; clientId?: string; projectGroupId?: string } = {}) {
+function project(id: string, overrides: {
+  teamId?: string;
+  clientId?: string;
+  projectGroupId?: string;
+  starterOutputs?: Array<{ title: string; category: "Deliverable" | "Reference" | "Asset"; reviewState: "draft" }>;
+} = {}) {
   return {
     id,
     teamId: overrides.teamId,
@@ -41,6 +46,7 @@ function project(id: string, overrides: { teamId?: string; clientId?: string; pr
     dueDate: "2026-09-01",
     earnings: 0,
     notes: "",
+    starterOutputs: overrides.starterOutputs,
   };
 }
 
@@ -108,6 +114,25 @@ test("create validates durable Client and Project Group ownership", async () => 
   await expect(owner.mutation(projectsApi.create, {
     project: project("wrong-client", { clientId: "client-b", projectGroupId: "group-a" }),
   })).rejects.toThrow("Project Client must belong");
+});
+
+test("create materializes Template outputs in the Project transaction", async () => {
+  const t = convexTest(schema, modules);
+  const owner = t.withIdentity({ tokenIdentifier: "owner" });
+  await owner.mutation(api.settings.upsert, settings());
+  await owner.mutation(projectsApi.create, { project: project("with-outputs", {
+    starterOutputs: [
+      { title: "Main film", category: "Deliverable", reviewState: "draft" },
+      { title: "Thumbnail", category: "Asset", reviewState: "draft" },
+    ],
+  }) });
+
+  expect(await t.run((ctx) => ctx.db.query("projectOutputs")
+    .withIndex("by_projectId", (q) => q.eq("projectId", "with-outputs"))
+    .collect())).toMatchObject([
+    { id: "with-outputs:output:1", title: "Main film", dueDate: "2026-09-01" },
+    { id: "with-outputs:output:2", title: "Thumbnail", dueDate: "2026-09-01" },
+  ]);
 });
 
 test("team members need the matching Project permission", async () => {

@@ -6,9 +6,11 @@ import {
   fileProviderValidator,
   fileStatusValidator,
   memberStatusValidator,
+  mediaSourceValidator,
   notificationKindValidator,
   portalEventKindValidator,
   projectActivityKindValidator,
+  projectOutputReviewStateValidator,
   revisionStatusValidator,
   settingsTeamRoleValidator,
   storedDeliverableStatusValidator,
@@ -67,6 +69,54 @@ export default defineSchema({
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_ownerUserId_and_id", ["ownerUserId", "id"])
     .index("by_ownerUserId_and_workType", ["ownerUserId", "workType"]),
+
+  projectOutputs: defineTable({
+    ownerUserId: v.string(),
+    projectId: v.string(),
+    teamId: v.optional(v.string()),
+    id: v.string(),
+    title: v.string(),
+    description: v.string(),
+    category: fileCategoryValidator,
+    reviewState: projectOutputReviewStateValidator,
+    dueDate: v.optional(v.string()),
+    archived: v.boolean(),
+    currentMediaVersionId: v.optional(v.id("projectMediaVersions")),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_outputId", ["id"])
+    .index("by_projectId", ["projectId"])
+    .index("by_projectId_and_archived", ["projectId", "archived"]),
+
+  projectMediaVersions: defineTable({
+    ownerUserId: v.string(),
+    projectId: v.string(),
+    outputId: v.id("projectOutputs"),
+    id: v.string(),
+    versionNumber: v.number(),
+    source: mediaSourceValidator,
+    title: v.string(),
+    notes: v.string(),
+    createdByUserId: v.string(),
+    createdAt: v.string(),
+  })
+    .index("by_versionId", ["id"])
+    .index("by_outputId_and_versionNumber", ["outputId", "versionNumber"]),
+
+  mediaVersionComments: defineTable({
+    ownerUserId: v.string(),
+    projectId: v.string(),
+    outputId: v.id("projectOutputs"),
+    mediaVersionId: v.id("projectMediaVersions"),
+    authorName: v.string(),
+    body: v.string(),
+    resolved: v.boolean(),
+    createdAt: v.string(),
+    resolvedAt: v.optional(v.string()),
+  })
+    .index("by_mediaVersionId", ["mediaVersionId"])
+    .index("by_outputId_and_resolved", ["outputId", "resolved"]),
 
   workItems: defineTable({
     userId: v.string(),

@@ -1,7 +1,7 @@
 import { type Infer, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { workflowStageValidator } from "./domainValidators";
+import { fileCategoryValidator, projectOutputReviewStateValidator, workflowStageValidator } from "./domainValidators";
 
 const createProjectValidator = v.object({
   id: v.string(),
@@ -19,6 +19,11 @@ const createProjectValidator = v.object({
   notes: v.string(),
   templateId: v.optional(v.string()),
   templateProjectType: v.optional(v.string()),
+  starterOutputs: v.optional(v.array(v.object({
+    title: v.string(),
+    category: fileCategoryValidator,
+    reviewState: projectOutputReviewStateValidator,
+  }))),
 });
 
 const projectUpdateValidator = v.object({
@@ -332,8 +337,10 @@ export const create = mutation({
     const id = project.id.trim().slice(0, 80);
     const now = new Date().toISOString();
     const assigneeUserIds = await validatedAssignees(ctx, project.teamId, project.assigneeUserIds);
+    const { starterOutputs = [], ...projectFields } = project;
+    if (starterOutputs.length > 20) throw new Error("A Template can create at most 20 Project Outputs");
     await ctx.db.insert("projects", {
-      ...project,
+      ...projectFields,
       id,
       title: project.title.trim().slice(0, 160),
       notes: project.notes.trim().slice(0, 4000),
@@ -350,6 +357,24 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    for (const [index, output] of starterOutputs.entries()) {
+      const title = output.title.trim().slice(0, 160);
+      if (!title) throw new Error("Project Output title is required");
+      await ctx.db.insert("projectOutputs", {
+        ownerUserId: identity.tokenIdentifier,
+        projectId: id,
+        teamId: project.teamId,
+        id: `${id}:output:${index + 1}`.slice(0, 80),
+        title,
+        description: "",
+        category: output.category,
+        reviewState: output.reviewState,
+        dueDate: project.dueDate,
+        archived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     return id;
   },
 });
