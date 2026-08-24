@@ -669,6 +669,9 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
         <DropdownMenuSeparator />
         {!isSignedIn ? (
           <>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              Local Workspace · stored in this browser
+            </DropdownMenuLabel>
             <DropdownMenuItem
               disabled={!isAuthEnabled}
               onSelect={() => openSignIn()}

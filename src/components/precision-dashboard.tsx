@@ -153,7 +153,7 @@ const statusOptions: Array<ProjectStatus | "All"> = [
 const easing = [0.16, 1, 0.3, 1] as const;
 
 const surface =
-  "rounded-[10px] border border-[var(--app-border)] bg-[var(--app-panel)] transition-[box-shadow,border-color,transform] duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]";
+  "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] transition-colors duration-150";
 
 function AnimatedNumber({
   value,
