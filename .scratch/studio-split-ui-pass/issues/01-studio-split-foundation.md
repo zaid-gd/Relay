@@ -17,4 +17,4 @@
 
 ## Answer
 
-Added the Studio Split Page System marker, monochrome light and dark tokens, Geist typography, compact and balanced density, reduced-motion handling, and shared surface rules. The focused test, TypeScript check, and production build pass.
+Verified and completed the Studio Split foundation: true-black dark and soft-gray light tokens with monochrome control surfaces and muted semantics, Geist type, balanced (36/40) and compact (32/34) density, 6px control/panel and 8px overlay radii with pill tokens, focus/disabled/loading/read-only/selection semantic states, spacing-driven Page System surfaces without continuous dividers or brand accent, and named motion allowlist states (silver pass, edge sweep, thinking orb, gooey, transition) with reduced-motion static fallbacks. Updated DataTableFrame and empty-state surfaces to 6px, expanded the workspace-page red-green contract to cover theme/density/focus/reduced-motion, and verified via focused tests, typecheck, and production build.

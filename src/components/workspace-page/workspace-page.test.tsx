@@ -63,4 +63,5 @@ describe("workspace page primitives", () => {
     expect(markup).toContain('data-slot="page-content"');
     expect(markup).toContain('data-mode="fill"');
   });
+
 });

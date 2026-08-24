@@ -21,9 +21,10 @@ export const cutlab = {
   },
   radius: {
     xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16
+    control: 6,
+    panel: 6,
+    overlay: 8,
+    pill: 9999
   },
   space: {
     1: 4,
@@ -64,6 +65,6 @@ export const cutlab = {
   },
   density: {
     compact: { controlHeight: 32, rowHeight: 34, sectionGap: 16 },
-    comfortable: { controlHeight: 36, rowHeight: 40, sectionGap: 20 }
+    balanced: { controlHeight: 36, rowHeight: 40, sectionGap: 20 }
   }
 } as const;

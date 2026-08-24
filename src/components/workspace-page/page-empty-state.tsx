@@ -30,7 +30,7 @@ export function PageEmptyState({
       {...props}
     >
       {icon ? (
-        <div className="mb-3 grid size-11 place-items-center rounded-xl border border-border bg-muted text-muted-foreground">
+        <div className="mb-3 grid size-11 place-items-center rounded-[6px] bg-card text-muted-foreground">
           {icon}
         </div>
       ) : null}
