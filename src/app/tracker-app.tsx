@@ -5043,6 +5043,10 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
           secondary={canUpdateStatus ? <ProjectSelect value={project.status} options={statusOptions} onChange={(status) => { if (status !== "Client Review") onStatusChange(project, status); }} compact /> : <ProjectStatusBadge status={project.status} />}
         />
 
+        <SplitPane
+          ratio="inspector"
+          primary={<div className="min-h-0 overflow-y-auto">
+
         {view === "overview" ? <div className="grid gap-4 overflow-y-auto pb-5">
           <MetricStrip columns={4}>
             <MetricItem label="Stage" value={project.status} />
@@ -5070,6 +5074,19 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
         </div> : null}
 
         {view === "activity" ? <ProjectActivityFeed project={project} localActivity={localActivity} /> : null}
+          </div>}
+          secondary={
+            <aside aria-label="Project context" className="rounded-[6px] bg-card p-4 text-card-foreground">
+              <h2 className="text-sm font-semibold">Project context</h2>
+              <dl className="mt-4 grid gap-3 text-sm">
+                <ProjectMetadataRow label="Client" value={project.client || "Not assigned"} />
+                <ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} />
+                <ProjectMetadataRow label="Stage" value={project.status} />
+                <ProjectMetadataRow label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
+              </dl>
+            </aside>
+          }
+        />
       </PageContent>
     </WorkspacePage>
   );
