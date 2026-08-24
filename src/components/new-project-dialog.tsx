@@ -89,7 +89,7 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-      <DialogContent className="border-border bg-background text-foreground sm:max-w-lg">
+      <DialogContent className="studio-motion-gooey border-border bg-background text-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
           <DialogDescription>Start with the choices needed to schedule the work.</DialogDescription>

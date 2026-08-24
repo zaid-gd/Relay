@@ -847,7 +847,7 @@ function ProjectInspector({
         initial={reduceMotion ? false : { opacity: 0, x: 8 }}
         animate={{ opacity: 1, x: 0 }}
         exit={reduceMotion ? undefined : { opacity: 0, x: 8 }}
-        className={cn("rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-center text-xs text-[var(--app-muted)]", className)}
+        className={cn("rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-center text-xs text-[var(--app-muted)]", className)}
       >
         <FolderOpen className="mx-auto mb-2 size-6 opacity-70" />
         Select a project to inspect its production details.
@@ -862,7 +862,7 @@ function ProjectInspector({
       exit={reduceMotion ? undefined : { opacity: 0, x: -6 }}
       aria-label="Selected project details"
       className={cn(
-        "workspace-scrollbar-hidden h-full min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]",
+        "workspace-scrollbar-hidden h-full min-h-0 overflow-y-auto overscroll-contain rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]",
         className,
       )}
     >
