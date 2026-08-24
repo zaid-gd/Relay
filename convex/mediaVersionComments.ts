@@ -4,7 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { getPublicPortalAccess } from "./projectPortals";
 
 type FunctionCtx = QueryCtx | MutationCtx;
-type ProjectPermission = "viewProjects" | "commentProjects";
+type ProjectPermission = "viewProjects" | "reviewProjects";
 
 const MAX_COMMENTS = 100;
 const MAX_COMMENT_BODY = 2_000;
@@ -40,7 +40,9 @@ async function requireProjectAccess(ctx: FunctionCtx, projectId: string, permiss
       q.eq("teamId", teamId).eq("userId", currentIdentity.tokenIdentifier),
     )
     .unique();
-  if (!member || member.status !== "active" || !member.permissions[permission]) {
+  const permitted = member?.permissions[permission]
+    ?? (permission === "reviewProjects" ? member?.permissions.commentProjects : false);
+  if (!member || member.status !== "active" || !permitted) {
     throw new Error("Permission denied");
   }
   return { identity: currentIdentity, project };
@@ -202,7 +204,7 @@ export const setResolved = mutation({
   handler: async (ctx, args) => {
     const comment = await ctx.db.get("mediaVersionComments", args.commentId);
     if (!comment) throw new Error("Comment not found");
-    await requireProjectAccess(ctx, comment.projectId, "commentProjects");
+    await requireProjectAccess(ctx, comment.projectId, "reviewProjects");
     const resolvedAt = args.resolved ? new Date().toISOString() : undefined;
     await ctx.db.patch(comment._id, { resolved: args.resolved, resolvedAt });
     const updated = await ctx.db.get("mediaVersionComments", comment._id);

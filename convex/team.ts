@@ -263,12 +263,16 @@ async function cleanupRemovedMemberProjects(
   ctx: MutationCtx,
   args: { teamId: string; memberUserId: string; transferOwnerUserId: string }
 ) {
-  const teamProjects = await ctx.db
+  const legacyProjects = await ctx.db
     .query("workItems")
     .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
     .take(500);
   let reassignedProjectCount = 0;
-  const projectUpdates = teamProjects
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+    .take(500);
+  const projectUpdates = [...legacyProjects, ...projects]
     .map((project) => {
       const patch: { assigneeUserIds?: string[]; ownerUserId?: string } = {};
       if ((project.assigneeUserIds ?? []).includes(args.memberUserId)) {

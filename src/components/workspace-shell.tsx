@@ -35,6 +35,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useData } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { SettingsState } from "@/lib/types";
+import type { SearchRecord } from "@/features/workspace-discovery/workspace-discovery";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +68,7 @@ type ShellPage =
   | "clients"
   | "timeline"
   | "calendar"
+  | "files"
   | "media"
   | "resources"
   | "feedback"
@@ -109,6 +111,7 @@ const routeGroups: RouteGroup[] = [
       { page: "projects", label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "G P" },
       { page: "clients", label: "Clients", href: "/clients", icon: UsersRound },
       { page: "feedback", label: "Reviews", href: "/feedback", icon: MessageSquareText },
+      { page: "files", label: "Files", href: "/files", icon: FileText },
       { page: "media", label: "Media", href: "/media", icon: Images },
       { page: "templates", label: "Templates", href: "/templates", icon: CheckSquare2 },
     ],
@@ -178,6 +181,7 @@ export function WorkspaceShell({
   starterNavigation = false,
   showTeamNavigation = false,
   notificationSlot,
+  searchRecords = [],
   children,
 }: {
   page: ShellPage;
@@ -187,6 +191,7 @@ export function WorkspaceShell({
   starterNavigation?: boolean;
   showTeamNavigation?: boolean;
   notificationSlot?: ReactNode;
+  searchRecords?: readonly SearchRecord[];
   children: ReactNode;
 }) {
   const [commandOpen, setCommandOpen] = useState(false);
@@ -352,7 +357,7 @@ export function WorkspaceShell({
       ) : null}
 
       <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} showTeamNavigation={showTeamNavigation} />
-      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} showTeamNavigation={showTeamNavigation} />
+      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} showTeamNavigation={showTeamNavigation} searchRecords={searchRecords} />
     </div>
   );
 }
@@ -741,11 +746,13 @@ function WorkspaceCommand({
   onOpenChange,
   onNewProject,
   showTeamNavigation,
+  searchRecords,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
   showTeamNavigation: boolean;
+  searchRecords: readonly SearchRecord[];
 }) {
   const reduceMotion = useHydratedReducedMotion();
 
@@ -773,6 +780,20 @@ function WorkspaceCommand({
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
+              {searchRecords.length ? (
+                <CommandGroup heading="Workspace records">
+                  {searchRecords.filter((record) => record.kind !== "action").map((record) => (
+                    <CommandItem key={`${record.kind}:${record.id}`} asChild value={`${record.title} ${record.detail} ${record.keywords ?? ""}`}>
+                      <Link href={record.href ?? "/"} onClick={() => onOpenChange(false)}>
+                        <FileText />
+                        <span className="min-w-0 flex-1 truncate">{record.title}</span>
+                        <span className="text-xs text-muted-foreground">{record.detail}</span>
+                      </Link>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
+              {searchRecords.length ? <CommandSeparator /> : null}
               {routeGroups.map((group) => ({
                 ...group,
                 items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),

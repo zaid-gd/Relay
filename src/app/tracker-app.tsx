@@ -78,6 +78,7 @@ import {
 import { PrecisionDashboard } from "@/components/precision-dashboard";
 import { PrecisionProjects } from "@/components/precision-projects";
 import { PrecisionCalendar, PrecisionTimeline } from "@/components/precision-schedule";
+import { PrecisionFiles } from "@/components/precision-files";
 import { PrecisionClients, PrecisionFeedback, PrecisionReports } from "@/components/precision-workspaces";
 import { PrecisionMedia } from "@/components/precision-media";
 import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
@@ -87,6 +88,8 @@ import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
 import { buildPayoutReport } from "@/lib/payout-reporting";
+import { buildWorkspaceSearchIndex, type WorkspaceFile, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
+import { getAnalyticsConsent, setAnalyticsConsent, trackOptionalEvent, type AnalyticsConsent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import { projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -115,6 +118,9 @@ const teamApi = {
     permissions: Record<string, boolean>;
   }, null>("team:updateMemberPermissions"),
   transferOwnership: makeFunctionReference<"mutation", { teamId: string; memberId: string }, null>("team:transferOwnership"),
+};
+const workspaceDiscoveryApi = {
+  list: makeFunctionReference<"query", { includeArchived?: boolean }, { outputs: WorkspaceOutput[]; files: WorkspaceFile[] }>("workspaceDiscovery:list"),
 };
 import {
   Accordion as OwnedAccordion,
@@ -223,7 +229,7 @@ const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
 const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;const successColor = `var(--app-success, ${cutlab.color.success})`;
 const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
 
-type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
+type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "files" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
 type ProjectKind = string;
 type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
 type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_desc" | "earnings_asc";type TeamMember = {
@@ -497,6 +503,7 @@ export function TrackerApp({
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   const shouldLoadTeamPermissions = Boolean(isSignedIn && isConvexAuthenticated);
   const teamData = useQuery(api.team.getMyWorkspace, shouldLoadTeamPermissions ? {} : "skip");
+  const workspaceDiscovery = useQuery(workspaceDiscoveryApi.list, shouldLoadTeamPermissions ? {} : "skip");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectTemplateId, setNewProjectTemplateId] = useState("relay-default-workflow");
@@ -509,6 +516,7 @@ export function TrackerApp({
   const [form, setForm] = useState<WorkItem>(emptyForm);
   const [formError, setFormError] = useState("");
   const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
+  const [analyticsConsentOpen, setAnalyticsConsentOpen] = useState(false);
   const [onboardingVariant, setOnboardingVariant] = useState<OnboardingVariant>("v2");
   const onboardingStartedAt = useRef(Date.now());
   const projectLauncherTriggerRef = useRef<HTMLElement | null>(null);
@@ -573,6 +581,10 @@ export function TrackerApp({
     trackOnboardingEvent("onboarding_dialog_viewed", { variant: onboardingVariant, entrySource: "workspace_root" });
   }, [authChoiceOpen, onboardingVariant]);
 
+  useEffect(() => {
+    trackOptionalEvent("weekly_return", { mode: isSignedIn ? "account" : "local" });
+  }, [isSignedIn]);
+
   const projects = useMemo(() => items.filter((item) => (item.profileId || DEFAULT_PROFILE_ID) === profile.id), [items]);
   const personalProjects = useMemo(() => projects.filter((item) => !item.teamId), [projects]);
 
@@ -632,6 +644,13 @@ export function TrackerApp({
     () => [...PROJECT_TEMPLATES, ...settings.customProjectTemplates],
     [settings.customProjectTemplates],
   );
+  const workspaceSearchRecords = useMemo(() => buildWorkspaceSearchIndex({
+    clients: clientRecords,
+    groups: projectGroups,
+    projects,
+    outputs: workspaceDiscovery?.outputs ?? [],
+    files: workspaceDiscovery?.files ?? [],
+  }), [clientRecords, projectGroups, projects, workspaceDiscovery?.files, workspaceDiscovery?.outputs]);
 
   useEffect(() => {
     if (!teamWorkspace?.defaultWorkflowTemplateId) return;
@@ -753,6 +772,7 @@ export function TrackerApp({
       window.localStorage.setItem(AUTH_MODE_STORAGE_KEY, "local");
     }
     setAuthChoiceOpen(false);
+    if (getAnalyticsConsent() === "unknown") setAnalyticsConsentOpen(true);
     trackOnboardingEvent("workspace_mode_selected", { variant: onboardingVariant, mode: "local", elapsedMs: Date.now() - onboardingStartedAt.current });
     notify("Using local mode on this device.", "info");
   }
@@ -833,6 +853,9 @@ export function TrackerApp({
     notify,
     onStatusChanged: (project, previousStatus) => {
       const status = project.status;
+      if (isDoneStatus(status) && !isDoneStatus(previousStatus)) {
+        trackOptionalEvent("project_delivered", { mode: isSignedIn ? "account" : "local" });
+      }
     setDashboardActivity((current) => {
       const activity: DashboardActivity = {
         id: createId(),
@@ -1110,7 +1133,12 @@ export function TrackerApp({
   ) : page === "timeline" ? (
     <PrecisionTimeline projects={personalProjects} onViewProject={openProjectDetails} />
   ) : page === "calendar" ? (
-    <PrecisionCalendar projects={personalProjects} settings={settings} onViewProject={openProjectDetails} />
+    <PrecisionCalendar projects={personalProjects} outputs={workspaceDiscovery?.outputs ?? []} settings={settings} onViewProject={openProjectDetails} />
+  ) : page === "files" ? (
+    <PrecisionFiles files={workspaceDiscovery?.files ?? []} projectTitles={Object.fromEntries(projects.map((project) => [project.id, project.title]))} loading={Boolean(isSignedIn && workspaceDiscovery === undefined)} onOpenProject={(projectId) => {
+      const project = projects.find((item) => item.id === projectId);
+      if (project) openProjectDetails(project);
+    }} />
   ) : page === "media" ? (
     <PrecisionMedia projects={personalProjects} onViewProject={openProjectDetails} />
   ) : page === "resources" ? (
@@ -1255,6 +1283,7 @@ export function TrackerApp({
           onCreateAccount={() => launchAccountFlow("sign-up")}
           onSignIn={() => launchAccountFlow("sign-in")}
         />
+        <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
       </div>
     );
   }
@@ -1268,6 +1297,7 @@ export function TrackerApp({
         canCreateProject={canCreateProjects}
         starterNavigation={!isSample && personalProjects.length === 0}
         showTeamNavigation={activeTeamMembers.length > 1 || Boolean(teamData?.members.some((member) => member.status === "invited")) || settings.teamMembers.length > 0}
+        searchRecords={workspaceSearchRecords}
         notificationSlot={<NotificationBell settings={settings} />}
       >
         {isSample ? <SampleModeBar /> : null}
@@ -1294,6 +1324,7 @@ export function TrackerApp({
         onCreateAccount={() => launchAccountFlow("sign-up")}
         onSignIn={() => launchAccountFlow("sign-in")}
       />
+      <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
     </>
   );
 }
@@ -2640,6 +2671,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                           body: commentBody,
                           ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
                         });
+                        trackOptionalEvent("comment_added", { surface: "team" });
                         setCommentBody("");
                         setCommentTimecode("");
                       })}>
@@ -3493,6 +3525,7 @@ function IntegrationLinkManager({
 
 function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canManageWorkspace = false }: { settings: SettingsState; setSettings: (settings: SettingsState | ((current: SettingsState) => SettingsState)) => void; notify: (message: string, tone?: ToastState["tone"]) => void; teamWorkspace?: TeamWorkspaceContract; canManageWorkspace?: boolean }) {
   const { exportBackup, importBackup } = useData();
+  const [optionalAnalytics, setOptionalAnalytics] = useState(() => getAnalyticsConsent() === "granted");
   const updateWorkspaceSettings = useMutation(teamApi.updateWorkspaceSettings);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [workspaceDraft, setWorkspaceDraft] = useState(() => ({
@@ -3907,6 +3940,10 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
               </div>
             ))}
             <SettingsLink label="Toggle weekly summary" onClick={() => updateNotification("Weekly summary", !settings.notifications["Weekly summary"])} />
+            <div className="flex items-center justify-between gap-4 border-t pt-4">
+              <div><p className="text-sm font-semibold">Optional product analytics</p><p className="mt-0.5 text-xs text-muted-foreground">Anonymous feature-use events only. Work content and money never leave the privacy boundary.</p></div>
+              <OwnedSwitch checked={optionalAnalytics} aria-label="Optional product analytics" onCheckedChange={(checked) => { setOptionalAnalytics(checked); setAnalyticsConsent(checked ? "granted" : "denied"); }} />
+            </div>
           </SettingsPanel>
           ) : null}
           {activeSection === "permissions" ? (
@@ -4942,6 +4979,23 @@ function normalizeChecklistCompleted(items: string[] = [], completed: Record<str
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
 }
 
+function AnalyticsConsentDialog({ open, onChoose }: { open: boolean; onChoose: (consent: Exclude<AnalyticsConsent, "unknown">) => void }) {
+  return (
+    <OwnedDialog open={open} onOpenChange={() => {}}>
+      <OwnedDialogContent showCloseButton={false} className="sm:max-w-md" onEscapeKeyDown={(event) => event.preventDefault()} onPointerDownOutside={(event) => event.preventDefault()}>
+        <OwnedDialogHeader>
+          <OwnedDialogTitle>Optional product analytics</OwnedDialogTitle>
+          <OwnedDialogDescription>Share anonymous feature-use events to help improve the private beta. Relay never sends client names, project names, comments, files, links, portal tokens, or money.</OwnedDialogDescription>
+        </OwnedDialogHeader>
+        <OwnedDialogFooter>
+          <OwnedButton type="button" variant="outline" onClick={() => onChoose("denied")}>No thanks</OwnedButton>
+          <OwnedButton type="button" onClick={() => onChoose("granted")}>Allow analytics</OwnedButton>
+        </OwnedDialogFooter>
+      </OwnedDialogContent>
+    </OwnedDialog>
+  );
+}
+
 function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
   project: WorkItem;
   projectGroup?: import("@/lib/types").ProjectGroup;
@@ -5317,6 +5371,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const useR2Storage = R2_STORAGE_ENABLED && process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
+
+  useEffect(() => {
+    if (!fileData) return;
+    const bytes = fileData.retainedBytes;
+    const usageBucket = bytes === 0 ? "empty" : bytes < 1_000_000 ? "under_1mb" : bytes < 10_000_000 ? "under_10mb" : bytes < 50_000_000 ? "under_50mb" : bytes < 200_000_000 ? "under_200mb" : "over_200mb";
+    trackOptionalEvent("storage_consumption", { provider: useR2Storage ? "r2" : "convex", usageBucket });
+  }, [fileData, useR2Storage]);
 
   const files = fileData?.files ?? [];
   const filteredFiles = categoryFilter === "All" ? files : files.filter((file) => file.category === categoryFilter);
@@ -5832,6 +5893,7 @@ function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: {
         body: commentBody,
         ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
       });
+      trackOptionalEvent("comment_added", { surface: "team" });
       setCommentBody("");
       setCommentTimecode("");
     } catch (error) {

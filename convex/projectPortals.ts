@@ -30,7 +30,7 @@ async function requireIdentity(ctx: FunctionCtx) {
 async function requireProjectAccess(
   ctx: FunctionCtx,
   projectId: string,
-  permission: "viewProjects" | "editProjects",
+  permission: "viewProjects" | "editProjects" | "managePortal",
 ) {
   const identity = await requireIdentity(ctx);
   const project = await ctx.db
@@ -48,7 +48,9 @@ async function requireProjectAccess(
     .withIndex("by_teamId_and_userId", (q) =>
       q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier))
     .unique();
-  if (membership?.status !== "active" || !membership.permissions[permission]) {
+  const permitted = membership?.permissions[permission]
+    ?? (permission === "managePortal" ? membership?.role !== "Reviewer" : false);
+  if (membership?.status !== "active" || !permitted) {
     throw new Error("Permission denied");
   }
   return { identity, project };
@@ -250,7 +252,7 @@ function editorPortal(portal: Doc<"projectPortals">) {
 export const publish = mutation({
   args: { projectId: v.string(), config: portalConfigValidator },
   handler: async (ctx, args) => {
-    const { project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { project } = await requireProjectAccess(ctx, args.projectId, "managePortal");
     if (await ctx.db.query("projectPortals").withIndex("by_projectId", (q) => q.eq("projectId", project.id)).unique()) {
       throw new Error("This Project already has a Client Portal");
     }
@@ -278,7 +280,7 @@ export const publish = mutation({
 export const getForProject = query({
   args: { projectId: v.string() },
   handler: async (ctx, args) => {
-    const { project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { project } = await requireProjectAccess(ctx, args.projectId, "managePortal");
     const portal = await ctx.db.query("projectPortals").withIndex("by_projectId", (q) => q.eq("projectId", project.id)).unique();
     return portal ? { portal: editorPortal(portal), preview: await publicProjection(ctx, project, portal) } : null;
   },
@@ -298,7 +300,7 @@ export const updateSettings = mutation({
   handler: async (ctx, args) => {
     const portal = await ctx.db.get("projectPortals", args.portalId);
     if (!portal) throw new Error("Client Portal not found");
-    await requireProjectAccess(ctx, portal.projectId, "editProjects");
+    await requireProjectAccess(ctx, portal.projectId, "managePortal");
     const selectedOutputIds = args.changes.selectedOutputIds === undefined
       ? undefined
       : await validateSelectedOutputs(ctx, portal.projectId, args.changes.selectedOutputIds);
@@ -319,7 +321,7 @@ export const setStatus = mutation({
   handler: async (ctx, args) => {
     const portal = await ctx.db.get("projectPortals", args.portalId);
     if (!portal) throw new Error("Client Portal not found");
-    await requireProjectAccess(ctx, portal.projectId, "editProjects");
+    await requireProjectAccess(ctx, portal.projectId, "managePortal");
     await ctx.db.patch(portal._id, { status: args.status, updatedAt: new Date().toISOString() });
     return null;
   },
@@ -330,7 +332,7 @@ export const setPin = mutation({
   handler: async (ctx, args) => {
     const portal = await ctx.db.get("projectPortals", args.portalId);
     if (!portal) throw new Error("Client Portal not found");
-    await requireProjectAccess(ctx, portal.projectId, "editProjects");
+    await requireProjectAccess(ctx, portal.projectId, "managePortal");
     if (args.pin === null) {
       await ctx.db.patch(portal._id, {
         pinHash: undefined,
@@ -351,7 +353,7 @@ export const regenerateToken = mutation({
   handler: async (ctx, args) => {
     const portal = await ctx.db.get("projectPortals", args.portalId);
     if (!portal) throw new Error("Client Portal not found");
-    await requireProjectAccess(ctx, portal.projectId, "editProjects");
+    await requireProjectAccess(ctx, portal.projectId, "managePortal");
     const token = randomHex(32);
     await ctx.db.patch(portal._id, { tokenHash: await sha256(token), updatedAt: new Date().toISOString() });
     return { token };

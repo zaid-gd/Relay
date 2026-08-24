@@ -87,7 +87,7 @@ async function requirePaymentAccess(ctx: MutationCtx, project: Doc<"projects">) 
     return identity;
   }
   const membership = await activeMembership(ctx, project.teamId, identity.tokenIdentifier);
-  if (!membership || !(membership.permissions.manageFinance ?? membership.role !== "Reviewer")) throw new Error("Permission denied");
+  if (!membership || !(membership.permissions.manageFinance ?? membership.role === "Owner")) throw new Error("Permission denied");
   return identity;
 }
 
