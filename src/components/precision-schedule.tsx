@@ -227,7 +227,7 @@ export function PrecisionCalendar({
                 onClick={() => setViewMode(mode)}
                 className={cn(
                   "rounded px-3 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]",
-                  viewMode === mode ? "bg-[var(--app-panel)] text-[var(--app-highlight)] shadow-sm" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
+                  viewMode === mode ? "bg-[var(--app-panel)] text-[var(--app-highlight)]" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
                 )}
               >
                 {mode}
@@ -419,7 +419,6 @@ export function PrecisionTimeline({
   return (
     <WorkspacePage family="data-index">
       <PageHeader
-        eyebrow="Delivery planning"
         title="Delivery timeline"
         description="A chronological view of project milestones, reviews, and completed deliveries."
         actions={(
