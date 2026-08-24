@@ -74,6 +74,17 @@ test("project creation is idempotent for its owner", async () => {
     .rejects.toThrow("Project id already exists");
 });
 
+test("new Project activity loads in the Project workspace", async () => {
+  const t = convexTest(schema, modules);
+  const owner = t.withIdentity({ tokenIdentifier: "owner" });
+  await owner.mutation(api.settings.upsert, settings());
+  await owner.mutation(projectsApi.create, { project: project("workspace-project") });
+
+  await expect(owner.query(api.projectActivity.listForProject, {
+    projectId: "workspace-project",
+  })).resolves.toEqual([]);
+});
+
 test("stage transitions accept legacy positional stage ids", async () => {
   const t = convexTest(schema, modules);
   const owner = t.withIdentity({ tokenIdentifier: "owner" });

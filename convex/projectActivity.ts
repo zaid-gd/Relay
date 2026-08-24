@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import type { ProjectActivityKind } from "../src/lib/domain-values";
+import { projectActivityKindValidator } from "./domainValidators";
 
 const MAX_PROJECT_EVENTS = 150;
 
@@ -9,24 +10,29 @@ async function requireProjectAccess(ctx: QueryCtx, projectId: string) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
   const project = await ctx.db
+    .query("projects")
+    .withIndex("by_projectId", (q) => q.eq("id", projectId))
+    .unique();
+  const legacyProject = project ? null : await ctx.db
     .query("workItems")
     .withIndex("by_workItemId", (q) => q.eq("id", projectId))
     .unique();
-  if (!project) throw new Error("Project not found");
-  if (!project.teamId) {
-    if (project.userId !== identity.tokenIdentifier) throw new Error("Project access required");
-    return project;
+  if (!project && !legacyProject) throw new Error("Project not found");
+  const teamId = project?.teamId ?? legacyProject?.teamId;
+  if (!teamId) {
+    const ownerUserId = project?.ownerUserId ?? legacyProject?.userId;
+    if (ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
+    return;
   }
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", project.teamId as string).eq("userId", identity.tokenIdentifier)
+      q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier)
     )
     .unique();
   if (!membership || membership.status !== "active" || !membership.permissions.viewProjects) {
     throw new Error("Project access required");
   }
-  return project;
 }
 
 export async function recordProjectActivity(
@@ -75,6 +81,14 @@ export async function deleteProjectActivity(ctx: MutationCtx, projectId: string)
 
 export const listForProject = query({
   args: { projectId: v.string() },
+  returns: v.array(v.object({
+    _id: v.id("projectActivity"),
+    actorName: v.string(),
+    kind: projectActivityKindValidator,
+    message: v.string(),
+    detail: v.optional(v.string()),
+    createdAt: v.string(),
+  })),
   handler: async (ctx, args) => {
     await requireProjectAccess(ctx, args.projectId);
     const events = await ctx.db
