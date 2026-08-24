@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { chooseLocalMode, createProject, openApp, openProject, projectRow } from "./helpers";
 
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({ page }) => {
@@ -28,6 +29,31 @@ test("creates and persists a project in local mode", async ({ page }) => {
   const detail = await openProject(page, title);
   await expect(detail.getByText("Created by the Playwright core workflow.")).toBeVisible();
   await expect(detail.getByText("E2E Client", { exact: true }).first()).toBeVisible();
+});
+
+test("exports and restores a Local Mode backup", async ({ page }) => {
+  const title = `Backup Project ${Date.now()}`;
+  await chooseLocalMode(page);
+  await openApp(page, "/projects");
+  await createProject(page, title);
+  await page.goto("/settings");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export backup" }).click();
+  const download = await downloadPromise;
+  const backup = await readFile(await download.path());
+
+  await page.evaluate(() => {
+    localStorage.removeItem("video-editing-work-tracker:v1");
+    localStorage.removeItem("video-editing-work-tracker:settings:v1");
+    localStorage.removeItem("video-editing-work-tracker:resources:v1");
+    localStorage.removeItem("video-editing-work-tracker:salary-batches:v1");
+  });
+  await page.reload();
+  await page.getByLabel("Choose Relay backup").setInputFiles({ name: "relay-backup.json", mimeType: "application/json", buffer: backup });
+  await expect(page.getByRole("status")).toContainText("Imported 1 projects");
+  await page.goto("/projects");
+  await expect(projectRow(page, title)).toBeVisible();
 });
 
 test("dismisses the project launcher with Escape and restores focus", async ({ page }) => {

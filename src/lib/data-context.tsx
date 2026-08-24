@@ -8,6 +8,7 @@ import { useOptionalAuth } from "@/lib/optional-auth";
 import type { WorkItem, SettingsState, SalaryBatch, SalaryState, TeamMember, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "./types";
 import { normalizeIntegrationLinks } from "./integrations";
 import { normalizeClientRecords } from "./clients";
+import { createWorkspaceBackup, parseWorkspaceBackup } from "./workspace-backup";
 import { sampleStudioProjects, sampleStudioResources, sampleStudioSettings } from "./sample-studio";
 import {
   FILE_CATEGORY_VALUES,
@@ -721,6 +722,8 @@ interface DataContextValue {
   salaryBatches: SalaryBatch[];
   reconcileSalaryBatches: (items: WorkItem[]) => void;
   updateSalaryBatchPayment: (batchId: string, paid: boolean) => void;
+  exportBackup: () => string;
+  importBackup: (source: string) => Promise<{ projects: number; clients: number; resources: number; salaryBatches: number }>;
   isAuthEnabled: boolean;
   isSignedIn: boolean;
   isAuthLoaded: boolean;
@@ -764,6 +767,8 @@ function SampleDataProvider({ children }: { children: React.ReactNode }) {
     salaryBatches: [],
     reconcileSalaryBatches: () => undefined,
     updateSalaryBatchPayment: () => setToast({ message: "Payment state is fixed in the read-only sample.", tone: "info" }),
+    exportBackup: () => createWorkspaceBackup({ projects: sampleStudioProjects, clients: sampleStudioSettings.clients, resources: sampleStudioResources, salaryBatches: [], settings: { ...sampleStudioSettings } }),
+    importBackup: async () => { throw new Error("The sample workspace is read-only."); },
     isAuthEnabled: false,
     isSignedIn: false,
     isAuthLoaded: true,
@@ -854,6 +859,18 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     });
   }, []);
 
+  const exportBackup = useCallback(() => createWorkspaceBackup({ projects: items, clients: settings.clients, resources: resourceLinks, salaryBatches, settings: { ...settings } }), [items, resourceLinks, salaryBatches, settings]);
+  const importBackup = useCallback(async (source: string) => {
+    const backup = parseWorkspaceBackup(source);
+    const nextItems = normalizeWorkItems(backup.projects);
+    const nextSettings = mergeSettings({ ...backup.settings, clients: normalizeClientRecords(backup.clients) });
+    const nextResources = normalizeResourceLinks(backup.resources);
+    const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
+    setItemsState(nextItems); setSettingsState(nextSettings); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
+    writeJson(STORAGE_KEY, nextItems); writeJson(SETTINGS_STORAGE_KEY, nextSettings); writeJson(RESOURCES_STORAGE_KEY, nextResources); writeJson(SALARY_STORAGE_KEY, { batches: nextBatches });
+    return { projects: nextItems.length, clients: nextSettings.clients.length, resources: nextResources.length, salaryBatches: nextBatches.length };
+  }, []);
+
   const value: DataContextValue = {
     items,
     setItems,
@@ -864,6 +881,8 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     salaryBatches,
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
+    exportBackup,
+    importBackup,
     isAuthEnabled: authEnabled,
     isSignedIn: authEnabled && Boolean(isSignedIn),
     isAuthLoaded: authEnabled ? isLoaded : true,
@@ -1258,6 +1277,26 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     [convexAuthenticated, isSignedIn, replaceAllBatches],
   );
 
+  const exportBackup = useCallback(() => createWorkspaceBackup({ projects: items, clients: settings.clients, resources: resourceLinks, salaryBatches, settings: { ...settings } }), [items, resourceLinks, salaryBatches, settings]);
+  const importBackup = useCallback(async (source: string) => {
+    if (items.length || settings.clients.length || resourceLinks.length || salaryBatches.length) throw new Error("Cloud import requires an empty Workspace.");
+    const backup = parseWorkspaceBackup(source);
+    const nextItems = normalizeWorkItems(backup.projects);
+    const nextSettings = mergeSettings({ ...backup.settings, clients: normalizeClientRecords(backup.clients) });
+    const nextResources = normalizeResourceLinks(backup.resources);
+    const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
+    if (isSignedIn && convexAuthenticated) {
+      await Promise.all([
+        replaceAllItems({ items: nextItems }),
+        upsertSettings(nextSettings),
+        replaceAllResources({ resources: nextResources }),
+        replaceAllBatches({ batches: nextBatches }),
+      ]);
+    }
+    setItemsState(nextItems); setSettingsState(nextSettings); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
+    return { projects: nextItems.length, clients: nextSettings.clients.length, resources: nextResources.length, salaryBatches: nextBatches.length };
+  }, [convexAuthenticated, isSignedIn, items.length, replaceAllBatches, replaceAllItems, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertSettings]);
+
   const value: DataContextValue = {
     items,
     setItems,
@@ -1268,6 +1307,8 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     salaryBatches,
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
+    exportBackup,
+    importBackup,
     isAuthEnabled: true,
     isSignedIn: !!isSignedIn,
     isAuthLoaded: clerkLoaded && ready && (!isSignedIn || !convexAuthLoading),

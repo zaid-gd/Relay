@@ -3233,6 +3233,8 @@ function IntegrationLinkManager({
 }
 
 function SettingsDesignPage({ settings, setSettings, notify }: { settings: SettingsState; setSettings: (settings: SettingsState) => void; notify: (message: string, tone?: ToastState["tone"]) => void }) {
+  const { exportBackup, importBackup } = useData();
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const [activeSection, setActiveSection] = useState<"workspace" | "workflow" | "notifications" | "permissions" | "integrations" | "appearance" | "regional">("workspace");
   const stageColors = [
     "var(--workflow-stage-1)",
@@ -3304,6 +3306,26 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   function resetSettings() {
     setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
     notify("Settings reset to defaults.", "warning");
+  }
+
+  function downloadBackup() {
+    const url = URL.createObjectURL(new Blob([exportBackup()], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relay-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function restoreBackup(file: File) {
+    try {
+      const counts = await importBackup(await file.text());
+      notify(`Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Backup import failed.", "warning");
+    } finally {
+      if (backupInputRef.current) backupInputRef.current.value = "";
+    }
   }
 
   function formatTimestamp(iso: string) {
@@ -3410,6 +3432,14 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                 />
               </FieldLayout>
             </div>
+          </SettingsPanel>
+          <SettingsPanel id="workspace-backup" title="Backup and restore" subtitle="Export local Workspace data without account or connected-service details.">
+            <div className="flex flex-wrap gap-2">
+              <OwnedButton type="button" variant="outline" onClick={downloadBackup}><Download aria-hidden="true" /> Export backup</OwnedButton>
+              <OwnedButton type="button" variant="outline" onClick={() => backupInputRef.current?.click()}><Upload aria-hidden="true" /> Import backup</OwnedButton>
+              <input ref={backupInputRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Choose Relay backup" onChange={(event) => { const file = event.target.files?.[0]; if (file) void restoreBackup(file); }} />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Import replaces Local Mode data. Cloud import works only when the Workspace has no projects, files, or Salary Batches.</p>
           </SettingsPanel>
           <SettingsPanel id="project-rules" title="Production defaults" subtitle="Configure project tags, salary tracking, payout value, and batch size.">
             <div className="grid gap-3">
