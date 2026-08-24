@@ -12,7 +12,7 @@ const contentSecurityPolicy = [
   "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
   "img-src 'self' data: blob: https:",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com`,
   "style-src 'self' 'unsafe-inline'",
   "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com",
   "worker-src 'self' blob:",
@@ -20,6 +20,8 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig = {
+  agentRules: false,
+  allowedDevOrigins: ["127.0.0.1"],
   compress: true,
   images: {
     formats: ["image/avif", "image/webp"]
