@@ -16,9 +16,8 @@ import { cn } from "@/lib/utils";
 
 import { api } from "../../../../convex/_generated/api";
 import { emptyStateAssets } from "../../brand-assets";
-import { CutLabLockup } from "../../cutlab-brand";
 
-const panelClass = "rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]";
+const panelClass = "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]";
 
 export function PublicProfilePage() {
   const params = useParams<{ slug: string }>();
@@ -30,7 +29,7 @@ export function PublicProfilePage() {
       <PublicShell>
         <div className="grid min-h-[70dvh] place-items-center">
           <div role="status" className="flex flex-col items-center gap-3 text-[var(--app-muted)]">
-            <LoaderCircle aria-hidden="true" className="size-[30px] animate-spin text-[var(--app-accent)]" />
+            <LoaderCircle aria-hidden="true" className="size-[30px] text-[var(--app-accent)]" />
             <p className="text-[13px]">Loading public profile...</p>
           </div>
         </div>
@@ -58,7 +57,7 @@ export function PublicProfilePage() {
   return (
     <PublicShell>
       <article className={cn(panelClass, "mt-5")}>
-        <header className="grid items-center gap-8 p-5 md:p-8 lg:grid-cols-[170px_minmax(0,1fr)_560px]">
+        <header className="grid items-center gap-8 p-5 md:grid-cols-[148px_minmax(0,1fr)] md:p-8">
           <PublicAvatar name={profile.profileName} imageUrl={profile.profileImageUrl} />
           <div>
             <h1 className="text-[34px] font-bold leading-tight">
@@ -80,7 +79,7 @@ export function PublicProfilePage() {
               {profile.timeZone ? <InfoPill icon={<Globe2 />} text={profile.timeZone} /> : null}
             </div>
           </div>
-          <dl className="grid grid-cols-3 gap-3">
+          <dl className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-3">
             <ProfileMetric icon={<Play />} label="Active Projects" value={String(profile.activeProjects)} />
             <ProfileMetric
               icon={<CheckCircle2 />}
@@ -93,7 +92,7 @@ export function PublicProfilePage() {
 
         <div className="border-t border-[var(--app-border)]" />
 
-        <section className="grid items-start gap-6 p-4 md:p-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="grid items-start gap-6 p-4 md:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <div>
             <h2 className="text-[28px] font-bold leading-tight">Portfolio timeline</h2>
             <p className="mt-2 max-w-[260px] text-[13px] text-[var(--app-muted)]">
@@ -111,7 +110,7 @@ export function PublicProfilePage() {
                 return (
                   <li
                     key={`${project.title}-${project.dueDate}`}
-                    className="grid items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-3 md:grid-cols-[minmax(0,1fr)_150px_160px]"
+                    className="grid items-center gap-3 rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-3 md:grid-cols-[minmax(0,1fr)_120px_150px]"
                   >
                     <div className="min-w-0">
                       <p className="text-[15px] font-bold">{project.title}</p>
@@ -134,7 +133,7 @@ export function PublicProfilePage() {
               })}
             </ul>
           ) : (
-            <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-6 text-center">
+            <div className="rounded-[6px] border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-6 text-center">
               <img
                 src={emptyStateAssets.projects}
                 alt=""
@@ -155,9 +154,14 @@ export function PublicProfilePage() {
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-dvh bg-[var(--app-canvas)] px-4 py-6 text-[var(--app-ink)] md:px-8">
-      <CutLabLockup subtitle="Public editor profile" className="pb-5" />
-      {children}
+    <main className="min-h-dvh bg-[var(--app-canvas)] px-4 py-6 text-[var(--app-ink)] md:px-8 md:py-10">
+      <div className="mx-auto w-full max-w-4xl">
+        <a href="/" aria-label="Relay home" className="inline-flex items-center gap-2 text-[var(--app-ink)] no-underline">
+          <span className="grid size-8 place-items-center rounded-[6px] bg-[var(--app-ink)] text-sm font-bold text-[var(--app-canvas)]">R</span>
+          <span className="text-lg font-bold tracking-tight">Relay</span>
+        </a>
+        {children}
+      </div>
     </main>
   );
 }

@@ -5,22 +5,16 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
-import { emptyStateAssets } from "../brand-assets";
-import { CutLabLockup } from "../cutlab-brand";
-
 export default function ClientPortalLandingPage() {
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-4 text-foreground">
-      <section className="w-full max-w-[680px] rounded-lg border border-border bg-card p-6 text-center text-card-foreground md:p-10">
+      <section className="w-full max-w-lg rounded-[6px] border border-border bg-card p-6 text-center text-card-foreground md:p-10">
         <div className="mb-6 flex justify-center">
-          <CutLabLockup subtitle="Client Portal" />
+          <a href="/" aria-label="Relay home" className="inline-flex items-center gap-2 text-foreground no-underline">
+            <span className="grid size-8 place-items-center rounded-[6px] bg-foreground text-sm font-bold text-background">R</span>
+            <span className="text-lg font-bold tracking-tight">Relay</span>
+          </a>
         </div>
-        <img
-          src={emptyStateAssets.projects}
-          alt=""
-          aria-hidden="true"
-          className="mx-auto mb-4 w-[210px] max-w-[70%]"
-        />
         <h1 className="font-[family-name:var(--font-geist-sans)] text-[28px] font-bold md:text-4xl">
           A project link is required
         </h1>
