@@ -403,6 +403,7 @@ export const importSalaryBatches = mutation({
 
 export const create = mutation({
   args: { project: createProjectValidator },
+  returns: v.string(),
   handler: async (ctx, { project }) => {
     const identity = await requireIdentity(ctx);
     if (project.teamId) {
@@ -411,7 +412,11 @@ export const create = mutation({
     const id = project.id.trim().slice(0, 80);
     if (!id) throw new Error("Project id is required");
     if (!project.title.trim()) throw new Error("Project title is required");
-    if (await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", id)).unique()) {
+    const existing = await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", id)).unique();
+    if (existing?.ownerUserId === identity.tokenIdentifier && existing.teamId === project.teamId) {
+      return id;
+    }
+    if (existing) {
       throw new Error("Project id already exists");
     }
     const reservedByBatch = (await ctx.db
