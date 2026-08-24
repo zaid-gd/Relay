@@ -23,6 +23,7 @@
     "check:workspace-layout": "node scripts/check-workspace-layout.mjs",
     "check:mui-allowlist": "node scripts/check-mui-allowlist.mjs",
     "verify": "node scripts/verify.mjs",
+    "verify:relay": "node scripts/verify-relay-rebuild.mjs",
     "verify:team": "node scripts/verify-team.mjs",
     "test:team": "vitest run convex/team.test.ts",
     "test:files": "vitest run convex/projectFiles.test.ts",
