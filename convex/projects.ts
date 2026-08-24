@@ -182,6 +182,13 @@ function normalizeWorkflow(stages: WorkflowStage[]) {
   return normalized;
 }
 
+function findProjectStage(project: Doc<"projects">, requestedStageId: string) {
+  const exact = project.workflowStages.find((stage) => stage.id === requestedStageId);
+  if (exact) return exact;
+  const legacyPosition = /^legacy-stage-(\d+)$/.exec(requestedStageId)?.[1];
+  return legacyPosition ? project.workflowStages[Number(legacyPosition) - 1] : undefined;
+}
+
 function statusForPurpose(purpose: WorkflowStage["purpose"]) {
   switch (purpose) {
     case "planned": return "Planned" as const;
@@ -598,7 +605,7 @@ export const previewStage = query({
   args: { projectId: v.string(), stageId: v.string() },
   handler: async (ctx, args) => {
     const { identity, project } = await requireProjectAccess(ctx, args.projectId, "updateStatus");
-    const stage = project.workflowStages.find((candidate) => candidate.id === args.stageId);
+    const stage = findProjectStage(project, args.stageId);
     if (!stage) throw new Error("Workflow stage does not belong to this Project");
     if (stage.purpose !== "delivered") return { kind: "none" as const };
     if (project.teamId) return { kind: "client" as const, earned: project.earnings };
@@ -610,7 +617,7 @@ export const transitionStage = mutation({
   args: { projectId: v.string(), stageId: v.string() },
   handler: async (ctx, args) => {
     const { identity, project } = await requireProjectAccess(ctx, args.projectId, "updateStatus");
-    const stage = project.workflowStages.find((candidate) => candidate.id === args.stageId);
+    const stage = findProjectStage(project, args.stageId);
     if (!stage) throw new Error("Workflow stage does not belong to this Project");
     const status = statusForPurpose(stage.purpose);
     const now = new Date().toISOString();
