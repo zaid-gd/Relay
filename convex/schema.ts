@@ -11,6 +11,7 @@ import {
   portalEventKindValidator,
   projectActivityKindValidator,
   projectOutputReviewStateValidator,
+  projectPortalStatusValidator,
   revisionStatusValidator,
   settingsTeamRoleValidator,
   storedDeliverableStatusValidator,
@@ -103,6 +104,26 @@ export default defineSchema({
   })
     .index("by_versionId", ["id"])
     .index("by_outputId_and_versionNumber", ["outputId", "versionNumber"]),
+
+  projectPortals: defineTable({
+    ownerUserId: v.string(),
+    projectId: v.string(),
+    teamId: v.optional(v.string()),
+    tokenHash: v.string(),
+    status: projectPortalStatusValidator,
+    pinHash: v.optional(v.string()),
+    pinSalt: v.optional(v.string()),
+    pinIterations: v.optional(v.number()),
+    expiresAt: v.optional(v.string()),
+    publicNotes: v.string(),
+    showStartDate: v.boolean(),
+    showDueDate: v.boolean(),
+    selectedOutputIds: v.array(v.string()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_tokenHash", ["tokenHash"]),
 
   mediaVersionComments: defineTable({
     ownerUserId: v.string(),

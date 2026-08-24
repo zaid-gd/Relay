@@ -1,792 +1,635 @@
 "use client";
 
-import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { makeFunctionReference } from "convex/server";
+import { useQuery } from "convex/react";
+import {
+  ArrowUpRight,
   CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Download,
-  ExternalLink,
-  LoaderCircle,
+  Check,
   LockKeyhole,
-  MessageSquareText,
-  Play,
+  LoaderCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { approvalStatusLabel } from "@/lib/domain-values";
-import {
-  normalizeOptionalTimecode,
-  TIMECODE_FORMAT_HINT,
-} from "@/lib/timecode";
 import { cn } from "@/lib/utils";
 
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { emptyStateAssets } from "../brand-assets";
-import { CutLabLockup } from "../cutlab-brand";
-
-const stages = ["Planning", "In Progress", "Review", "Delivered"];
-const panelClass = "rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]";
-const fieldClass =
-  "border-[var(--app-border)] bg-[var(--app-control)] text-[var(--app-ink)] shadow-none placeholder:text-[var(--app-subtle)] focus-visible:border-[var(--app-accent)] focus-visible:ring-[color-mix(in_srgb,var(--app-accent)_24%,transparent)]";
-
-export function ClientPortalView({ token }: { token: string }) {
-  const [passwordInput, setPasswordInput] = useState("");
-  const [portalPassword, setPortalPassword] = useState("");
-  const portalResult = useQuery(
-    api.clientPortals.getByToken,
-    token ? (portalPassword ? { token, password: portalPassword } : { token }) : "skip",
-  );
-  const submitRevision = useMutation(api.clientPortals.submitRevision);
-  const createPortalDownloadUrl = useAction(api.r2.createPortalDownloadUrl);
-  const [clientName, setClientName] = useState("");
-  const [timecode, setTimecode] = useState("");
-  const [request, setRequest] = useState("");
-  const [submitState, setSubmitState] = useState<"idle" | "submitting" | "submitted">("idle");
-  const [error, setError] = useState("");
-  const [deliverableError, setDeliverableError] = useState("");
-
-  async function openDeliverable(item: {
-    url?: string | null;
-    provider?: string;
-    versionId?: Id<"projectFileVersions">;
-  }) {
-    setDeliverableError("");
-    try {
-      const url =
-        item.url ??
-        (item.provider === "r2" && item.versionId
-          ? await createPortalDownloadUrl({
-              token,
-              versionId: item.versionId,
-              ...(portalPassword ? { password: portalPassword } : {}),
-            })
-          : null);
-      if (!url) throw new Error("This file is no longer available.");
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (caught) {
-      setDeliverableError(caught instanceof Error ? caught.message : "Could not open this file.");
-    }
-  }
-
-  async function submitFeedback() {
-    const message = request.trim();
-    if (!message || submitState === "submitting") return;
-    setError("");
-    try {
-      const normalizedTimecode = normalizeOptionalTimecode(timecode);
-      setSubmitState("submitting");
-      await submitRevision({
-        token,
-        ...(portalPassword ? { password: portalPassword } : {}),
-        clientName,
-        message,
-        ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
-      });
-      setRequest("");
-      setTimecode("");
-      setSubmitState("submitted");
-    } catch (caught) {
-      setSubmitState("idle");
-      setError(caught instanceof Error ? caught.message : "Could not submit the revision request.");
-    }
-  }
-
-  if (portalResult === undefined) {
-    return (
-      <PortalState title="Loading project portal" body="Connecting to the latest client-facing project snapshot.">
-        <span role="status" aria-label="Loading project portal">
-          <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
-        </span>
-      </PortalState>
-    );
-  }
-
-  if (portalResult.access === "unavailable") {
-    return (
-      <PortalState
-        title="Portal link unavailable"
-        body="This link may be incorrect, unpublished, or no longer active. Ask your editor for a current portal link."
-      >
-        <img
-          src={emptyStateAssets.projects}
-          alt=""
-          aria-hidden="true"
-          className="w-[190px]"
-        />
-      </PortalState>
-    );
-  }
-
-  if (portalResult.access === "expired") {
-    return (
-      <PortalState
-        title="Portal link expired"
-        body="This client portal has expired. Ask your editor to extend access or send a new link."
-      >
-        <Clock3 aria-hidden="true" className="size-14 text-[var(--app-accent)]" />
-      </PortalState>
-    );
-  }
-
-  if (portalResult.access === "locked") {
-    const incorrectCode = Boolean(portalPassword);
-    const passwordHelpId = "portal-password-help";
-    return (
-      <PortalState
-        title="This portal is protected"
-        body="Enter the PIN or password provided by your editor to view this project."
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (passwordInput) setPortalPassword(passwordInput);
-          }}
-          className="w-full max-w-[360px] space-y-3 text-left"
-        >
-          <LockKeyhole aria-hidden="true" className="mx-auto size-14 text-[var(--app-accent)]" />
-          <div className="space-y-1.5">
-            <label htmlFor="portal-password" className="text-sm font-medium text-[var(--app-ink)]">
-              PIN or password
-            </label>
-            <Input
-              id="portal-password"
-              type="password"
-              value={passwordInput}
-              onChange={(event) => {
-                setPasswordInput(event.target.value);
-                if (portalPassword) setPortalPassword("");
-              }}
-              minLength={4}
-              maxLength={128}
-              aria-invalid={incorrectCode}
-              aria-describedby={passwordHelpId}
-              autoComplete="current-password"
-              autoFocus
-              className={fieldClass}
-            />
-            <p
-              id={passwordHelpId}
-              className={cn("text-xs text-[var(--app-muted)]", incorrectCode && "text-destructive")}
-            >
-              {incorrectCode
-                ? "That code did not unlock the portal. Try again."
-                : "Access is granted only after the code is verified."}
-            </p>
-          </div>
-          <Button
-            type="submit"
-            disabled={passwordInput.length < 4}
-            className="w-full bg-[var(--app-accent)] text-[var(--app-accent-foreground)] hover:bg-[var(--app-highlight)]"
-          >
-            Unlock Portal
-          </Button>
-        </form>
-      </PortalState>
-    );
-  }
-
-  const portal = portalResult;
-  const currentStageIndex = Math.max(0, stages.indexOf(portal.status));
-  const revisionsUsed = portal.revisions.length;
-  const revisionsRemaining = Math.max(0, portal.revisionLimit - revisionsUsed);
-  const revisionProgress = portal.revisionLimit
-    ? Math.min(100, (revisionsUsed / portal.revisionLimit) * 100)
-    : 0;
-
-  return (
-    <main
-      data-testid="client-portal"
-      className="min-h-dvh bg-[var(--app-canvas)] text-[var(--app-ink)]"
-    >
-      <div className="mx-auto max-w-[1280px] px-4 py-5 md:px-8 md:py-8">
-        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CutLabLockup subtitle="Client Portal" />
-          <div className="flex flex-wrap gap-2">
-            {portalPassword ? (
-              <Badge className="rounded-md border-transparent bg-[var(--app-success-bg)] text-[var(--app-success)]">
-                Access granted
-              </Badge>
-            ) : null}
-            <Badge className="rounded-md border-transparent bg-[var(--app-active)] text-[var(--app-highlight)]">
-              No account required
-            </Badge>
-            <Badge className="rounded-md border-transparent bg-[var(--app-soft-panel)] text-[var(--app-muted)]">
-              Private project link
-            </Badge>
-          </div>
-        </header>
-
-        <section className={cn(panelClass, "mb-5 overflow-hidden")}>
-          <div className="grid lg:grid-cols-[minmax(0,1.45fr)_360px]">
-            <div className="p-5 md:p-6 lg:border-r lg:border-[var(--app-border)]">
-              <StatusBadge
-                label={portal.status}
-                tone={portal.status === "Delivered" ? "success" : "warning"}
-              />
-              <h1 className="mt-3 max-w-[760px] font-[family-name:var(--font-geist-sans)] text-3xl font-bold leading-[1.04] tracking-tight md:text-[44px]">
-                {portal.title}
-              </h1>
-              <p
-                className={cn(
-                  "mt-3 max-w-[680px] text-sm leading-relaxed",
-                  portal.clientSummary ? "text-[var(--app-muted)]" : "text-[var(--app-subtle)]",
-                )}
-              >
-                {portal.clientSummary || "Your editor has not added a client-facing project summary yet."}
-              </p>
-              <dl className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <InfoTile label="Client" value={portal.clientName || "Client"} />
-                <InfoTile label="Type" value={portal.projectType} />
-                <InfoTile label="Due Date" value={formatDate(portal.dueDate)} />
-                <InfoTile label="Status" value={portal.status} />
-              </dl>
-            </div>
-            <div className="bg-[var(--app-soft-panel)] p-5 md:p-6">
-              <h2 className="text-lg font-bold">Project Summary</h2>
-              <div className="mt-4 space-y-3">
-                <SummaryMetric icon={<Play />} label="Completion" value={`${portal.progress}%`} />
-                <ProgressBar value={portal.progress} label="Project completion" className="h-[7px]" />
-                <SummaryMetric
-                  icon={<CheckCircle2 />}
-                  label="Delivery Status"
-                  value={portal.status === "Delivered" ? "Delivered" : "In production"}
-                />
-                <SummaryMetric icon={<Clock3 />} label="Last Updated" value={formatDateTime(portal.updatedAt)} />
-                <SummaryMetric
-                  icon={<CalendarDays />}
-                  label="Estimated Completion"
-                  value={formatDate(portal.estimatedCompletion)}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-4">
-            <PortalSection title="Workflow Progress" subtitle="The current production stage at a glance.">
-              <ol className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {stages.map((stage, index) => {
-                  const complete = index < currentStageIndex || portal.status === "Delivered";
-                  const current = index === currentStageIndex;
-                  return (
-                    <li
-                      key={stage}
-                      aria-current={current ? "step" : undefined}
-                      className={cn(
-                        "min-h-[98px] rounded-md border bg-[var(--app-panel)] p-3",
-                        current ? "border-[var(--app-accent)]" : "border-[var(--app-border)]",
-                        (complete || current) && "bg-[var(--app-active)]",
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={cn(
-                            "text-[11px] font-extrabold",
-                            complete || current ? "text-[var(--app-highlight)]" : "text-[var(--app-muted)]",
-                          )}
-                        >
-                          0{index + 1}
-                        </span>
-                        {complete ? (
-                          <CheckCircle2 aria-hidden="true" className="size-[18px] text-[var(--app-accent)]" />
-                        ) : null}
-                      </div>
-                      <p className="mt-3 text-sm font-bold">{stage}</p>
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">
-                        {current ? "Current stage" : complete ? "Completed" : "Upcoming"}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ol>
-            </PortalSection>
-
-            <PortalSection title="Deliverables" subtitle="Review or download files shared by your editor.">
-              {portal.deliverables.length ? (
-                <ul className="divide-y divide-[var(--app-border)]">
-                  {portal.deliverables.map((item) => (
-                    <li
-                      key={`${item.title}-${item.updatedAt}`}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 md:grid-cols-[minmax(0,1fr)_130px_auto]"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold">{item.title}</p>
-                        <p className="mt-1 text-xs text-[var(--app-muted)]">
-                          {item.detail || "Shared project file"}
-                        </p>
-                      </div>
-                      <StatusBadge
-                        label={approvalStatusLabel(item.status)}
-                        tone={deliverableTone(item.status)}
-                      />
-                      <div className="flex gap-1.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => void openDeliverable(item)}
-                          aria-label={`View ${item.title}`}
-                          className="border-[var(--app-border)] text-[var(--app-highlight)]"
-                        >
-                          <ExternalLink aria-hidden="true" />
-                        </Button>
-                        {item.downloadable ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => void openDeliverable(item)}
-                            aria-label={`Download ${item.title}`}
-                            className="border-[var(--app-border)] text-[var(--app-highlight)]"
-                          >
-                            <Download aria-hidden="true" />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <PortalEmpty
-                  asset="resources"
-                  title="No deliverables yet"
-                  body="Files will appear here as soon as your editor makes them available."
-                />
-              )}
-              {deliverableError ? (
-                <p role="alert" className="mt-3 text-xs text-destructive">
-                  {deliverableError}
-                </p>
-              ) : null}
-            </PortalSection>
-
-            <PortalSection
-              title="Revision Requests"
-              subtitle="Review previous requests or submit clear, timestamped feedback."
-            >
-              {portal.revisions.length ? (
-                <ul className="space-y-2">
-                  {portal.revisions.map((item) => (
-                    <li
-                      key={`${item.createdAt}-${item.message}`}
-                      className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3"
-                    >
-                      <div className="flex justify-between gap-2">
-                        <p className="text-[13px] font-bold">{item.clientName || "Client"}</p>
-                        <StatusBadge
-                          label={item.status}
-                          tone={item.status === "Resolved" ? "success" : "warning"}
-                        />
-                      </div>
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">{formatDateTime(item.createdAt)}</p>
-                      {item.timecode ? (
-                        <Badge className="mt-2 h-6 rounded-md border-transparent bg-[var(--app-active)] font-bold text-[var(--app-highlight)]">
-                          <Clock3 aria-hidden="true" />
-                          {item.timecode}
-                        </Badge>
-                      ) : null}
-                      <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed">{item.message}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <PortalEmpty
-                  asset="feedback"
-                  title="No revision requests"
-                  body="Submit the first request below if anything needs to change."
-                />
-              )}
-
-              <div className="my-4 border-t border-[var(--app-border)]" />
-
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void submitFeedback();
-                }}
-                className="space-y-3"
-              >
-                <Field label="Your name" htmlFor="revision-client-name">
-                  <Input
-                    id="revision-client-name"
-                    value={clientName}
-                    onChange={(event) => setClientName(event.target.value)}
-                    maxLength={100}
-                    className={fieldClass}
-                  />
-                </Field>
-
-                <Field
-                  label="Timecode (optional)"
-                  htmlFor="revision-timecode"
-                  help={TIMECODE_FORMAT_HINT}
-                  helpId="revision-timecode-help"
-                >
-                  <Input
-                    id="revision-timecode"
-                    value={timecode}
-                    onChange={(event) => {
-                      setTimecode(event.target.value);
-                      if (error) setError("");
-                    }}
-                    maxLength={8}
-                    inputMode="text"
-                    placeholder="00:12 or 00:01:25"
-                    aria-describedby="revision-timecode-help"
-                    className={fieldClass}
-                  />
-                </Field>
-
-                <Field
-                  label="Revision request"
-                  htmlFor="revision-request"
-                  help={error || `${request.length}/2000 characters`}
-                  helpId="revision-request-help"
-                  error={Boolean(error)}
-                >
-                  <textarea
-                    id="revision-request"
-                    value={request}
-                    onChange={(event) => {
-                      setRequest(event.target.value);
-                      if (submitState === "submitted") setSubmitState("idle");
-                      if (error) setError("");
-                    }}
-                    rows={4}
-                    maxLength={2000}
-                    placeholder="Describe the change with timestamps, file names, or visual references."
-                    aria-invalid={Boolean(error)}
-                    aria-describedby="revision-request-help"
-                    className={cn(
-                      fieldClass,
-                      "min-h-24 w-full resize-y rounded-md border px-3 py-2 text-sm outline-none transition-[color,box-shadow]",
-                      "focus-visible:ring-[3px]",
-                      error && "border-destructive",
-                    )}
-                  />
-                </Field>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p
-                    role="status"
-                    className={cn(
-                      "text-xs text-[var(--app-muted)]",
-                      submitState === "submitted" && "text-[var(--app-success)]",
-                    )}
-                  >
-                    {submitState === "submitted"
-                      ? "Revision request submitted."
-                      : "Project management details remain read-only."}
-                  </p>
-                  <Button
-                    type="submit"
-                    disabled={!request.trim() || submitState === "submitting"}
-                    className="bg-[var(--app-accent)] font-bold text-[var(--app-accent-foreground)] hover:bg-[var(--app-highlight)]"
-                  >
-                    <MessageSquareText aria-hidden="true" />
-                    {submitState === "submitting" ? "Submitting..." : "Submit Request"}
-                  </Button>
-                </div>
-              </form>
-            </PortalSection>
-          </div>
-
-          <aside className="space-y-4">
-            <PortalSection title="Revision Allowance" subtitle="Included project revision tracking.">
-              <dl className="grid grid-cols-3 gap-2">
-                <MiniNumber label="Included" value={portal.revisionLimit} />
-                <MiniNumber label="Used" value={revisionsUsed} />
-                <MiniNumber label="Remaining" value={revisionsRemaining} />
-              </dl>
-              <ProgressBar value={revisionProgress} label="Revision allowance used" className="mt-3" />
-            </PortalSection>
-
-            <PortalSection title="Project Notes" subtitle="Notes intentionally shared with you.">
-              {portal.clientNotes ? (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{portal.clientNotes}</p>
-              ) : (
-                <PortalEmpty
-                  asset="feedback"
-                  title="No client notes"
-                  body="Your editor has not shared any project notes yet."
-                  compact
-                />
-              )}
-            </PortalSection>
-
-            <PortalSection title="Timeline" subtitle="Major client-visible milestones.">
-              {portal.events.length ? (
-                <ol className="space-y-3">
-                  {[...portal.events].reverse().map((item) => (
-                    <li
-                      key={`${item.createdAt}-${item.title}`}
-                      className="border-l-2 border-[var(--app-border)] pl-3"
-                    >
-                      <time className="text-xs font-bold text-[var(--app-highlight)]">
-                        {formatDateTime(item.createdAt)}
-                      </time>
-                      <p className="mt-1 text-[13px] font-bold">{item.title}</p>
-                      <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{item.body}</p>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <PortalEmpty
-                  asset="schedule"
-                  title="No timeline events"
-                  body="Project milestones will appear here as work moves forward."
-                  compact
-                />
-              )}
-            </PortalSection>
-
-            <PortalSection title="Recent Activity" subtitle="Latest project updates.">
-              {portal.events.length ? (
-                <ul className="divide-y divide-[var(--app-border)]">
-                  {portal.events.slice(0, 5).map((item) => (
-                    <li key={`${item.createdAt}-${item.title}`} className="py-2">
-                      <p className="text-[13px] font-bold">{item.title}</p>
-                      <time className="mt-1 block text-xs text-[var(--app-muted)]">
-                        {formatDateTime(item.createdAt)}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <PortalEmpty
-                  asset="schedule"
-                  title="No recent activity"
-                  body="Updates will appear as the editor advances the project."
-                  compact
-                />
-              )}
-            </PortalSection>
-          </aside>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function PortalState({
-  title,
-  body,
-  children,
-}: {
+type PublicSource = { provider: "YouTube" | "Vimeo" | "Link"; url: string };
+type PublicVersion = {
+  id: string;
+  label: string;
+  createdAt?: string;
+  source: PublicSource;
+};
+type PublicOutput = {
+  id: string;
   title: string;
-  body: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <main className="grid min-h-dvh place-items-center bg-[var(--app-canvas)] px-4 text-[var(--app-ink)]">
-      <section className={cn(panelClass, "w-full max-w-[620px] p-6 text-center md:p-10")}>
-        <div className="mb-6 flex justify-center">
-          <CutLabLockup subtitle="Client Portal" />
-        </div>
-        <div className="mb-4 flex justify-center">{children}</div>
-        <h1 className="font-[family-name:var(--font-geist-sans)] text-[28px] font-bold">{title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">{body}</p>
-      </section>
-    </main>
-  );
-}
-
-function PortalSection({
-  title,
-  subtitle,
-  children,
-}: {
+  reviewState?: string;
+  dueDate?: string;
+  currentVersion?: PublicVersion;
+};
+type PublicPortal = {
   title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
+  clientName?: string;
+  summary?: string;
+  notes?: string;
+  startDate?: string;
+  dueDate?: string;
+  stage: string;
+  progress: number;
+  outputs: PublicOutput[];
+};
+type PublicAccess =
+  | { kind: "loading" }
+  | { kind: "invalid" }
+  | { kind: "unpublished" }
+  | { kind: "closed" }
+  | { kind: "expired" }
+  | { kind: "pin-required"; wrongPin: boolean }
+  | { kind: "active"; portal: PublicPortal };
+
+const publicPortalRef = makeFunctionReference<
+  "query",
+  { token: string; pin?: string },
+  unknown
+>("projectPortals:getByToken");
+const PUBLIC_STAGES = ["Planning", "In Progress", "Review", "Delivered"];
+const reviewLabels: Record<string, string> = {
+  draft: "In progress",
+  sent_to_client: "Ready for review",
+  changes_requested: "Changes requested",
+  approved: "Approved",
+  final_delivered: "Delivered",
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+function text(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+function number(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+function safeUrl(value: unknown) {
+  const raw = text(value);
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readPublicPortalAccess(value: unknown): PublicAccess {
+  if (!isRecord(value)) return { kind: "invalid" };
+  const access = text(value.access) ?? text(value.status);
+  if (access === "unpublished") return { kind: "unpublished" };
+  if (access === "closed" || access === "unavailable" || access === "denied")
+    return { kind: "closed" };
+  if (access === "expired") return { kind: "expired" };
+  if (
+    access === "invalid_pin"
+  )
+    return { kind: "pin-required", wrongPin: true };
+  if (
+    access === "locked" ||
+    access === "pin_required" ||
+    access === "pin-required"
+  )
+    return { kind: "pin-required", wrongPin: false };
+  const source = isRecord(value.portal) ? value.portal : value;
+  const project = isRecord(source.project) ? source.project : source;
+  const title = text(project.title) ?? text(project.name);
+  const stage = normalizePublicStage(
+    text(project.stage) ?? text(project.publicStage) ?? text(project.status),
+  );
+  if (!title) return { kind: "invalid" };
+  return {
+    kind: "active",
+    portal: {
+      title,
+      clientName: text(project.clientName) ?? text(project.client),
+      summary: text(project.summary) ?? text(project.clientSummary),
+      notes: text(project.publicNotes) ?? text(project.clientNotes),
+      startDate: text(project.startDate),
+      dueDate: text(project.dueDate),
+      stage,
+      progress: Math.max(
+        0,
+        Math.min(100, number(project.progress) ?? progressForStage(stage)),
+      ),
+      outputs: readOutputs(project.outputs ?? source.outputs),
+    },
+  };
+}
+
+function readOutputs(value: unknown): PublicOutput[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    if (!isRecord(item)) return [];
+    const title = text(item.title) ?? text(item.name);
+    if (!title) return [];
+    const currentValue = isRecord(item.currentVersion)
+      ? item.currentVersion
+      : isRecord(item.currentMediaVersion)
+        ? item.currentMediaVersion
+        : undefined;
+    const current = currentValue
+      ? readVersion(currentValue, `${index + 1}`)
+      : undefined;
+    return [
+      {
+        id: text(item.id) ?? `output-${index + 1}`,
+        title,
+        reviewState: safeReviewState(
+          text(item.reviewState) ?? text(item.status),
+        ),
+        dueDate: text(item.dueDate),
+        ...(current ? { currentVersion: current } : {}),
+      },
+    ];
+  });
+}
+
+function readVersion(
+  value: Record<string, unknown>,
+  fallbackId: string,
+): PublicVersion | undefined {
+  const source = isRecord(value.source) ? value.source : value;
+  const url = safeUrl(source.url);
+  if (!url) return undefined;
+  const providerValue = text(source.provider) ?? text(source.kind);
+  const provider =
+    providerValue?.toLowerCase() === "youtube"
+      ? "YouTube"
+      : providerValue?.toLowerCase() === "vimeo"
+        ? "Vimeo"
+        : "Link";
+  return {
+    id: text(value.id) ?? fallbackId,
+    label: text(value.label) ?? text(value.title) ?? "Current version",
+    createdAt: text(value.createdAt),
+    source: { provider, url },
+  };
+}
+
+function safeReviewState(value: string | undefined) {
+  return value && value in reviewLabels ? value : undefined;
+}
+
+function normalizePublicStage(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase().replaceAll("_", " ");
+  if (
+    normalized === "in progress" ||
+    normalized === "editing" ||
+    normalized === "active"
+  )
+    return "In Progress";
+  if (
+    normalized === "review" ||
+    normalized === "client review" ||
+    normalized === "feedback"
+  )
+    return "Review";
+  if (
+    normalized === "delivered" ||
+    normalized === "complete" ||
+    normalized === "completed"
+  )
+    return "Delivered";
+  return "Planning";
+}
+
+function progressForStage(stage: string) {
+  const index = PUBLIC_STAGES.findIndex(
+    (item) => item.toLowerCase() === stage.toLowerCase(),
+  );
+  return index < 0 ? 0 : Math.round((index / (PUBLIC_STAGES.length - 1)) * 100);
+}
+function displayStage(stage: string) {
   return (
-    <section className={cn(panelClass, "p-4")}>
-      <h2 className="text-lg font-bold">{title}</h2>
-      <p className="mb-3 mt-1 text-xs text-[var(--app-muted)]">{subtitle}</p>
-      {children}
-    </section>
+    PUBLIC_STAGES.find((item) => item.toLowerCase() === stage.toLowerCase()) ??
+    "Planning"
   );
 }
-
-function PortalEmpty({
-  asset,
-  title,
-  body,
-  compact = false,
-}: {
-  asset: keyof typeof emptyStateAssets;
-  title: string;
-  body: string;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-center gap-3",
-        compact ? "min-h-[90px] flex-row text-left" : "min-h-[170px] flex-col text-center",
-      )}
-    >
-      <img
-        src={emptyStateAssets[asset]}
-        alt=""
-        aria-hidden="true"
-        className={cn("shrink-0", compact ? "w-[84px]" : "w-[130px]")}
-      />
-      <div>
-        <p className="text-[13px] font-bold">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{body}</p>
-      </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  help,
-  helpId,
-  error = false,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  help?: string;
-  helpId?: string;
-  error?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-      {help ? (
-        <p id={helpId} className={cn("text-xs text-[var(--app-muted)]", error && "text-destructive")}>
-          {help}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3">
-      <dt className="text-[10px] font-bold uppercase text-[var(--app-muted)]">{label}</dt>
-      <dd className="mt-1 text-xs font-bold">{value}</dd>
-    </div>
-  );
-}
-
-function SummaryMetric({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="grid size-[34px] shrink-0 place-items-center rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)] [&_svg]:size-4">
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase text-[var(--app-muted)]">{label}</p>
-        <p className="mt-0.5 text-xs font-bold">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function MiniNumber({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex flex-col rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-2 text-center">
-      <dt className="order-2 mt-1 text-[10px] text-[var(--app-muted)]">{label}</dt>
-      <dd className="order-1 text-2xl font-bold leading-none">{value}</dd>
-    </div>
-  );
-}
-
-function ProgressBar({
-  value,
-  label,
-  className,
-}: {
-  value: number;
-  label: string;
-  className?: string;
-}) {
-  const boundedValue = Math.max(0, Math.min(100, value));
-  return (
-    <div
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(boundedValue)}
-      className={cn("h-1.5 overflow-hidden rounded-full bg-[var(--app-progress-track)]", className)}
-    >
-      <span
-        className="block h-full rounded-full bg-[var(--app-accent)]"
-        style={{ width: `${boundedValue}%` }}
-      />
-    </div>
-  );
-}
-
-function StatusBadge({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "success" | "warning" | "neutral";
-}) {
-  return (
-    <Badge
-      className={cn(
-        "justify-self-start rounded-md border-transparent text-[11px] font-bold",
-        tone === "success" && "bg-[var(--app-success-bg)] text-[var(--app-success)]",
-        tone === "warning" && "bg-[var(--app-warning-bg)] text-[var(--app-warning)]",
-        tone === "neutral" && "bg-[var(--app-soft-panel)] text-[var(--app-muted)]",
-      )}
-    >
-      {label}
-    </Badge>
-  );
-}
-
-function deliverableTone(status: string): "success" | "warning" | "neutral" {
-  if (status === "approved" || status === "final_delivered") return "success";
-  if (status === "sent_to_client" || status === "changes_requested") return "warning";
-  return "neutral";
-}
-
-function formatDate(value: string) {
+function formatDate(value: string | undefined) {
+  if (!value) return "Not scheduled";
   const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
-  return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date)
-    : value || "Not scheduled";
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
   return Number.isFinite(date.getTime())
     ? new Intl.DateTimeFormat("en", {
         month: "short",
         day: "numeric",
         year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
       }).format(date)
-    : "Recently";
+    : "Not scheduled";
+}
+
+export function ClientPortalView({ token }: { token: string }) {
+  const [pinInput, setPinInput] = useState("");
+  const [pin, setPin] = useState<string | undefined>();
+  const [pinError, setPinError] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+  const publicResult = useQuery(
+    publicPortalRef,
+    token ? { token, ...(pin ? { pin } : {}) } : "skip",
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains("dark");
+    const previousScheme = root.style.colorScheme;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyDeviceTheme = () => {
+      root.classList.toggle("dark", media.matches);
+      root.style.colorScheme = media.matches ? "dark" : "light";
+    };
+    applyDeviceTheme();
+    media.addEventListener("change", applyDeviceTheme);
+    return () => {
+      media.removeEventListener("change", applyDeviceTheme);
+      root.classList.toggle("dark", wasDark);
+      root.style.colorScheme = previousScheme;
+    };
+  }, []);
+
+  const access = useMemo<PublicAccess>(
+    () =>
+      publicResult === undefined
+        ? { kind: "loading" }
+        : readPublicPortalAccess(publicResult),
+    [publicResult],
+  );
+
+  useEffect(() => {
+    if (publicResult !== undefined) setPinBusy(false);
+  }, [publicResult]);
+
+  function unlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = pinInput.trim();
+    if (value.length < 4) {
+      setPinError("Enter the PIN provided by your editor.");
+      return;
+    }
+    setPinError("");
+    setPinBusy(true);
+    setPin(value);
+  }
+
+  if (access.kind === "loading")
+    return (
+      <AccessState
+        title="Loading your project"
+        body="Checking the shared portal link."
+      >
+        <LoaderCircle className="size-7 animate-spin" aria-hidden="true" />
+      </AccessState>
+    );
+  if (access.kind === "invalid")
+    return (
+      <AccessState
+        title="Portal link unavailable"
+        body="This link is invalid or no longer available. Ask your editor for a new link."
+      />
+    );
+  if (access.kind === "unpublished")
+    return (
+      <AccessState
+        title="This portal is not open yet"
+        body="Ask your editor to publish the project portal before using this link."
+      />
+    );
+  if (access.kind === "closed")
+    return (
+      <AccessState
+        title="This portal is closed"
+        body="The editor closed access to this project. Ask them to reopen it or send a new link."
+      />
+    );
+  if (access.kind === "expired")
+    return (
+      <AccessState
+        title="This portal has expired"
+        body="Ask your editor to extend access or send a new project link."
+      />
+    );
+  if (access.kind === "pin-required")
+    return (
+      <AccessState
+        title="This portal is protected"
+        body={access.wrongPin ? "That PIN did not unlock this portal. Try again." : "Enter the PIN shared by your editor to view this project."}
+      >
+        <form
+          onSubmit={(event) => void unlock(event)}
+          className="w-full max-w-sm space-y-3 text-left"
+        >
+          <label htmlFor="portal-pin" className="text-sm font-medium">
+            Portal PIN
+          </label>
+          <Input
+            id="portal-pin"
+            type="password"
+            value={pinInput}
+            onChange={(event) => {
+              setPinInput(event.target.value);
+              setPin(undefined);
+              setPinError("");
+            }}
+            minLength={4}
+            maxLength={128}
+            autoComplete="current-password"
+            autoFocus
+            aria-invalid={Boolean(pinError)}
+            className="bg-background"
+          />
+          <p
+            className={cn(
+              "text-xs text-muted-foreground",
+              (pinError || access.wrongPin) && "text-destructive",
+            )}
+            role={pinError || access.wrongPin ? "alert" : undefined}
+          >
+            {pinError ||
+              (access.wrongPin ? "Check the PIN and try again." : null) ||
+              "Your PIN is checked securely and is never shown here."}
+          </p>
+          <Button
+            type="submit"
+            disabled={pinInput.trim().length < 4 || pinBusy}
+            className="w-full"
+          >
+            {pinBusy ? "Checking..." : "Unlock portal"}
+          </Button>
+        </form>
+      </AccessState>
+    );
+  return <ActivePortal portal={access.portal} />;
+}
+
+function RelayMark() {
+  return (
+    <a
+      href="/"
+      aria-label="Relay home"
+      className="inline-flex items-center gap-2 text-foreground no-underline"
+    >
+      <span className="grid size-8 place-items-center rounded-md bg-foreground text-sm font-bold text-background">
+        R
+      </span>
+      <span className="text-lg font-bold tracking-tight">Relay</span>
+    </a>
+  );
+}
+
+function AccessState({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: ReactNode;
+}) {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-background px-5 py-10 text-foreground">
+      <section className="w-full max-w-lg border border-border bg-card p-6 text-card-foreground sm:p-10">
+        <RelayMark />
+        <div className="mt-14 flex flex-col items-center text-center">
+          <span
+            className="grid size-14 place-items-center border border-border text-muted-foreground"
+            aria-hidden="true"
+          >
+            {children ? (
+              <LockKeyhole className="size-6" />
+            ) : (
+              <ShieldCheck className="size-6" />
+            )}
+          </span>
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight">
+            {title}
+          </h1>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            {body}
+          </p>
+          {children ? <div className="mt-8 w-full">{children}</div> : null}
+        </div>
+        <p className="mt-14 text-xs text-muted-foreground">
+          Private project view · No account required
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function ActivePortal({ portal }: { portal: PublicPortal }) {
+  const currentStage = displayStage(portal.stage);
+  const currentIndex = PUBLIC_STAGES.findIndex((item) => item === currentStage);
+  return (
+    <main className="min-h-dvh bg-background text-foreground">
+      <div className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
+        <header className="flex items-center justify-between gap-4 border-b border-border pb-5">
+          <RelayMark />
+          <span className="text-xs font-medium text-muted-foreground">
+            Client portal
+          </span>
+        </header>
+        <section className="border-b border-border py-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Shared project
+          </p>
+          <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
+            {portal.title}
+          </h1>
+          {portal.clientName ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              For {portal.clientName}
+            </p>
+          ) : null}
+          {portal.summary ? (
+            <p className="mt-7 max-w-2xl text-base leading-7 text-muted-foreground">
+              {portal.summary}
+            </p>
+          ) : null}
+          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm">
+            {portal.startDate ? <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />Started {formatDate(portal.startDate)}</span> : null}
+            <span className="inline-flex items-center gap-2">
+              <CalendarDays
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              Due {formatDate(portal.dueDate)}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="size-2 rounded-full bg-foreground"
+                aria-hidden="true"
+              />
+              {currentStage}
+            </span>
+          </div>
+        </section>
+        <section
+          aria-labelledby="progress-title"
+          className="border-b border-border py-10"
+        >
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 id="progress-title" className="text-lg font-semibold">
+                Project progress
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                A client-safe view of the current stage.
+              </p>
+            </div>
+            <span className="text-2xl font-semibold tabular-nums">
+              {portal.progress}%
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Project progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={portal.progress}
+            className="mt-6 h-1.5 bg-muted"
+          >
+            <span
+              className="block h-full bg-foreground"
+              style={{ width: `${portal.progress}%` }}
+            />
+          </div>
+          <ol className="mt-7 grid grid-cols-2 gap-y-5 sm:grid-cols-4 sm:gap-x-4">
+            {PUBLIC_STAGES.map((stage, index) => {
+              const complete = currentIndex >= 0 && index < currentIndex;
+              const current = stage === currentStage;
+              return (
+                <li
+                  key={stage}
+                  aria-current={current ? "step" : undefined}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <span
+                    className={cn(
+                      "grid size-6 shrink-0 place-items-center border text-xs",
+                      complete || current
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {complete ? (
+                      <Check className="size-3.5" aria-hidden="true" />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+                  <span
+                    className={cn(
+                      current ? "font-semibold" : "text-muted-foreground",
+                    )}
+                  >
+                    {stage}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+        <section aria-labelledby="outputs-title" className="py-10">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 id="outputs-title" className="text-lg font-semibold">
+                Shared outputs
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Only the current version shared by your editor appears here.
+              </p>
+            </div>
+            <Badge variant="outline">{portal.outputs.length}</Badge>
+          </div>
+          {portal.outputs.length ? (
+            <div className="mt-6 divide-y divide-border border-y border-border">
+              {portal.outputs.map((output) => (
+                <PublicOutputRow key={output.id} output={output} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              No outputs have been shared yet.
+            </div>
+          )}
+        </section>
+        {portal.notes ? (
+          <section
+            aria-labelledby="notes-title"
+            className="border-t border-border py-10"
+          >
+            <h2 id="notes-title" className="text-lg font-semibold">
+              Notes from your editor
+            </h2>
+            <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+              {portal.notes}
+            </p>
+          </section>
+        ) : null}
+        <footer className="border-t border-border pt-5 text-xs text-muted-foreground">
+          Shared securely through Relay.
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function PublicOutputRow({ output }: { output: PublicOutput }) {
+  const state = output.reviewState
+    ? (reviewLabels[output.reviewState] ?? output.reviewState)
+    : undefined;
+  return (
+    <article className="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="min-w-0">
+        <h3 className="font-semibold">{output.title}</h3>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {state ? <span>{state}</span> : null}
+          {output.dueDate ? (
+            <span>Due {formatDate(output.dueDate)}</span>
+          ) : null}
+          {output.currentVersion ? (
+            <span>
+              {output.currentVersion.source.provider} ·{" "}
+              {output.currentVersion.label}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {output.currentVersion ? (
+        <a
+          href={output.currentVersion.source.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex w-fit items-center gap-2 text-sm font-medium underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Open current version{" "}
+          <ArrowUpRight className="size-4" aria-hidden="true" />
+        </a>
+      ) : (
+        <span className="text-sm text-muted-foreground">
+          No version shared yet
+        </span>
+      )}
+    </article>
+  );
 }

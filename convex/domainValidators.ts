@@ -37,6 +37,12 @@ export const projectOutputReviewStateValidator = v.union(
   v.literal("final_delivered")
 );
 
+export const projectPortalStatusValidator = v.union(
+  v.literal("draft"),
+  v.literal("open"),
+  v.literal("closed")
+);
+
 export const mediaSourceValidator = v.union(
   v.object({ kind: v.literal("youtube"), url: v.string(), videoId: v.string() }),
   v.object({ kind: v.literal("vimeo"), url: v.string(), videoId: v.string() }),
