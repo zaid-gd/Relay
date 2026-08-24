@@ -2802,14 +2802,13 @@ function TeamChatPage() {
   return (
     <WorkspacePage family="conversation" mode="fill">
       <PageHeader
-      eyebrow="Workspace / Team Chat"
       title="Team Chat"
       description="Quick handoffs, production updates, and Manage Team access for your current workspace."
       />
       <PageContent mode="fill" className="min-h-0">
       <FillViewport
         bodyLabel="Team chat workspace"
-        bodyClassName="overflow-auto rounded-xl border border-border bg-card shadow-[var(--app-shadow-1)] lg:overflow-hidden"
+        bodyClassName="overflow-auto rounded-[6px] border border-border bg-card lg:overflow-hidden"
         header={chatReady && teamData ? (
           <div data-slot="conversation-header" className="flex flex-col justify-between gap-3 border-b border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-4 sm:flex-row sm:items-center sm:px-5">
             <div>
@@ -2822,7 +2821,7 @@ function TeamChatPage() {
         footer={chatReady && teamData ? (
           <form
             data-slot="conversation-composer"
-            className="border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
+            className="team-chat-composer border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
             onSubmit={(event) => {
               event.preventDefault();
               void submitMessage();
@@ -2852,7 +2851,7 @@ function TeamChatPage() {
                   }}
                 />
                 <OwnedButton type="submit" disabled={sending || !message.trim()} className="min-w-28">
-                  {sending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+                  {sending ? <LoaderCircle aria-hidden="true" /> : <Send aria-hidden="true" />}
                   {sending ? "Sending..." : "Send"}
                 </OwnedButton>
               </div>
@@ -3668,7 +3667,6 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
   return (
     <WorkspacePage family="administration" mode="fill">
       <PageHeader
-        eyebrow="Workspace administration"
         title="Settings"
         description="Manage workspace identity, production defaults, and team-wide behavior."
         actions={
@@ -3694,7 +3692,7 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
           </OwnedSelectContent>
         </OwnedSelect>
       </PageToolbar>
-      <FillViewport bodyLabel="Settings workspace" bodyClassName="overflow-visible rounded-xl border border-border bg-muted/10 lg:overflow-hidden">
+      <FillViewport bodyLabel="Settings workspace" bodyClassName="overflow-visible rounded-[6px] border border-border bg-muted/10 lg:overflow-hidden">
       <MasterDetail
         className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
         master={(
@@ -3702,7 +3700,7 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
           aria-label="Settings sections"
           data-slot="settings-navigation"
           data-navigation-kind="icon-index"
-          className="hidden h-full overflow-hidden rounded-xl border bg-card text-card-foreground shadow-[var(--app-shadow-1)] lg:flex lg:flex-col"
+          className="hidden h-full overflow-hidden rounded-[6px] border bg-card text-card-foreground lg:flex lg:flex-col"
         >
           <div className="border-b border-border px-4 py-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--app-accent)]">Settings index</p>
@@ -3715,7 +3713,7 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
                 aria-current={activeSection === id ? "page" : undefined}
                 onClick={() => setActiveSection(id)}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex min-h-11 items-center gap-3 rounded-[6px] px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   activeSection === id
                     ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
                     : "text-muted-foreground hover:bg-accent hover:text-primary",

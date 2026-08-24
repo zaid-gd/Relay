@@ -514,6 +514,11 @@ button:not(:disabled):active,
   animation: studio-gooey-enter 280ms var(--motion-ease-out) both;
 }
 
+.team-chat-composer:focus-within {
+  background: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+
 @keyframes workspace-enter {
   from {
     opacity: 0;
@@ -660,5 +665,10 @@ h6 {
   button:not(:disabled):active,
   [role="button"]:not([aria-disabled="true"]):active {
     transform: none;
+  }
+
+  .team-chat-composer:focus-within {
+    background: var(--surface-overlay);
+    backdrop-filter: none;
   }
 }
