@@ -159,6 +159,19 @@ function accessState(portal: Doc<"projectPortals">, now = Date.now()): PublicAcc
   return "active";
 }
 
+export async function getPublicPortalAccess(ctx: FunctionCtx, token: string, pin: string | undefined) {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) return { portal: null, access: "invalid_token" as const };
+  const tokenHash = await sha256(normalizedToken);
+  const portal = await ctx.db.query("projectPortals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
+  if (!portal) return { portal: null, access: "invalid_token" as const };
+  const access = accessState(portal);
+  if (access !== "active") return { portal: null, access };
+  if (portal.pinHash && pin === undefined) return { portal: null, access: "pin_required" as const };
+  if (portal.pinHash && !(await pinMatches(portal, pin))) return { portal: null, access: "invalid_pin" as const };
+  return { portal, access: "active" as const };
+}
+
 function publicStageForPurpose(purpose: Doc<"projects">["workflowStages"][number]["purpose"] | undefined) {
   switch (purpose) {
     case "editing": return { stage: "In Progress", progress: 45 };
@@ -348,17 +361,10 @@ export const regenerateToken = mutation({
 export const getByToken = query({
   args: { token: v.string(), pin: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const token = args.token.trim();
-    if (!token) return { access: "invalid_token" as const };
-    const tokenHash = await sha256(token);
-    const portal = await ctx.db.query("projectPortals").withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash)).unique();
-    if (!portal) return { access: "invalid_token" as const };
-    const access = accessState(portal);
-    if (access !== "active") return { access };
-    if (portal.pinHash && args.pin === undefined) return { access: "pin_required" as const };
-    if (portal.pinHash && !(await pinMatches(portal, args.pin))) return { access: "invalid_pin" as const };
-    const project = await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", portal.projectId)).unique();
+    const result = await getPublicPortalAccess(ctx, args.token, args.pin);
+    if (!result.portal) return { access: result.access };
+    const project = await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", result.portal.projectId)).unique();
     if (!project) return { access: "invalid_token" as const };
-    return { access: "active" as const, ...await publicProjection(ctx, project, portal) };
+    return { access: "active" as const, ...await publicProjection(ctx, project, result.portal) };
   },
 });

@@ -4798,7 +4798,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
           <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
         </div> : null}
 
-        {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} /> : null}
+        {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} canResolveComments={canComment} /> : null}
 
         {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ProjectPortalPanel project={project} canEdit={canEdit} /></div> : null}
 

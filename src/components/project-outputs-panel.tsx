@@ -5,6 +5,8 @@ import { ExternalLink, History, Plus } from "lucide-react";
 import type { WorkItem } from "@/lib/types";
 import type { FileCategory } from "@/lib/domain-values";
 import { useProjectOutputs } from "@/lib/project-output-data";
+import { useInternalMediaVersionComments } from "@/features/media-version-comments/media-version-comments-data";
+import { MediaVersionComments } from "./media-version-comments";
 import type { ProjectOutput, ProjectOutputReviewState } from "@/features/project-outputs/project-output-domain";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -32,8 +34,9 @@ const nextAction: Record<ProjectOutputReviewState, string> = {
 type OutputForm = { title: string; category: FileCategory; dueDate: string };
 const blankOutput = (): OutputForm => ({ title: "", category: "Deliverable", dueDate: "" });
 
-export function ProjectOutputsPanel({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
+export function ProjectOutputsPanel({ project, canEdit, canResolveComments }: { project: WorkItem; canEdit: boolean; canResolveComments: boolean }) {
   const data = useProjectOutputs(project, canEdit);
+  const reviews = useInternalMediaVersionComments(project.id, true);
   const [outputDialog, setOutputDialog] = useState(false);
   const [editing, setEditing] = useState<ProjectOutput | null>(null);
   const [outputForm, setOutputForm] = useState<OutputForm>(blankOutput);
@@ -164,6 +167,13 @@ export function ProjectOutputsPanel({ project, canEdit }: { project: WorkItem; c
                         </ol>
                       </details>
                     ) : null}
+                    <MediaVersionComments
+                      versions={versions.map((version) => ({ id: version.id, outputId: output.id, versionNumber: version.versionNumber, label: version.label, current: version.id === current?.id }))}
+                      comments={reviews.comments.filter((comment) => comment.outputId === output.id)}
+                      loading={reviews.loading}
+                      onResolve={canResolveComments ? async (commentId, resolved) => { await reviews.adapter.setResolved(commentId, resolved); } : undefined}
+                      readOnly={!canResolveComments}
+                    />
                   </div>
                 </article>
               );

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { makeFunctionReference } from "convex/server";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -21,6 +21,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PublicMediaVersionComments } from "@/components/media-version-comments";
+import type { MediaVersionComment } from "@/features/media-version-comments/media-version-comments";
+import { parseMediaVersionComments } from "@/features/media-version-comments/media-version-comments-data";
 import { cn } from "@/lib/utils";
 
 type PublicSource = { provider: "YouTube" | "Vimeo" | "Link"; url: string };
@@ -62,6 +65,22 @@ const publicPortalRef = makeFunctionReference<
   { token: string; pin?: string },
   unknown
 >("projectPortals:getByToken");
+const publicCommentsRef = makeFunctionReference<
+  "query",
+  { token: string; pin?: string },
+  unknown
+>("mediaVersionComments:listForPortal");
+const addPublicCommentRef = makeFunctionReference<
+  "mutation",
+  { token: string; pin?: string; outputId: string; mediaVersionId: string; authorName: string; body: string },
+  unknown
+>("mediaVersionComments:addPublicComment");
+const reopenPublicCommentRef = makeFunctionReference<
+  "mutation",
+  { token: string; pin?: string; commentId: string },
+  unknown
+>("mediaVersionComments:reopenPublicComment");
+const DISPLAY_NAME_KEY = "relay:client-portal-display-name:v1";
 const PUBLIC_STAGES = ["Planning", "In Progress", "Review", "Delivered"];
 const reviewLabels: Record<string, string> = {
   draft: "In progress",
@@ -274,6 +293,28 @@ export function ClientPortalView({ token }: { token: string }) {
         : readPublicPortalAccess(publicResult),
     [publicResult],
   );
+  const publicCommentsResult = useQuery(
+    publicCommentsRef,
+    access.kind === "active"
+      ? { token, ...(pin ? { pin } : {}) }
+      : "skip",
+  );
+  const addPublicComment = useMutation(addPublicCommentRef);
+  const reopenPublicComment = useMutation(reopenPublicCommentRef);
+  const [displayName, setDisplayName] = useState("");
+  const [commentBusyOutputId, setCommentBusyOutputId] = useState("");
+  const [busyCommentId, setBusyCommentId] = useState("");
+
+  const publicComments = parseMediaVersionComments(publicCommentsResult);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DISPLAY_NAME_KEY);
+      if (saved) setDisplayName(saved.slice(0, 120));
+    } catch {
+      // Local storage may be disabled. Comments still work for this visit.
+    }
+  }, []);
 
   useEffect(() => {
     if (publicResult !== undefined) setPinBusy(false);
@@ -289,6 +330,46 @@ export function ClientPortalView({ token }: { token: string }) {
     setPinError("");
     setPinBusy(true);
     setPin(value);
+  }
+
+  function changeDisplayName(value: string) {
+    const next = value.slice(0, 120);
+    setDisplayName(next);
+    try {
+      if (next.trim()) window.localStorage.setItem(DISPLAY_NAME_KEY, next);
+      else window.localStorage.removeItem(DISPLAY_NAME_KEY);
+    } catch {
+      // Local storage is an enhancement, not an access requirement.
+    }
+  }
+
+  function clearDisplayName() {
+    changeDisplayName("");
+  }
+
+  async function addComment(outputId: string, mediaVersionId: string, body: string) {
+    setCommentBusyOutputId(outputId);
+    try {
+      await addPublicComment({
+        token,
+        ...(pin ? { pin } : {}),
+        outputId,
+        mediaVersionId,
+        authorName: displayName.trim(),
+        body,
+      });
+    } finally {
+      setCommentBusyOutputId("");
+    }
+  }
+
+  async function reopenComment(commentId: string) {
+    setBusyCommentId(commentId);
+    try {
+      await reopenPublicComment({ token, ...(pin ? { pin } : {}), commentId });
+    } finally {
+      setBusyCommentId("");
+    }
   }
 
   if (access.kind === "loading")
@@ -378,7 +459,20 @@ export function ClientPortalView({ token }: { token: string }) {
         </form>
       </AccessState>
     );
-  return <ActivePortal portal={access.portal} />;
+  return (
+    <ActivePortal
+      portal={access.portal}
+      comments={publicComments}
+      commentsLoading={publicCommentsResult === undefined}
+      displayName={displayName}
+      onDisplayNameChange={changeDisplayName}
+      onClearDisplayName={clearDisplayName}
+      onAddComment={addComment}
+      onReopenComment={reopenComment}
+      busyOutputId={commentBusyOutputId}
+      busyCommentId={busyCommentId}
+    />
+  );
 }
 
 function RelayMark() {
@@ -436,7 +530,29 @@ function AccessState({
   );
 }
 
-function ActivePortal({ portal }: { portal: PublicPortal }) {
+function ActivePortal({
+  portal,
+  comments,
+  commentsLoading,
+  displayName,
+  onDisplayNameChange,
+  onClearDisplayName,
+  onAddComment,
+  onReopenComment,
+  busyOutputId,
+  busyCommentId,
+}: {
+  portal: PublicPortal;
+  comments: readonly MediaVersionComment[];
+  commentsLoading: boolean;
+  displayName: string;
+  onDisplayNameChange: (value: string) => void;
+  onClearDisplayName: () => void;
+  onAddComment: (outputId: string, mediaVersionId: string, body: string) => Promise<void>;
+  onReopenComment: (commentId: string) => Promise<void>;
+  busyOutputId: string;
+  busyCommentId: string;
+}) {
   const currentStage = displayStage(portal.stage);
   const currentIndex = PUBLIC_STAGES.findIndex((item) => item === currentStage);
   return (
@@ -564,7 +680,19 @@ function ActivePortal({ portal }: { portal: PublicPortal }) {
           {portal.outputs.length ? (
             <div className="mt-6 divide-y divide-border border-y border-border">
               {portal.outputs.map((output) => (
-                <PublicOutputRow key={output.id} output={output} />
+              <PublicOutputRow
+                key={output.id}
+                output={output}
+                comments={comments}
+                commentsLoading={commentsLoading}
+                displayName={displayName}
+                onDisplayNameChange={onDisplayNameChange}
+                onClearDisplayName={onClearDisplayName}
+                onAddComment={onAddComment}
+                onReopenComment={onReopenComment}
+                busy={busyOutputId === output.id}
+                busyCommentId={busyCommentId}
+              />
               ))}
             </div>
           ) : (
@@ -594,10 +722,33 @@ function ActivePortal({ portal }: { portal: PublicPortal }) {
   );
 }
 
-function PublicOutputRow({ output }: { output: PublicOutput }) {
+function PublicOutputRow({
+  output,
+  comments,
+  commentsLoading,
+  displayName,
+  onDisplayNameChange,
+  onClearDisplayName,
+  onAddComment,
+  onReopenComment,
+  busy,
+  busyCommentId,
+}: {
+  output: PublicOutput;
+  comments: readonly MediaVersionComment[];
+  commentsLoading: boolean;
+  displayName: string;
+  onDisplayNameChange: (value: string) => void;
+  onClearDisplayName: () => void;
+  onAddComment: (outputId: string, mediaVersionId: string, body: string) => Promise<void>;
+  onReopenComment: (commentId: string) => Promise<void>;
+  busy: boolean;
+  busyCommentId: string;
+}) {
   const state = output.reviewState
     ? (reviewLabels[output.reviewState] ?? output.reviewState)
     : undefined;
+  const currentVersion = output.currentVersion;
   return (
     <article className="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
       <div className="min-w-0">
@@ -607,17 +758,16 @@ function PublicOutputRow({ output }: { output: PublicOutput }) {
           {output.dueDate ? (
             <span>Due {formatDate(output.dueDate)}</span>
           ) : null}
-          {output.currentVersion ? (
+          {currentVersion ? (
             <span>
-              {output.currentVersion.source.provider} ·{" "}
-              {output.currentVersion.label}
+              {currentVersion.source.provider} · {currentVersion.label}
             </span>
           ) : null}
         </div>
       </div>
-      {output.currentVersion ? (
+      {currentVersion ? (
         <a
-          href={output.currentVersion.source.url}
+          href={currentVersion.source.url}
           target="_blank"
           rel="noreferrer"
           className="inline-flex w-fit items-center gap-2 text-sm font-medium underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -630,6 +780,22 @@ function PublicOutputRow({ output }: { output: PublicOutput }) {
           No version shared yet
         </span>
       )}
+      {currentVersion ? (
+        <div className="sm:col-span-2">
+          <PublicMediaVersionComments
+            versionId={currentVersion.id}
+            comments={comments}
+            displayName={displayName}
+            onDisplayNameChange={onDisplayNameChange}
+            onClearDisplayName={onClearDisplayName}
+            onSubmit={(body) => onAddComment(output.id, currentVersion.id, body)}
+            onReopen={onReopenComment}
+            busyCommentId={busyCommentId}
+            busy={busy}
+            loading={commentsLoading}
+          />
+        </div>
+      ) : null}
     </article>
   );
 }
