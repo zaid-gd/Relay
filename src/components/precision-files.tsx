@@ -27,7 +27,6 @@ export function PrecisionFiles({ files, projectTitles = {}, loading = false, onO
   return (
     <PageContent className="p-4 sm:p-6 lg:p-8">
       <PageHeader
-        eyebrow="Workspace"
         title="Files"
         description="Find project material across the Workspace. Add, update, version, share, archive, and delete files from their owning Project."
       />
@@ -61,4 +60,3 @@ export function PrecisionFiles({ files, projectTitles = {}, loading = false, onO
     </PageContent>
   );
 }
-

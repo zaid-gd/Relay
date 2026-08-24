@@ -63,9 +63,15 @@ export function PrecisionMedia({
 }) {
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState<"all" | "active" | "delivered">("all");
-  const [mode, setMode] = useState<"list" | "grid">("list");
+  const [mode, setMode] = useState<"list" | "grid">(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("relay:media-view") === "list" ? "list" : "grid",
+  );
   const [selectedId, setSelectedId] = useState(projects[0]?.id ?? "");
   const reduceMotion = useHydratedReducedMotion();
+
+  useEffect(() => {
+    window.localStorage.setItem("relay:media-view", mode);
+  }, [mode]);
   const transition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.8 };
@@ -101,7 +107,6 @@ export function PrecisionMedia({
         transition={contentTransition}
       >
         <PageHeader
-          eyebrow="Asset workspace"
           title="Media"
           description="Browse project packages, working exports, and completed handoff archives."
         />
@@ -110,7 +115,7 @@ export function PrecisionMedia({
         <LayoutGroup id="media-workspace">
           <FillViewport bodyLabel="Media workspace" bodyClassName="overflow-auto lg:overflow-hidden">
           <MasterDetail
-            className="h-full min-h-0 overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]"
+            className="h-full min-h-0 overflow-hidden rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]"
             master={(
             <aside className="min-h-0 overflow-auto border-b border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 lg:border-b-0 lg:border-r">
               <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--app-subtle)]">Collections</p>
@@ -302,10 +307,11 @@ export function PrecisionMedia({
                                   key={project.id}
                                   type="button"
                                   className={cn(
-                                    "relative overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] text-left outline-none transition-colors hover:border-[var(--app-strong-border)] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-panel)]",
+                                    "studio-motion-edge-sweep relative overflow-hidden rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] text-left outline-none transition-colors hover:border-[var(--app-strong-border)] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-panel)]",
                                     active && "border-transparent",
                                   )}
                                   onClick={() => setSelectedId(project.id)}
+                                  data-active={!reduceMotion && selected?.id === project.id ? "true" : "false"}
                                   onDoubleClick={() => onViewProject(project)}
                                   aria-pressed={active}
                                   aria-label={`${project.title}, ${project.status}, ${value}% package progress. Double click to open project.`}
@@ -319,7 +325,7 @@ export function PrecisionMedia({
                                   {active ? (
                                     <motion.span
                                       layoutId="selected-media-package"
-                                      className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-2 ring-inset ring-[var(--app-accent)]"
+                                      className="pointer-events-none absolute inset-0 z-20 rounded-[6px] ring-2 ring-inset ring-[var(--app-accent)]"
                                       transition={transition}
                                     />
                                   ) : null}
@@ -349,7 +355,7 @@ export function PrecisionMedia({
                     >
                       <div>
                         <motion.div
-                          className="mx-auto grid size-11 place-items-center rounded-lg border border-[var(--app-border)] bg-[var(--app-soft-panel)]"
+                          className="mx-auto grid size-11 place-items-center rounded-[6px] border border-[var(--app-border)] bg-[var(--app-soft-panel)]"
                           initial={reduceMotion ? false : { y: 4 }}
                           animate={{ y: 0 }}
                           transition={transition}
