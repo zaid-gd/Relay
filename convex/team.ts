@@ -13,8 +13,20 @@ import {
   normalizeOptionalTimecode,
 } from "../src/lib/timecode";
 
-const MAX_TEAM_MEMBERS = 5;
+const MAX_TEAM_MEMBERS = 3;
 const TEAM_WORKSPACE_NAME_LIMIT = 80;
+const TEAM_PERMISSION_KEYS = [
+  "viewProjects",
+  "createProjects",
+  "editProjects",
+  "updateStatus",
+  "commentProjects",
+  "reviewProjects",
+  "managePortal",
+  "manageFinance",
+  "manageTeam",
+  "useChat",
+] as const;
 
 const permissionDefaults: Record<TeamRole, Record<string, boolean>> = {
   Owner: {
@@ -23,6 +35,8 @@ const permissionDefaults: Record<TeamRole, Record<string, boolean>> = {
     editProjects: true,
     updateStatus: true,
     commentProjects: true,
+    reviewProjects: true,
+    managePortal: true,
     manageFinance: true,
     manageTeam: true,
     useChat: true,
@@ -33,7 +47,9 @@ const permissionDefaults: Record<TeamRole, Record<string, boolean>> = {
     editProjects: true,
     updateStatus: true,
     commentProjects: true,
-    manageFinance: true,
+    reviewProjects: true,
+    managePortal: true,
+    manageFinance: false,
     manageTeam: false,
     useChat: true,
   },
@@ -43,6 +59,8 @@ const permissionDefaults: Record<TeamRole, Record<string, boolean>> = {
     editProjects: false,
     updateStatus: false,
     commentProjects: true,
+    reviewProjects: true,
+    managePortal: false,
     manageFinance: false,
     manageTeam: false,
     useChat: true,
@@ -61,6 +79,37 @@ function normalizeEmail(email?: string | null) {
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
   return identity.name || identity.nickname || identity.email || "Team member";
+}
+
+function normalizePermissions(role: TeamRole, requested?: Record<string, boolean>) {
+  const defaults = permissionDefaults[role];
+  return Object.fromEntries(
+    TEAM_PERMISSION_KEYS.map((key) => [key, requested?.[key] ?? defaults[key] ?? false]),
+  );
+}
+
+function normalizeWorkspaceSettings(args: {
+  name: string;
+  currencyCode: string;
+  timeZone: string;
+  defaultWorkflowTemplateId?: string;
+  allowAllTeamProjects: boolean;
+}) {
+  const name = args.name.trim().slice(0, TEAM_WORKSPACE_NAME_LIMIT);
+  const currencyCode = args.currencyCode.trim().toUpperCase();
+  const timeZone = args.timeZone.trim().slice(0, 80);
+  if (!name) throw new Error("Workspace name is required");
+  if (!/^[A-Z]{3}$/.test(currencyCode)) throw new Error("Currency must be a three-letter code");
+  if (!timeZone) throw new Error("Time zone is required");
+  return {
+    name,
+    currencyCode,
+    timeZone,
+    allowAllTeamProjects: args.allowAllTeamProjects,
+    ...(args.defaultWorkflowTemplateId?.trim()
+      ? { defaultWorkflowTemplateId: args.defaultWorkflowTemplateId.trim().slice(0, 120) }
+      : {}),
+  };
 }
 
 function inviteCode() {
@@ -326,6 +375,8 @@ export const createWorkspace = mutation({
       inviteCode: await uniqueInviteCode(ctx),
       createdAt: now,
       allowAllTeamProjects: false,
+      currencyCode: "USD",
+      timeZone: "UTC",
     });
     await ctx.db.insert("teamMembers", {
       teamId: workspaceId,
@@ -357,11 +408,30 @@ export const updateWorkspaceProjectPolicy = mutation({
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.tokenIdentifier).eq("status", "active"))
       .first();
-    if (!membership || !membership.permissions.manageTeam) throw new Error("Only a Workspace Owner can change Project visibility");
+    if (!membership || membership.role !== "Owner") throw new Error("Only a Workspace Owner can change Project visibility");
     const workspace = await ctx.db.get(membership.teamId as Doc<"teamWorkspaces">["_id"]);
     if (!workspace) throw new Error("Workspace not found");
     await ctx.db.patch(workspace._id, { allowAllTeamProjects: args.allowAllTeamProjects });
     return null;
+  },
+});
+
+export const updateWorkspaceSettings = mutation({
+  args: {
+    teamId: v.string(),
+    name: v.string(),
+    currencyCode: v.string(),
+    timeZone: v.string(),
+    defaultWorkflowTemplateId: v.optional(v.string()),
+    allowAllTeamProjects: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const membership = await findActiveMembership(ctx, args.teamId, identity.tokenIdentifier);
+    if (membership.role !== "Owner") throw new Error("Only the Workspace Owner can change workspace settings");
+    const workspace = await ctx.db.get(args.teamId as Doc<"teamWorkspaces">["_id"]);
+    if (!workspace) throw new Error("Workspace not found");
+    await ctx.db.patch(workspace._id, normalizeWorkspaceSettings(args));
   },
 });
 
@@ -376,7 +446,7 @@ export const inviteMember = mutation({
       .query("teamMembers")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .take(MAX_TEAM_MEMBERS + 1);
-    if (members.length >= MAX_TEAM_MEMBERS) throw new Error("Small teams are limited to 5 members");
+    if (members.length >= MAX_TEAM_MEMBERS) throw new Error("Free workspaces are limited to one Owner and two invited members");
 
     const existing = await ctx.db
       .query("teamMembers")
@@ -391,7 +461,7 @@ export const inviteMember = mutation({
       name: email.split("@")[0],
       role: args.role,
       status: "invited",
-      permissions: permissionDefaults[args.role],
+      permissions: normalizePermissions(args.role),
       createdAt: new Date().toISOString(),
     });
     await logActivity(ctx, {
@@ -482,7 +552,7 @@ export const updateMemberRole = mutation({
     if (member.role === "Owner") throw new Error("Owner role cannot be changed");
     await ctx.db.patch(args.memberId, {
       role: args.role,
-      permissions: permissionDefaults[args.role],
+      permissions: normalizePermissions(args.role),
     });
     await logActivity(ctx, {
       teamId: args.teamId,
@@ -501,6 +571,67 @@ export const updateMemberRole = mutation({
         createdAt: new Date().toISOString(),
       });
     }
+  },
+});
+
+export const updateMemberPermissions = mutation({
+  args: {
+    teamId: v.string(),
+    memberId: v.id("teamMembers"),
+    permissions: v.record(v.string(), v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { identity } = await requirePermission(ctx, args.teamId, "manageTeam");
+    const owner = await findActiveMembership(ctx, args.teamId, identity.tokenIdentifier);
+    if (owner.role !== "Owner") throw new Error("Only the Workspace Owner can change member permissions");
+    const member = await ctx.db.get(args.memberId);
+    if (!member || member.teamId !== args.teamId) throw new Error("Team member not found");
+    if (member.role === "Owner") throw new Error("Owner permissions cannot be changed");
+    await ctx.db.patch(args.memberId, { permissions: normalizePermissions(member.role === "Client" ? "Reviewer" : member.role, args.permissions) });
+    await logActivity(ctx, {
+      teamId: args.teamId,
+      actorUserId: identity.tokenIdentifier,
+      actorName: actorName(identity),
+      kind: "member_role_updated",
+      message: `${actorName(identity)} updated permissions for ${member.name}.`,
+    });
+  },
+});
+
+export const transferOwnership = mutation({
+  args: { teamId: v.string(), memberId: v.id("teamMembers") },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const currentOwner = await findActiveMembership(ctx, args.teamId, identity.tokenIdentifier);
+    if (currentOwner.role !== "Owner") throw new Error("Only the Workspace Owner can transfer ownership");
+    const nextOwner = await ctx.db.get(args.memberId);
+    if (!nextOwner || nextOwner.teamId !== args.teamId || nextOwner.status !== "active") {
+      throw new Error("Choose an active team member");
+    }
+    if (nextOwner.userId === identity.tokenIdentifier || nextOwner.role === "Owner") {
+      throw new Error("Choose a different team member");
+    }
+    const workspace = await ctx.db.get(args.teamId as Doc<"teamWorkspaces">["_id"]);
+    if (!workspace) throw new Error("Workspace not found");
+    const now = new Date().toISOString();
+    await ctx.db.patch(workspace._id, { ownerUserId: nextOwner.userId });
+    await ctx.db.patch(currentOwner._id, { role: "Editor", permissions: normalizePermissions("Editor") });
+    await ctx.db.patch(nextOwner._id, { role: "Owner", permissions: normalizePermissions("Owner") });
+    await logActivity(ctx, {
+      teamId: args.teamId,
+      actorUserId: identity.tokenIdentifier,
+      actorName: actorName(identity),
+      kind: "member_role_updated",
+      message: `${actorName(identity)} transferred workspace ownership to ${nextOwner.name}.`,
+    });
+    await ctx.db.insert("teamNotifications", {
+      teamId: args.teamId,
+      userId: nextOwner.userId,
+      kind: "role_updated",
+      message: "You are now the Workspace Owner.",
+      read: false,
+      createdAt: now,
+    });
   },
 });
 

@@ -359,6 +359,9 @@ export default defineSchema({
     inviteCode: v.string(),
     createdAt: v.string(),
     allowAllTeamProjects: v.optional(v.boolean()),
+    currencyCode: v.optional(v.string()),
+    timeZone: v.optional(v.string()),
+    defaultWorkflowTemplateId: v.optional(v.string()),
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_inviteCode", ["inviteCode"]),

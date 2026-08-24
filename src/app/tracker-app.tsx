@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import { AnimatePresence, motion } from "motion/react";
 import { UserProfile } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
+import { makeFunctionReference } from "convex/server";
 import { useData, useProjectGroups, useProjectWorkflow } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
@@ -98,6 +99,23 @@ import {
   AlertDialogHeader as OwnedAlertDialogHeader,
   AlertDialogTitle as OwnedAlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const teamApi = {
+  updateWorkspaceSettings: makeFunctionReference<"mutation", {
+    teamId: string;
+    name: string;
+    currencyCode: string;
+    timeZone: string;
+    defaultWorkflowTemplateId?: string;
+    allowAllTeamProjects: boolean;
+  }, null>("team:updateWorkspaceSettings"),
+  updateMemberPermissions: makeFunctionReference<"mutation", {
+    teamId: string;
+    memberId: string;
+    permissions: Record<string, boolean>;
+  }, null>("team:updateMemberPermissions"),
+  transferOwnership: makeFunctionReference<"mutation", { teamId: string; memberId: string }, null>("team:transferOwnership"),
+};
 import {
   Accordion as OwnedAccordion,
   AccordionContent as OwnedAccordionContent,
@@ -184,6 +202,13 @@ const TEAM_WORKSPACE_NAME_LIMIT = 80;
 const TEAM_CHAT_MESSAGE_LIMIT = 800;
 const TEAM_PROJECT_COMMENT_LIMIT = 1000;
 const TEAM_INVITE_CODE_PATTERN = /^[A-Z0-9]{6}$/;
+const TEAM_MEMBER_PERMISSION_LABELS = [
+  ["viewProjects", "View Projects"],
+  ["editProjects", "Edit Projects"],
+  ["reviewProjects", "Reviews"],
+  ["managePortal", "Client Portals"],
+  ["manageFinance", "Finance"],
+] as const;
 const MIN_PUBLIC_SLUG_LENGTH = 2;
 const LOCAL_PROJECT_ACTIVITY_STORAGE_KEY = "cutlab-studio:project-activity:v1";
 const headingFont = cutlab.font.heading;
@@ -206,6 +231,16 @@ type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_de
   name: string;
   role: StoredTeamRole;
   email: string;
+};
+type TeamWorkspaceContract = {
+  _id: string;
+  ownerUserId: string;
+  name: string;
+  inviteCode: string;
+  allowAllTeamProjects?: boolean;
+  currencyCode?: string;
+  timeZone?: string;
+  defaultWorkflowTemplateId?: string;
 };
 type ProjectWorkspaceView = "overview" | "outputs" | "review" | "files" | "activity";
 
@@ -549,6 +584,7 @@ export function TrackerApp({
     () => (currentTeamId ? projects.filter((project) => project.teamId === currentTeamId) : []),
     [currentTeamId, projects]
   );
+  const teamWorkspace = teamData?.workspace as TeamWorkspaceContract | undefined;
   const teamStats = useMemo(() => {
     const deliveredProjects = teamProjects.filter((project) => isDoneStatus(project.status));
     return {
@@ -564,10 +600,25 @@ export function TrackerApp({
   const canEditProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.editProjects);
   const canUpdateProjectStatus = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.updateStatus);
   const canCommentProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.commentProjects);
+  const canManagePortals = teamSyncUnavailable || teamDataLoading
+    ? false
+    : !teamData || (projectPermissions?.managePortal ?? teamData.currentMember.role === "Owner");
   const canManageFinance = teamSyncUnavailable || teamDataLoading
     ? false
-    : !teamData || (projectPermissions?.manageFinance ?? teamData.currentMember.role !== "Reviewer");
+    : !teamData || (projectPermissions?.manageFinance ?? teamData.currentMember.role === "Owner");
   const canManageTeamProjects = Boolean(projectPermissions?.manageTeam);
+
+  useEffect(() => {
+    if (!teamWorkspace) return;
+    const next = {
+      ...settings,
+      studioName: teamWorkspace.name,
+      currencyCode: teamWorkspace.currencyCode || settings.currencyCode,
+      timeZone: teamWorkspace.timeZone || settings.timeZone,
+    };
+    if (next.studioName === settings.studioName && next.currencyCode === settings.currencyCode && next.timeZone === settings.timeZone) return;
+    setSettings((current) => ({ ...current, studioName: next.studioName, currencyCode: next.currencyCode, timeZone: next.timeZone }));
+  }, [setSettings, settings.currencyCode, settings.studioName, settings.timeZone, teamWorkspace]);
   const detailProject = useMemo(() => items.find((item) => item.id === detailProjectId) ?? null, [detailProjectId, items]);
   const projectTagOptions = useMemo(() => projectWorkTypeOptions(settings, projects), [projects, settings]);
   const filterProjectTagOptions = useMemo(() => ["ALL", ...projectTagOptions], [projectTagOptions]);
@@ -581,6 +632,13 @@ export function TrackerApp({
     () => [...PROJECT_TEMPLATES, ...settings.customProjectTemplates],
     [settings.customProjectTemplates],
   );
+
+  useEffect(() => {
+    if (!teamWorkspace?.defaultWorkflowTemplateId) return;
+    if (workflowTemplates.some((template) => template.id === teamWorkspace.defaultWorkflowTemplateId)) {
+      setNewProjectTemplateId(teamWorkspace.defaultWorkflowTemplateId);
+    }
+  }, [teamWorkspace?.defaultWorkflowTemplateId, workflowTemplates]);
 
   useEffect(() => {
     if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords)) return;
@@ -961,6 +1019,7 @@ export function TrackerApp({
       view={activeProjectView}
       canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
       canManagePayment={!isSample && (canManageFinance || !detailProject.teamId)}
+      canManagePortal={!isSample && (canManagePortals || !detailProject.teamId)}
       canDelete={canDeleteProject(detailProject)}
       canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)}
       canComment={!isSample && canCommentProjects}
@@ -1075,7 +1134,7 @@ export function TrackerApp({
         canManageFinance={canManageFinance}
         onUpdateBatchPayment={updateSalaryBatchPayment}
       />
-      {canManageFinance ? <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner={!teamData || teamData.currentMember.role === "Owner"} /> : null}
+      {!teamData || teamData.currentMember.role === "Owner" ? <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner /> : null}
     </div>
   ) : page === "integrations" ? (
     <IntegrationsDesignPage projects={personalProjects} settings={settings} setSettings={setSettings} notify={notify} onEditProject={openEditProject} />
@@ -1084,7 +1143,7 @@ export function TrackerApp({
   ) : page === "team-chat" ? (
     <TeamChatPage />
   ) : page === "settings" ? (
-    <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} />
+    <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} teamWorkspace={teamWorkspace} canManageWorkspace={Boolean(teamData?.currentMember.role === "Owner")} />
   ) : page === "account" ? (
     <AccountSettingsPage />
   ) : page === "profile" ? (
@@ -1153,6 +1212,7 @@ export function TrackerApp({
       settings={settings}
       canEdit={!isSample && (canEditProjects || !detailProject?.teamId)}
       canManagePayment={!isSample && (canManageFinance || !detailProject?.teamId)}
+      canManagePortal={!isSample && (canManagePortals || !detailProject?.teamId)}
       canDelete={canDeleteProject(detailProject)}
       canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject?.teamId)}
       canComment={!isSample && canCommentProjects}
@@ -1207,7 +1267,7 @@ export function TrackerApp({
         onNewProject={() => openNewProject("personal")}
         canCreateProject={canCreateProjects}
         starterNavigation={!isSample && personalProjects.length === 0}
-        showTeamNavigation={activeTeamMembers.length > 1 || settings.teamMembers.length > 0}
+        showTeamNavigation={activeTeamMembers.length > 1 || Boolean(teamData?.members.some((member) => member.status === "invited")) || settings.teamMembers.length > 0}
         notificationSlot={<NotificationBell settings={settings} />}
       >
         {isSample ? <SampleModeBar /> : null}
@@ -2157,6 +2217,8 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const joinWorkspace = useMutation(api.team.joinWorkspace);
   const inviteMember = useMutation(api.team.inviteMember);
   const updateMemberRole = useMutation(api.team.updateMemberRole);
+  const updateMemberPermissions = useMutation(teamApi.updateMemberPermissions);
+  const transferOwnership = useMutation(teamApi.transferOwnership);
   const normalizeLegacyRoles = useMutation(api.team.normalizeLegacyRoles);
   const removeMember = useMutation(api.team.removeMember);
   const leaveWorkspace = useMutation(api.team.leaveWorkspace);
@@ -2189,6 +2251,10 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const canLeaveWorkspace = Boolean(teamData && teamData.currentMember.role !== "Owner");
   const inviteCodeIsValid = TEAM_INVITE_CODE_PATTERN.test(inviteCode.trim());
   const inviteEmailIsValid = isValidEmail(inviteForm.email);
+
+  function displayTeamRole(role: string) {
+    return role === "Reviewer" ? "Viewer" : role;
+  }
 
   useEffect(() => {
     if (!teamProjects.length) {
@@ -2327,7 +2393,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
               assetKey="team"
             />
           </ContentSection>
-          <ContentSection title="Create a workspace" description="Owners can invite up to four more members. Projects, comments, notifications, activity, and chat sync through Convex.">
+          <ContentSection title="Create a workspace" description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex.">
             <FieldLayout className="mt-5" label="Workspace name" description={`${workspaceName.length}/${TEAM_WORKSPACE_NAME_LIMIT} characters`}>
               <OwnedInput
                 value={workspaceName}
@@ -2371,7 +2437,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
               ) : "Invite code is visible to team owners only."}
               actions={(
                 <div className="flex flex-wrap items-center gap-2">
-                  <OwnedBadge variant="secondary">{teamData.currentMember.role} access</OwnedBadge>
+                  <OwnedBadge variant="secondary">{displayTeamRole(teamData.currentMember.role)} access</OwnedBadge>
                   {canManageTeam ? (
                     <OwnedButton type="button" size="sm" variant="outline" onClick={() => copyInviteCode(teamData.workspace.inviteCode)}>
                       <Copy aria-hidden="true" />
@@ -2401,7 +2467,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-semibold">{member.name}</h3>
-                        <OwnedBadge variant="outline" className="rounded-md text-[10px]">{member.role}</OwnedBadge>
+                        <OwnedBadge variant="outline" className="rounded-md text-[10px]">{displayTeamRole(member.role)}</OwnedBadge>
                         <OwnedBadge
                           variant="secondary"
                           className={cn(
@@ -2421,15 +2487,44 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                         <div className="w-full sm:w-40">
                           <ProjectSelect
                             label="Role"
-                            value={member.role}
-                            options={teamRoleOptions.filter((role) => role !== "Owner")}
-                            onChange={(role) => runTeamAction("role", () => updateMemberRole({ teamId: teamData.workspace._id, memberId: member._id, role: role as "Editor" | "Reviewer" }))}
+                            value={displayTeamRole(member.role)}
+                            options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
+                            onChange={(role) => runTeamAction("role", () => updateMemberRole({ teamId: teamData.workspace._id, memberId: member._id, role: (role === "Viewer" ? "Reviewer" : role) as "Editor" | "Reviewer" }))}
                             compact
                           />
                         </div>
                       ) : Object.entries(member.permissions).filter(([, enabled]) => enabled).slice(0, 4).map(([permission]) => (
                         <OwnedBadge key={permission} variant="secondary" className="rounded-md text-[10px]">{permission}</OwnedBadge>
                       ))}
+                      {canManageTeam && member.role !== "Owner" ? (
+                        <div className="grid w-full gap-2 sm:grid-cols-2">
+                          {TEAM_MEMBER_PERMISSION_LABELS.map(([permission, label]) => (
+                            <label key={permission} className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <OwnedSwitch
+                                checked={Boolean(member.permissions[permission])}
+                                aria-label={`${label} for ${member.name}`}
+                                onCheckedChange={(checked) => runTeamAction("permission", () => updateMemberPermissions({ teamId: teamData.workspace._id, memberId: member._id, permissions: { ...member.permissions, [permission]: checked } }))}
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
+                      {canManageTeam && member.status === "active" && member.role !== "Owner" ? (
+                        <OwnedButton
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={Boolean(busyAction)}
+                          onClick={() => {
+                            if (window.confirm(`Transfer workspace ownership to ${member.name}?`)) {
+                              void runTeamAction("transfer", () => transferOwnership({ teamId: teamData.workspace._id, memberId: member._id }));
+                            }
+                          }}
+                        >
+                          Transfer ownership
+                        </OwnedButton>
+                      ) : null}
                       {canManageTeam && member.role !== "Owner" ? (
                         <OwnedButton
                           type="button"
@@ -2464,8 +2559,8 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                     <ProjectSelect
                       label="Role"
                       value={inviteForm.role}
-                      options={teamRoleOptions.filter((role) => role !== "Owner")}
-                      onChange={(value) => setInviteForm({ ...inviteForm, role: value })}
+                      options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
+                      onChange={(value) => setInviteForm({ ...inviteForm, role: value === "Viewer" ? "Reviewer" : value })}
                     />
                     <OwnedButton type="button" variant="outline" disabled={Boolean(busyAction) || !inviteEmailIsValid} onClick={() => runTeamAction("invite", async () => {
                       await inviteMember({ teamId: teamData.workspace._id, email: inviteForm.email, role: inviteForm.role as "Editor" | "Reviewer" });
@@ -2689,7 +2784,7 @@ function TeamChatPage() {
               <h2 className="text-lg font-semibold">{teamData.workspace.name}</h2>
               <p className="mt-1 text-xs text-[var(--app-muted)]">{teamData.members.filter((member) => member.status === "active").length} active members · Use @name to notify someone</p>
             </div>
-            <OwnedBadge variant="secondary" className="self-start sm:self-auto">{teamData.currentMember.role} access</OwnedBadge>
+            <OwnedBadge variant="secondary" className="self-start sm:self-auto">{teamData.currentMember.role === "Reviewer" ? "Viewer" : teamData.currentMember.role} access</OwnedBadge>
           </div>
         ) : undefined}
         footer={chatReady && teamData ? (
@@ -3396,9 +3491,17 @@ function IntegrationLinkManager({
   );
 }
 
-function SettingsDesignPage({ settings, setSettings, notify }: { settings: SettingsState; setSettings: (settings: SettingsState) => void; notify: (message: string, tone?: ToastState["tone"]) => void }) {
+function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canManageWorkspace = false }: { settings: SettingsState; setSettings: (settings: SettingsState | ((current: SettingsState) => SettingsState)) => void; notify: (message: string, tone?: ToastState["tone"]) => void; teamWorkspace?: TeamWorkspaceContract; canManageWorkspace?: boolean }) {
   const { exportBackup, importBackup } = useData();
+  const updateWorkspaceSettings = useMutation(teamApi.updateWorkspaceSettings);
   const backupInputRef = useRef<HTMLInputElement>(null);
+  const [workspaceDraft, setWorkspaceDraft] = useState(() => ({
+    name: teamWorkspace?.name ?? settings.studioName,
+    currencyCode: teamWorkspace?.currencyCode ?? settings.currencyCode,
+    timeZone: teamWorkspace?.timeZone ?? settings.timeZone,
+    defaultWorkflowTemplateId: teamWorkspace?.defaultWorkflowTemplateId ?? "relay-default-workflow",
+    allowAllTeamProjects: teamWorkspace?.allowAllTeamProjects ?? false,
+  }));
   const [activeSection, setActiveSection] = useState<"workspace" | "workflow" | "notifications" | "permissions" | "integrations" | "appearance" | "regional">("workspace");
   const stageColors = [
     "var(--workflow-stage-1)",
@@ -3413,8 +3516,37 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   const rolePolicy = [
     { role: "Owner", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat", "Manage members and roles"] },
     { role: "Editor", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat"] },
-    { role: "Reviewer", permissions: ["View team projects", "Leave project notes", "Mention teammates", "Use team chat"] }
+    { role: "Viewer", permissions: ["View team projects", "Review assigned work", "Use team chat"] }
   ];
+  const workflowTemplateOptions = [
+    ...PROJECT_TEMPLATES,
+    ...settings.customProjectTemplates,
+  ];
+  const workflowTemplateIds = workflowTemplateOptions.map((template) => template.id);
+  const workflowTemplateLabels = Object.fromEntries(workflowTemplateOptions.map((template) => [template.id, template.name]));
+
+  useEffect(() => {
+    if (!teamWorkspace) return;
+    setWorkspaceDraft({
+      name: teamWorkspace.name,
+      currencyCode: teamWorkspace.currencyCode ?? settings.currencyCode,
+      timeZone: teamWorkspace.timeZone ?? settings.timeZone,
+      defaultWorkflowTemplateId: teamWorkspace.defaultWorkflowTemplateId ?? "relay-default-workflow",
+      allowAllTeamProjects: teamWorkspace.allowAllTeamProjects ?? false,
+    });
+  }, [settings.currencyCode, settings.timeZone, teamWorkspace]);
+
+  async function saveWorkspaceSettings(overrides: Partial<typeof workspaceDraft> = {}) {
+    if (!teamWorkspace) return;
+    const nextDraft = { ...workspaceDraft, ...overrides };
+    try {
+      await updateWorkspaceSettings({ teamId: teamWorkspace._id, ...nextDraft });
+      setSettings((current) => ({ ...current, studioName: nextDraft.name, currencyCode: nextDraft.currencyCode, timeZone: nextDraft.timeZone }));
+      notify("Workspace settings saved.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Workspace settings could not be saved.", "warning");
+    }
+  }
   const settingsNavigation = [
     { id: "workspace" as const, label: "Workspace", icon: FolderKanban },
     { id: "workflow" as const, label: "Workflow", icon: History },
@@ -3579,8 +3711,12 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
             <div className="grid gap-3 sm:grid-cols-2">
               <FieldLayout label="Workspace name">
                 <OwnedInput
-                  value={settings.studioName}
-                  onChange={(event) => setSettings({ ...settings, studioName: event.target.value })}
+                  value={teamWorkspace ? workspaceDraft.name : settings.studioName}
+                  disabled={Boolean(teamWorkspace) && !canManageWorkspace}
+                  onChange={(event) => teamWorkspace
+                    ? setWorkspaceDraft((current) => ({ ...current, name: event.target.value }))
+                    : setSettings({ ...settings, studioName: event.target.value })}
+                  onBlur={() => { if (teamWorkspace && canManageWorkspace) void saveWorkspaceSettings(); }}
                 />
               </FieldLayout>
               <FieldLayout label="Workspace owner">
@@ -3596,6 +3732,54 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                 />
               </FieldLayout>
             </div>
+            {teamWorkspace ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <ProjectSelect
+                  label="Workspace currency"
+                  value={workspaceDraft.currencyCode}
+                  options={["USD", "EUR", "GBP", "INR", "AED", "SAR"]}
+                  disabled={!canManageWorkspace}
+                  onChange={(value) => {
+                    setWorkspaceDraft((current) => ({ ...current, currencyCode: value }));
+                    if (canManageWorkspace) void saveWorkspaceSettings({ currencyCode: value });
+                  }}
+                />
+                <FieldLayout label="Time zone">
+                  <OwnedInput
+                    value={workspaceDraft.timeZone}
+                    disabled={!canManageWorkspace}
+                    onChange={(event) => setWorkspaceDraft((current) => ({ ...current, timeZone: event.target.value }))}
+                    onBlur={() => { if (canManageWorkspace) void saveWorkspaceSettings(); }}
+                  />
+                </FieldLayout>
+                <ProjectSelect
+                  label="Default workflow template"
+                  value={workflowTemplateIds.includes(workspaceDraft.defaultWorkflowTemplateId) ? workspaceDraft.defaultWorkflowTemplateId : workflowTemplateIds[0] ?? "relay-default-workflow"}
+                  options={workflowTemplateIds.length ? workflowTemplateIds : ["relay-default-workflow"]}
+                  labels={workflowTemplateLabels}
+                  disabled={!canManageWorkspace}
+                  onChange={(value) => {
+                    setWorkspaceDraft((current) => ({ ...current, defaultWorkflowTemplateId: value }));
+                    if (canManageWorkspace) void saveWorkspaceSettings({ defaultWorkflowTemplateId: value });
+                  }}
+                />
+                <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                  <span>
+                    <span className="block font-medium">Editors see all Team Projects</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">Otherwise Editors see owned or assigned work.</span>
+                  </span>
+                  <OwnedSwitch
+                    checked={workspaceDraft.allowAllTeamProjects}
+                    disabled={!canManageWorkspace}
+                    aria-label="Editors see all Team Projects"
+                    onCheckedChange={(checked) => {
+                      setWorkspaceDraft((current) => ({ ...current, allowAllTeamProjects: checked }));
+                      if (canManageWorkspace) void saveWorkspaceSettings({ allowAllTeamProjects: checked });
+                    }}
+                  />
+                </label>
+              </div>
+            ) : null}
           </SettingsPanel>
           <SettingsPanel id="workspace-backup" title="Backup and restore" subtitle="Export local Workspace data without account or connected-service details.">
             <div className="flex flex-wrap gap-2">
@@ -4758,13 +4942,14 @@ function normalizeChecklistCompleted(items: string[] = [], completed: Record<str
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
 }
 
-function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
+function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
   project: WorkItem;
   projectGroup?: import("@/lib/types").ProjectGroup;
   settings: SettingsState;
   view: ProjectWorkspaceView;
   canEdit: boolean;
   canManagePayment: boolean;
+  canManagePortal: boolean;
   canDelete: boolean;
   canUpdateStatus: boolean;
   canComment: boolean;
@@ -4821,7 +5006,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
 
         {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} canResolveComments={canComment} /> : null}
 
-        {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ProjectPortalPanel project={project} canEdit={canEdit} /></div> : null}
+        {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} /></div> : null}
 
         {view === "files" ? <div className="grid gap-4 overflow-y-auto pb-5">
           <ContentSection title="External links" metadata={<OwnedBadge variant="secondary">{configuredLinks.length}</OwnedBadge>}>
@@ -4836,7 +5021,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
   );
 }
 
-function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canManagePayment: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
+function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canManagePayment: boolean; canManagePortal: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
   if (!project) {
     return null;
   }
@@ -4989,7 +5174,7 @@ function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, can
             </section>
             <ProjectFileManager project={project} canEdit={canEdit} />
             <ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} />
-            <ProjectPortalPanel project={project} canEdit={canEdit} />
+            <ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} />
           </div>
           <ProjectActivityFeed project={project} localActivity={localActivity} />
         </div>
