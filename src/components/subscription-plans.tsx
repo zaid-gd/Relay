@@ -54,7 +54,7 @@ export function ClerkPricingPlans() {
     <div className="w-full">
       <PricingTable
         for="user"
-        newSubscriptionRedirectUrl="/account#plans"
+        newSubscriptionRedirectUrl="/subscription"
         appearance={pricingAppearance}
       />
     </div>

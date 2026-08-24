@@ -230,7 +230,7 @@ const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
 const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;const successColor = `var(--app-success, ${cutlab.color.success})`;
 const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
 
-type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "files" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
+type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "files" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "subscription" | "profile" | "profile-edit" | "organization-profile";
 type ProjectKind = string;
 type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
 type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_desc" | "earnings_asc";type TeamMember = {
@@ -1175,6 +1175,8 @@ export function TrackerApp({
     <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} teamWorkspace={teamWorkspace} canManageWorkspace={Boolean(teamData?.currentMember.role === "Owner")} />
   ) : page === "account" ? (
     <AccountSettingsPage />
+  ) : page === "subscription" ? (
+    <SubscriptionPage />
   ) : page === "profile" ? (
     <ProfileDesignPage projects={personalProjects} stats={stats} settings={settings} />
   ) : page === "profile-edit" ? (
@@ -1355,16 +1357,6 @@ function AccountSettingsPage() {
         }
       />
       <PageContent data-family-region="account-administration" className="space-y-5">
-        {isSignedIn ? (
-          <div id="plans" className="scroll-mt-16">
-            <ContentSection title="Plans and billing" description="Clerk manages plan selection, checkout, and subscription status." bodyMode="flush">
-              <div className="p-4 md:p-6">
-                <ClerkPricingPlans />
-              </div>
-            </ContentSection>
-          </div>
-        ) : null}
-
         <ContentSection title="Private account" description="Authentication and account controls stay inside this signed-in area." bodyMode="flush" className="scroll-mt-6">
           {!isLoaded ? (
             <div role="status" className="grid min-h-[220px] place-items-center p-6">
@@ -4993,6 +4985,44 @@ function checklistItemKey(item: string, index: number) {
 function normalizeChecklistCompleted(items: string[] = [], completed: Record<string, boolean> = {}) {
   const allowedKeys = new Set(items.map((item, index) => checklistItemKey(item, index)));
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
+}
+
+function SubscriptionPage() {
+  const { isAuthEnabled } = useData();
+  const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
+
+  return (
+    <WorkspacePage family="administration" className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]">
+      <PageHeader
+        eyebrow="Workspace / Subscription"
+        title="Plans and billing"
+        description="Choose a plan and manage your Relay subscription through Clerk."
+        actions={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
+      />
+      <PageContent data-family-region="subscription-administration">
+        <ContentSection title="Subscription" description="Plan selection, checkout, and subscription status." bodyMode="flush">
+          {!isLoaded ? (
+            <div role="status" className="grid min-h-[220px] place-items-center p-6">
+              <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
+            </div>
+          ) : isSignedIn ? (
+            <div className="p-4 md:p-6"><ClerkPricingPlans /></div>
+          ) : (
+            <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
+              <h2 className="text-xl font-semibold text-foreground">Account required</h2>
+              <p className="text-sm leading-6 text-muted-foreground">Sign in or create an account to view and manage a subscription.</p>
+              {isAuthEnabled ? (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <OwnedButton type="button" onClick={() => openSignUp()}>Create account</OwnedButton>
+                  <OwnedButton type="button" variant="outline" onClick={() => openSignIn()}>Sign in</OwnedButton>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </ContentSection>
+      </PageContent>
+    </WorkspacePage>
+  );
 }
 
 function AnalyticsConsentDialog({ open, onChoose }: { open: boolean; onChoose: (consent: Exclude<AnalyticsConsent, "unknown">) => void }) {

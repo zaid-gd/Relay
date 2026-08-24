@@ -80,6 +80,7 @@ type ShellPage =
   | "team-chat"
   | "settings"
   | "account"
+  | "subscription"
   | "profile"
   | "profile-edit"
   | "organization-profile";
@@ -254,7 +255,7 @@ export function WorkspaceShell({
   }, [router]);
 
   const title = useMemo(
-    () => allRoutes.find((route) => route.page === page)?.label ?? "Relay",
+    () => page === "subscription" ? "Subscription" : allRoutes.find((route) => route.page === page)?.label ?? "Relay",
     [page],
   );
 
@@ -300,8 +301,8 @@ export function WorkspaceShell({
 
           <div className="ml-3 flex items-center gap-1.5 lg:ml-0">
             {isSignedIn ? (
-              <Button asChild variant="outline" className="h-8 px-2.5 text-xs shadow-none">
-                <Link href="/account#plans">
+              <Button asChild variant={page === "subscription" ? "secondary" : "outline"} className="h-8 px-2.5 text-xs shadow-none">
+                <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined}>
                   <CreditCard className="size-3.5" />
                   <span className="hidden sm:inline">Plans & billing</span>
                 </Link>
@@ -690,7 +691,7 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
         ) : null}
         {isSignedIn ? (
           <DropdownMenuItem asChild>
-            <Link href="/account#plans">
+            <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined} className={cn(page === "subscription" && "bg-accent")}>
               <CreditCard /> Plans & billing
             </Link>
           </DropdownMenuItem>
