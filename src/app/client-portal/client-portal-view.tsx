@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -26,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { PublicMediaVersionComments } from "@/components/media-version-comments";
 import type { MediaVersionComment } from "@/features/media-version-comments/media-version-comments";
 import { parseMediaVersionComments } from "@/features/media-version-comments/media-version-comments-data";
+import { trackOptionalEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 
 type PublicSource = { provider: "YouTube" | "Vimeo" | "Link"; url: string };
@@ -356,6 +358,7 @@ export function ClientPortalView({ token }: { token: string }) {
   const [displayName, setDisplayName] = useState("");
   const [commentBusyOutputId, setCommentBusyOutputId] = useState("");
   const [busyCommentId, setBusyCommentId] = useState("");
+  const trackedPortalOpen = useRef(false);
 
   const publicComments = parseMediaVersionComments(publicCommentsResult);
   const publicFiles = readPublicFiles(publicFilesResult);
@@ -372,6 +375,12 @@ export function ClientPortalView({ token }: { token: string }) {
   useEffect(() => {
     if (publicResult !== undefined) setPinBusy(false);
   }, [publicResult]);
+
+  useEffect(() => {
+    if (access.kind !== "active" || trackedPortalOpen.current) return;
+    trackedPortalOpen.current = true;
+    trackOptionalEvent("client_portal_opened", { result: "active" });
+  }, [access.kind]);
 
   function unlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -411,6 +420,7 @@ export function ClientPortalView({ token }: { token: string }) {
         authorName: displayName.trim(),
         body,
       });
+      trackOptionalEvent("comment_added", { surface: "portal" });
     } finally {
       setCommentBusyOutputId("");
     }

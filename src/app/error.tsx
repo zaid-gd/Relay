@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { reportEssentialError } from "@/lib/telemetry";
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    reportEssentialError(error);
+  }, [error]);
   return (
     <main id="main-content" className="grid min-h-dvh place-items-center bg-[var(--surface-canvas)] px-4 py-8 text-[var(--text-primary)]">
       <section className="w-full max-w-[560px] rounded-[var(--radius-panel)] border border-[var(--app-border)] bg-[var(--surface-panel)] p-6 text-[var(--text-primary)] shadow-[var(--shadow-panel)] md:p-8" aria-labelledby="error-heading">

@@ -11,6 +11,7 @@ import { FieldLayout } from "@/components/ui/field-layout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { SettingsState, WorkItem } from "@/lib/types";
+import { trackOptionalEvent } from "@/lib/telemetry";
 
 type SalaryPlan = {
   _id: string;
@@ -123,6 +124,7 @@ export function SalaryPlansPanel({ settings, projects, isOwner }: SalaryPlansPan
       const changes = { clientId: draft.clientId, requiredProjectCount, amount, startDate: draft.startDate, notes: draft.notes };
       if (draft.planId) await updatePlan({ planId: draft.planId, changes });
       else await createPlan(changes);
+      trackOptionalEvent("salary_plan_used", { action: draft.planId ? "update" : "create" });
       setDraft({ ...emptyDraft, clientId: draft.clientId, startDate: draft.startDate });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save the Salary Plan.");
@@ -136,6 +138,7 @@ export function SalaryPlansPanel({ settings, projects, isOwner }: SalaryPlansPan
     setError("");
     try {
       await setArchived({ planId: plan._id, archived: !plan.archived });
+      trackOptionalEvent("salary_plan_used", { action: plan.archived ? "restore" : "archive" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update the Salary Plan.");
     } finally {
@@ -148,6 +151,7 @@ export function SalaryPlansPanel({ settings, projects, isOwner }: SalaryPlansPan
     setError("");
     try {
       await setReceived({ batchId: batch._id, received: !(batch.received ?? batch.paid), correctionNote: correctionNotes[batch._id] ?? batch.correctionNote ?? "" });
+      trackOptionalEvent("salary_batch_used", { action: (batch.received ?? batch.paid) ? "unreceived" : "received" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not update payment state.");
     } finally {
@@ -160,6 +164,7 @@ export function SalaryPlansPanel({ settings, projects, isOwner }: SalaryPlansPan
     setError("");
     try {
       await setCorrectionNote({ batchId: batch._id, correctionNote: correctionNotes[batch._id] ?? "" });
+      trackOptionalEvent("salary_batch_used", { action: "correction_note" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save the correction note.");
     } finally {
