@@ -92,6 +92,8 @@ type DashboardProps = {
     active: number;
     unpaid: number;
     earned: number;
+    collected: number;
+    outstanding: number;
     salaryEdits: number;
     salaryBatchProgress: number;
   };
@@ -609,7 +611,7 @@ export function PrecisionDashboard(props: DashboardProps) {
           </>}
         />}
       />
-      <PageContent>
+      <PageContent className="flex flex-col gap-4 space-y-0">
       <AnimatePresence initial={false}>
         {showFilters ? (
           <motion.div
@@ -654,6 +656,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </AnimatePresence>
 
       <motion.div
+        className="order-2"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.04, duration: reduceMotion ? 0 : 0.5, ease: easing }}
@@ -694,11 +697,11 @@ export function PrecisionDashboard(props: DashboardProps) {
           <div className="mt-1 flex items-baseline gap-2">
             <p className="truncate text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
               <AnimatedNumber
-                value={props.stats.earned}
+                value={props.stats.collected}
                 format={(value) => formatMoney(value, props.settings.currencyCode)}
               />
             </p>
-            <span className="shrink-0 text-[10px] text-[var(--app-muted)]">{props.stats.unpaid} unpaid</span>
+            <span className="shrink-0 text-[10px] text-[var(--app-muted)]">{formatMoney(props.stats.outstanding, props.settings.currencyCode)} due</span>
           </div>
         </div>
         {showSalaryBatch ? (
@@ -739,6 +742,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </motion.div>
 
       <motion.div
+        className="order-3"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.08, duration: reduceMotion ? 0 : 0.55, ease: easing }}
@@ -940,6 +944,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </motion.div>
 
       <motion.section
+        className="order-1"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.12, duration: reduceMotion ? 0 : 0.55, ease: easing }}

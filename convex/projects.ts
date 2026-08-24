@@ -37,7 +37,6 @@ const projectUpdateValidator = v.object({
   startDate: v.optional(v.string()),
   dueDate: v.optional(v.string()),
   earnings: v.optional(v.number()),
-  paid: v.optional(v.boolean()),
   notes: v.optional(v.string()),
 });
 
@@ -79,6 +78,52 @@ async function requireTeamPermission(
   const membership = await activeMembership(ctx, teamId, userId);
   if (!membership || !membership.permissions[permission]) throw new Error("Permission denied");
   return membership;
+}
+
+async function requirePaymentAccess(ctx: MutationCtx, project: Doc<"projects">) {
+  const identity = await requireIdentity(ctx);
+  if (!project.teamId) {
+    if (project.ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
+    return identity;
+  }
+  const membership = await activeMembership(ctx, project.teamId, identity.tokenIdentifier);
+  if (!membership || !(membership.permissions.manageFinance ?? membership.role !== "Reviewer")) throw new Error("Permission denied");
+  return identity;
+}
+
+async function isLegacySalaryProject(ctx: MutationCtx, project: Doc<"projects">) {
+  const workspaceId = project.teamId ? ctx.db.normalizeId("teamWorkspaces", project.teamId) : null;
+  const ownerUserId = project.teamId
+    ? (workspaceId ? (await ctx.db.get(workspaceId))?.ownerUserId : undefined)
+    : project.ownerUserId;
+  const settings = ownerUserId
+    ? await ctx.db.query("settings").withIndex("by_userId", (q) => q.eq("userId", ownerUserId)).unique()
+    : null;
+  return project.workType.trim().toLowerCase() === (settings?.salaryWorkType ?? "Job / Salary").trim().toLowerCase();
+}
+
+async function recordPaymentActivity(
+  ctx: MutationCtx,
+  project: Doc<"projects">,
+  identity: Awaited<ReturnType<typeof requireIdentity>>,
+  paid: boolean,
+) {
+  const existing = await ctx.db
+    .query("projectActivity")
+    .withIndex("by_projectId_and_createdAt", (q) => q.eq("projectId", project.id))
+    .order("desc")
+    .take(150);
+  if (existing.length >= 150) await ctx.db.delete(existing[existing.length - 1]._id);
+  await ctx.db.insert("projectActivity", {
+    projectId: project.id,
+    ownerUserId: project.ownerUserId,
+    teamId: project.teamId,
+    actorUserId: identity.tokenIdentifier,
+    actorName: (identity.name || identity.nickname || identity.email || "Relay user").trim().slice(0, 120),
+    kind: "project_updated",
+    message: `${project.title} was marked ${paid ? "paid" : "unpaid"}.`,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 async function validatedAssignees(ctx: FunctionCtx, teamId: string | undefined, userIds: string[]) {
@@ -471,7 +516,6 @@ export const update = mutation({
     );
     const title = args.changes.title?.trim();
     if (args.changes.title !== undefined && !title) throw new Error("Project title is required");
-    const paid = args.changes.paid ?? project.paid;
     const workType = args.changes.workType ?? project.workType;
     const earnings = salaryPlan || (!project.teamId && workType === settings.salaryWorkType)
       ? 0
@@ -488,9 +532,32 @@ export const update = mutation({
       ...(title === undefined ? {} : { title: title.slice(0, 160) }),
       ...(args.changes.notes === undefined ? {} : { notes: args.changes.notes.trim().slice(0, 4000) }),
       ...(assigneeUserIds === undefined ? {} : { assigneeUserIds }),
-      paidDate: paid ? project.paidDate ?? new Date().toISOString() : undefined,
       updatedAt: new Date().toISOString(),
     });
+    return null;
+  },
+});
+
+export const setPayment = mutation({
+  args: { projectId: v.string(), paid: v.boolean() },
+  handler: async (ctx, args) => {
+    const project = await getProject(ctx, args.projectId);
+    const identity = await requirePaymentAccess(ctx, project);
+    if (project.status !== "Delivered") throw new Error("Only delivered Projects can be marked paid");
+    if (project.salaryPlanId) throw new Error("Salary Plan Projects use Salary Batch payment tracking");
+    if (!(Number.isFinite(project.earnings) && project.earnings > 0)) {
+      throw new Error("Project must have a positive agreed amount");
+    }
+    if (await isLegacySalaryProject(ctx, project)) {
+      throw new Error("Salary Projects use Salary Batch payment tracking");
+    }
+    const paidDate = args.paid ? project.paidDate ?? new Date().toISOString() : undefined;
+    await ctx.db.patch(project._id, {
+      paid: args.paid,
+      paidDate,
+      updatedAt: new Date().toISOString(),
+    });
+    await recordPaymentActivity(ctx, project, identity, args.paid);
     return null;
   },
 });

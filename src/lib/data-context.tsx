@@ -40,6 +40,7 @@ const projectsApi = {
   listSalaryPlans: makeFunctionReference<"query", { includeArchived?: boolean }, unknown[]>("salaryPlans:list"),
   create: makeFunctionReference<"mutation", { project: ReturnType<typeof cloudProjectInput> }, string>("projects:create"),
   update: makeFunctionReference<"mutation", { projectId: string; changes: ReturnType<typeof cloudProjectChanges> }, null>("projects:update"),
+  setPayment: makeFunctionReference<"mutation", { projectId: string; paid: boolean }, null>("projects:setPayment"),
   setArchived: makeFunctionReference<"mutation", { projectId: string; archived: boolean }, null>("projects:setArchived"),
   remove: makeFunctionReference<"mutation", { projectId: string }, null>("projects:remove"),
   setSalaryBatchPaid: makeFunctionReference<"mutation", { batchId: string; paid: boolean }, null>("projects:setSalaryBatchPaid"),
@@ -1149,6 +1150,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const convexResources = useQuery(api.resourceLinks.list, {});
   const createProject = useMutation(projectsApi.create);
   const updateProject = useMutation(projectsApi.update);
+  const setProjectPayment = useMutation(projectsApi.setPayment);
   const setProjectArchived = useMutation(projectsApi.setArchived);
   const upsertProjectGroup = useMutation(api.projectGroups.upsert);
   const deleteProject = useMutation(projectsApi.remove);
@@ -1420,6 +1422,9 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
               if (!previous) return [];
               return [
                 updateProject({ projectId: project.id, changes: cloudProjectChanges(project) }),
+                ...(previous.paid !== project.paid
+                  ? [setProjectPayment({ projectId: project.id, paid: Boolean(project.paid) })]
+                  : []),
                 ...(previous.archived !== project.archived
                   ? [setProjectArchived({ projectId: project.id, archived: project.archived ?? false })]
                   : []),
@@ -1453,7 +1458,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [convexAuthenticated, createProject, deleteProject, isSignedIn, setProjectArchived, settings.clients, updateProject],
+    [convexAuthenticated, createProject, deleteProject, isSignedIn, setProjectArchived, setProjectPayment, settings.clients, updateProject],
   );
 
   // Unified settings setter
@@ -1695,7 +1700,6 @@ function cloudProjectChanges(item: WorkItem) {
     startDate: item.startDate,
     dueDate: item.dueDate,
     earnings: item.earnings,
-    paid: item.paid ?? false,
     notes: item.notes,
   };
 }

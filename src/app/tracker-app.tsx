@@ -85,6 +85,7 @@ import { SalaryPlansPanel } from "@/components/salary-plans-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
+import { buildPayoutReport } from "@/lib/payout-reporting";
 import { cn } from "@/lib/utils";
 import { projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -563,6 +564,9 @@ export function TrackerApp({
   const canEditProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.editProjects);
   const canUpdateProjectStatus = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.updateStatus);
   const canCommentProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.commentProjects);
+  const canManageFinance = teamSyncUnavailable || teamDataLoading
+    ? false
+    : !teamData || (projectPermissions?.manageFinance ?? teamData.currentMember.role !== "Reviewer");
   const canManageTeamProjects = Boolean(projectPermissions?.manageTeam);
   const detailProject = useMemo(() => items.find((item) => item.id === detailProjectId) ?? null, [detailProjectId, items]);
   const projectTagOptions = useMemo(() => projectWorkTypeOptions(settings, projects), [projects, settings]);
@@ -616,7 +620,14 @@ export function TrackerApp({
   }, [billingFilter, clientFilter, dueFilter, isProjectPaid, isProjectUnpaid, kindFilter, projects, query, sortKey, statusFilter]);
 
   const stats = useMemo(() => {
-    const earned = personalProjects.filter((item) => isProjectPaid(item)).reduce((total, item) => total + safeMoneyValue(item.earnings), 0);
+    const moneyReport = buildPayoutReport({
+      projects: personalProjects,
+      salaryBatches,
+      salaryWorkType: settings.salaryWorkType,
+      salaryBatchAmount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      profileName: settings.profileName,
+      period: "all",
+    });
     const unpaid = personalProjects.filter((item) => isProjectUnpaid(item)).length;
     const active = personalProjects.filter((item) => !isDoneStatus(item.status)).length;
     const salaryBatchSize = normalizedSalaryBatchSize(settings.salaryBatchSize);
@@ -633,13 +644,15 @@ export function TrackerApp({
       total: personalProjects.length,
       active,
       unpaid,
-      earned: earned + salaryBatches.reduce((total, batch) => total + (batch.amount ?? normalizedSalaryBatchAmount(settings.salaryBatchAmount)), 0),
+      earned: moneyReport.earned,
+      collected: moneyReport.collected,
+      outstanding: moneyReport.outstanding,
       salaryEdits,
       salaryBatchProgress: unsettledSalaryProjects.length % salaryBatchSize,
       delivered: delivered.length,
       avgTurnaroundDays
     };
-  }, [isProjectPaid, isProjectUnpaid, personalProjects, salaryBatches, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
+  }, [isProjectUnpaid, personalProjects, salaryBatches, settings.profileName, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
 
   function openNewProject(scope: "personal" | "team" = "personal") {
     if (scope === "team" && !canCreateTeamProjects) {
@@ -829,8 +842,8 @@ export function TrackerApp({
   }
 
   function updateProjectPayment(project: WorkItem, paid: boolean) {
-    if (project.teamId && !canEditProjects) {
-      notify("Your team role cannot edit team project payment status.", "warning");
+    if (project.teamId && !canManageFinance) {
+      notify("Your team role cannot manage project payments.", "warning");
       return;
     }
     if (!isClientBillableProject(project)) {
@@ -947,6 +960,7 @@ export function TrackerApp({
       settings={settings}
       view={activeProjectView}
       canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
+      canManagePayment={!isSample && (canManageFinance || !detailProject.teamId)}
       canDelete={canDeleteProject(detailProject)}
       canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)}
       canComment={!isSample && canCommentProjects}
@@ -1058,9 +1072,10 @@ export function TrackerApp({
         settings={settings}
         editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
         currentUserId={teamData?.currentMember.userId}
+        canManageFinance={canManageFinance}
         onUpdateBatchPayment={updateSalaryBatchPayment}
       />
-      <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner={!teamData || teamData.currentMember.role === "Owner"} />
+      {canManageFinance ? <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner={!teamData || teamData.currentMember.role === "Owner"} /> : null}
     </div>
   ) : page === "integrations" ? (
     <IntegrationsDesignPage projects={personalProjects} settings={settings} setSettings={setSettings} notify={notify} onEditProject={openEditProject} />
@@ -1137,6 +1152,7 @@ export function TrackerApp({
       project={detailProject}
       settings={settings}
       canEdit={!isSample && (canEditProjects || !detailProject?.teamId)}
+      canManagePayment={!isSample && (canManageFinance || !detailProject?.teamId)}
       canDelete={canDeleteProject(detailProject)}
       canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject?.teamId)}
       canComment={!isSample && canCommentProjects}
@@ -4742,12 +4758,13 @@ function normalizeChecklistCompleted(items: string[] = [], completed: Record<str
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
 }
 
-function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
+function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
   project: WorkItem;
   projectGroup?: import("@/lib/types").ProjectGroup;
   settings: SettingsState;
   view: ProjectWorkspaceView;
   canEdit: boolean;
+  canManagePayment: boolean;
   canDelete: boolean;
   canUpdateStatus: boolean;
   canComment: boolean;
@@ -4799,7 +4816,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><ProjectMetadataRow label="Client" value={project.client || "Not assigned"} /><ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} /><ProjectMetadataRow label="Financial type" value={project.workType} /><ProjectMetadataRow label="Created" value={project.createdAt ? formatShortDateTime(project.createdAt) : "Not recorded"} /></dl>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{project.notes || "No internal notes."}</p>
           </ContentSection>
-          <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
+          <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
         </div> : null}
 
         {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} canResolveComments={canComment} /> : null}
@@ -4819,7 +4836,7 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canD
   );
 }
 
-function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
+function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canManagePayment: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
   if (!project) {
     return null;
   }
@@ -4938,7 +4955,7 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
                 </div>
                 <div className="flex items-center gap-3">
                   <OwnedBadge variant={project.paid ? "default" : "outline"}>{isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"}</OwnedBadge>
-                  <OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />
+                  <OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />
                 </div>
               </div>
               {project.paidDate ? <p className="mt-2 text-xs text-muted-foreground">Marked paid {formatShortDateTime(project.paidDate)}.</p> : null}
