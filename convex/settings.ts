@@ -9,6 +9,17 @@ const teamMemberSchema = v.object({
   email: v.string(),
 });
 
+const clientValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  company: v.string(),
+  contactName: v.string(),
+  email: v.string(),
+  phone: v.string(),
+  notes: v.string(),
+  archived: v.boolean(),
+});
+
 const customProjectTemplateValidator = v.object({
   id: v.string(),
   name: v.string(),
@@ -90,6 +101,7 @@ export const upsert = mutation({
     weekStart: v.string(),
     currencyCode: v.string(),
     customClients: v.optional(v.array(v.string())),
+    clients: v.optional(v.array(clientValidator)),
     customProjectTemplates: v.optional(v.array(customProjectTemplateValidator)),
     projectTags: v.array(v.string()),
     salaryWorkType: v.string(),

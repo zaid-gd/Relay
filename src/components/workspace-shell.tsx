@@ -176,6 +176,7 @@ export function WorkspaceShell({
   onNewProject,
   canCreateProject,
   starterNavigation = false,
+  showTeamNavigation = false,
   notificationSlot,
   children,
 }: {
@@ -184,6 +185,7 @@ export function WorkspaceShell({
   onNewProject: () => void;
   canCreateProject: boolean;
   starterNavigation?: boolean;
+  showTeamNavigation?: boolean;
   notificationSlot?: ReactNode;
   children: ReactNode;
 }) {
@@ -249,6 +251,7 @@ export function WorkspaceShell({
         page={page}
         settings={settings}
         starterNavigation={starterNavigation}
+        showTeamNavigation={showTeamNavigation}
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
         onSearch={() => setCommandOpen(true)}
@@ -324,7 +327,7 @@ export function WorkspaceShell({
           data-testid="workspace-content-surface"
           tabIndex={-1}
           className={cn(
-            "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-xl lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-md lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
             reduceMotion ? "lg:duration-0" : "lg:duration-300",
             collapsed ? "lg:left-[62px]" : "lg:left-[246px]",
           )}
@@ -348,8 +351,8 @@ export function WorkspaceShell({
         </motion.button>
       ) : null}
 
-      <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} />
-      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} />
+      <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} showTeamNavigation={showTeamNavigation} />
+      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} showTeamNavigation={showTeamNavigation} />
     </div>
   );
 }
@@ -358,6 +361,7 @@ function DesktopSidebar({
   page,
   settings,
   starterNavigation,
+  showTeamNavigation,
   collapsed,
   onCollapsedChange,
   onSearch,
@@ -365,15 +369,22 @@ function DesktopSidebar({
   page: ShellPage;
   settings: SettingsState;
   starterNavigation: boolean;
+  showTeamNavigation: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onSearch: () => void;
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const [showAllTools, setShowAllTools] = useState(false);
+  const availableGroups = routeGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
+    }))
+    .filter((group) => group.items.length);
   const visibleGroups = starterNavigation && !showAllTools
-    ? routeGroups.map((group) => ({ ...group, items: group.items.filter((item) => starterPages.has(item.page) || item.page === page) })).filter((group) => group.items.length)
-    : routeGroups;
+    ? availableGroups.map((group) => ({ ...group, items: group.items.filter((item) => starterPages.has(item.page) || item.page === page) })).filter((group) => group.items.length)
+    : availableGroups;
 
   return (
     <motion.aside
@@ -729,10 +740,12 @@ function WorkspaceCommand({
   open,
   onOpenChange,
   onNewProject,
+  showTeamNavigation,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
+  showTeamNavigation: boolean;
 }) {
   const reduceMotion = useHydratedReducedMotion();
 
@@ -760,7 +773,10 @@ function WorkspaceCommand({
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
-              {routeGroups.map((group) => (
+              {routeGroups.map((group) => ({
+                ...group,
+                items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
+              })).filter((group) => group.items.length).map((group) => (
                 <CommandGroup key={group.label} heading={group.label}>
                   {group.items.map((item) => {
                     const Icon = item.icon;
@@ -789,11 +805,13 @@ function MobileNavigation({
   open,
   onOpenChange,
   starterNavigation,
+  showTeamNavigation,
 }: {
   page: ShellPage;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   starterNavigation: boolean;
+  showTeamNavigation: boolean;
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const primaryRoutes = starterNavigation
@@ -855,7 +873,10 @@ function MobileNavigation({
             <SheetTitle>Workspace</SheetTitle>
           </SheetHeader>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            {allRoutes.filter((route) => !primaryRoutes.some((mobile) => mobile.page === route.page)).map((item) => {
+            {allRoutes
+              .filter((route) => !primaryRoutes.some((mobile) => mobile.page === route.page))
+              .filter((route) => showTeamNavigation || (route.page !== "team" && route.page !== "team-chat"))
+              .map((item) => {
               const Icon = item.icon;
               return (
                 <Link

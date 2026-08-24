@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { WorkItem, SettingsState, SalaryBatch, SalaryState, TeamMember, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "./types";
 import { normalizeIntegrationLinks } from "./integrations";
+import { normalizeClientRecords } from "./clients";
 import { sampleStudioProjects, sampleStudioResources, sampleStudioSettings } from "./sample-studio";
 import {
   FILE_CATEGORY_VALUES,
@@ -92,6 +93,7 @@ const defaultSettings: SettingsState = {
   weekStart: "Mon",
   currencyCode: "USD",
   customClients: [],
+  clients: [],
   customProjectTemplates: [],
   projectTags: [...defaultProjectTags],
   salaryWorkType: defaultSalaryWorkType,
@@ -182,6 +184,7 @@ function freshDefaultSettings(): SettingsState {
     ...defaultSettings,
     projectTags: [...defaultSettings.projectTags],
     customClients: [...defaultSettings.customClients],
+    clients: defaultSettings.clients.map((client) => ({ ...client })),
     customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })),
     projectStages: [...defaultSettings.projectStages],
     notifications: { ...defaultSettings.notifications },
@@ -278,6 +281,7 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
     createdAt: typeof value.createdAt === "string" ? value.createdAt : undefined,
     title,
     client: typeof value.client === "string" ? value.client : "",
+    clientId: typeof value.clientId === "string" ? value.clientId : undefined,
     status: normalizeStoredProjectStatus(value.status),
     workType: stringSetting(value.workType, "Job / Salary"),
     startDate: stringSetting(value.startDate, iso(todayDate())),
@@ -475,6 +479,7 @@ function mergeSettings(stored: Partial<SettingsState>): SettingsState {
     weekStart: optionSetting(r.weekStart, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], defaultSettings.weekStart),
     currencyCode: optionSetting(r.currencyCode, ["USD", "EUR", "GBP", "INR", "AED", "SAR"], defaultSettings.currencyCode),
     customClients: stringListSetting(r.customClients, defaultSettings.customClients),
+    clients: normalizeClientRecords(r.clients, stringListSetting(r.customClients, defaultSettings.customClients)),
     customProjectTemplates: normalizeCustomProjectTemplates(r.customProjectTemplates),
     projectTags,
     salaryWorkType,

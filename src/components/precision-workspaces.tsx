@@ -31,7 +31,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { SalaryBatch, SettingsState, WorkItem } from "@/lib/types";
+import type { Client, SalaryBatch, SettingsState, WorkItem } from "@/lib/types";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { paymentStatusTone, projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -98,8 +98,7 @@ function clientInitials(value: string) {
   return value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "CL";
 }
 
-type ClientRecord = {
-  name: string;
+type ClientRecord = Client & {
   projects: WorkItem[];
   active: number;
   delivered: number;
@@ -112,41 +111,50 @@ export function PrecisionClients({
   projects,
   settings,
   onAddClient,
+  onUpdateClient,
   onViewProject,
 }: {
   projects: WorkItem[];
   settings: SettingsState;
-  onAddClient: (name: string) => void;
+  onAddClient: (client: Omit<Client, "id" | "archived">) => void;
+  onUpdateClient: (client: Client) => void;
   onViewProject: (project: WorkItem) => void;
 }) {
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [newClient, setNewClient] = useState("");
+  const [newCompany, setNewCompany] = useState("");
+  const [newContactName, setNewContactName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newNotes, setNewNotes] = useState("");
   const [copiedName, setCopiedName] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const reduceMotion = useHydratedReducedMotion();
 
   const clients = useMemo(() => {
-    const map = new Map<string, WorkItem[]>();
-    for (const name of settings.customClients) {
-      if (name.trim()) map.set(name.trim(), []);
-    }
+    const records = settings.clients.length ? settings.clients : settings.customClients.map((name) => ({ id: `client-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, name, company: "", contactName: "", email: "", phone: "", notes: "", archived: false }));
+    const map = new Map(records.map((client) => [client.id, { client, projects: [] as WorkItem[] }]));
     for (const project of projects) {
       const name = project.client?.trim();
       if (!name) continue;
-      map.set(name, [...(map.get(name) ?? []), project]);
+      const entry = (project.clientId ? map.get(project.clientId) : undefined) ?? [...map.values()].find(({ client }) => client.name.toLowerCase() === name.toLowerCase());
+      if (entry) entry.projects.push(project);
     }
-    return Array.from(map.entries())
-      .map(([name, clientProjects]): ClientRecord => ({
-        name,
+    return Array.from(map.values())
+      .map(({ client, projects: clientProjects }): ClientRecord => ({
+        ...client,
         projects: clientProjects,
         active: clientProjects.filter(active).length,
         delivered: clientProjects.filter(delivered).length,
         value: clientProjects.filter(delivered).reduce((sum, project) => sum + (Number(project.earnings) || 0), 0),
       }))
-      .filter((client) => !query.trim() || client.name.toLowerCase().includes(query.trim().toLowerCase()))
+      .filter((client) => showArchived || !client.archived)
+      .filter((client) => !query.trim() || [client.name, client.company, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.trim().toLowerCase())))
       .sort((a, b) => b.projects.length - a.projects.length || a.name.localeCompare(b.name));
-  }, [projects, query, settings.customClients]);
+  }, [projects, query, settings.clients, settings.customClients, showArchived]);
 
   useEffect(() => {
     if (!clients.some((client) => client.name === selectedName)) setSelectedName(clients[0]?.name ?? "");
@@ -163,9 +171,14 @@ export function PrecisionClients({
   function addClient() {
     const name = newClient.trim();
     if (!name) return;
-    onAddClient(name);
+    onAddClient({ name, company: newCompany.trim(), contactName: newContactName.trim(), email: newEmail.trim(), phone: newPhone.trim(), notes: newNotes.trim() });
     setSelectedName(name);
     setNewClient("");
+    setNewCompany("");
+    setNewContactName("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewNotes("");
     setAddOpen(false);
   }
 
@@ -184,7 +197,7 @@ export function PrecisionClients({
         eyebrow="Relationships"
         title="Clients"
         description="Projects, delivery history, and account context in one focused directory."
-        actions={<Button className="h-9" onClick={() => setAddOpen(true)}><Plus /> New Client</Button>}
+        actions={<div className="flex gap-2"><Button variant="outline" className="h-9" aria-pressed={showArchived} onClick={() => setShowArchived((value) => !value)}>Archived</Button><Button className="h-9" onClick={() => setAddOpen(true)}><Plus /> New Client</Button></div>}
       />
 
       <PageContent mode="fill">
@@ -266,8 +279,10 @@ export function PrecisionClients({
               <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-[var(--app-active)] text-sm font-semibold text-[var(--app-highlight)]">{clientInitials(selected.name)}</span>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-lg font-semibold">{selected.name}</h2>
-                <p className="mt-1 text-xs text-[var(--app-muted)]">{selected.active} active projects · {selected.delivered} delivered</p>
+                <p className="mt-1 text-xs text-[var(--app-muted)]">{selected.company || `${selected.active} active projects · ${selected.delivered} delivered`}</p>
               </div>
+              <Button variant="outline" className="h-8 self-start text-xs" onClick={() => setEditingClient(selected)}>Edit</Button>
+              <Button variant="outline" className="h-8 self-start text-xs" onClick={() => onUpdateClient({ ...selected, archived: !selected.archived })}>{selected.archived ? "Restore" : "Archive"}</Button>
               <Button
                 variant="outline"
                 className="h-8 self-start border-[var(--app-border)] bg-[var(--app-panel)] text-xs"
@@ -283,6 +298,18 @@ export function PrecisionClients({
               <ClientMetric label="Delivered" value={String(selected.delivered)} />
               <ClientMetric label="Collected" value={money(selected.value, settings.currencyCode)} />
             </div>
+            {[selected.contactName, selected.email, selected.phone, selected.notes].some(Boolean) ? (
+              <dl className="grid gap-3 border-b border-[var(--app-border)] p-5 text-xs sm:grid-cols-2">
+                {[
+                  ["Contact", selected.contactName],
+                  ["Email", selected.email],
+                  ["Phone", selected.phone],
+                  ["Notes", selected.notes],
+                ].filter((entry) => entry[1]).map(([label, value]) => (
+                  <div key={label}><dt className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">{label}</dt><dd className="mt-1 text-[var(--app-ink)]">{value}</dd></div>
+                ))}
+              </dl>
+            ) : null}
             <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5" tabIndex={0} aria-label="Scrollable client project history">
               <div className="mb-3 flex items-center justify-between">
                 <div><h3 className="text-sm font-semibold">Project history</h3><p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Current and completed work for this client.</p></div>
@@ -336,10 +363,43 @@ export function PrecisionClients({
             <DialogTitle>New Client</DialogTitle>
             <DialogDescription>Create a client record now and assign it to projects later.</DialogDescription>
           </DialogHeader>
-          <Input value={newClient} onChange={(event) => setNewClient(event.target.value)} placeholder="Client or company name" autoFocus onKeyDown={(event) => { if (event.key === "Enter") addClient(); }} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input value={newClient} onChange={(event) => setNewClient(event.target.value)} placeholder="Client name" aria-label="Client name" autoFocus />
+            <Input value={newCompany} onChange={(event) => setNewCompany(event.target.value)} placeholder="Company (optional)" aria-label="Company" />
+            <Input value={newContactName} onChange={(event) => setNewContactName(event.target.value)} placeholder="Contact name (optional)" aria-label="Contact name" />
+            <Input value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="Email (optional)" aria-label="Email" type="email" />
+            <Input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Phone (optional)" aria-label="Phone" />
+            <Input value={newNotes} onChange={(event) => setNewNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" />
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={addClient} disabled={!newClient.trim()}>New Client</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editingClient)} onOpenChange={(open) => { if (!open) setEditingClient(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>Update the durable client record without changing its project links.</DialogDescription>
+          </DialogHeader>
+          {editingClient ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(["name", "company", "contactName", "email", "phone", "notes"] as const).map((field) => (
+                <Input
+                  key={field}
+                  aria-label={{ name: "Client name", company: "Company", contactName: "Contact name", email: "Email", phone: "Phone", notes: "Notes" }[field]}
+                  value={editingClient[field]}
+                  type={field === "email" ? "email" : "text"}
+                  onChange={(event) => setEditingClient({ ...editingClient, [field]: event.target.value })}
+                />
+              ))}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+            <Button disabled={!editingClient?.name.trim()} onClick={() => { if (editingClient) onUpdateClient({ ...editingClient, name: editingClient.name.trim() }); setEditingClient(null); }}>Save Client</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

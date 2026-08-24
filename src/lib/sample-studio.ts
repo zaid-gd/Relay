@@ -18,6 +18,11 @@ export const sampleStudioSettings: SettingsState = {
   weekStart: "Mon",
   currencyCode: "USD",
   customClients: ["Aperture Coffee", "Field Notes", "Orbit Labs"],
+  clients: [
+    { id: "client-aperture-coffee", name: "Aperture Coffee", company: "Aperture Coffee", contactName: "", email: "", phone: "", notes: "", archived: false },
+    { id: "client-field-notes", name: "Field Notes", company: "Field Notes", contactName: "", email: "", phone: "", notes: "", archived: false },
+    { id: "client-orbit-labs", name: "Orbit Labs", company: "Orbit Labs", contactName: "", email: "", phone: "", notes: "", archived: false },
+  ],
   customProjectTemplates: [],
   projectTags: ["Client Work", "Retainer", "Personal Channel"],
   salaryWorkType: "Retainer",

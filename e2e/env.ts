@@ -24,6 +24,7 @@ export function loadE2EEnvironment() {
 }
 
 export function cloudE2EAvailable() {
+  if (process.env.E2E_LOCAL_ONLY === "1") return false;
   return Boolean(
     process.env.CLERK_SECRET_KEY &&
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&

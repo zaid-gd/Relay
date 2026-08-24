@@ -11,7 +11,8 @@ import type { Id } from "../../convex/_generated/dataModel";
 import Link from "next/link";
 import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
-import type { WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
+import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
+import { mergeClientRecords } from "@/lib/clients";
 import {
   APPROVAL_STATUS_LABELS,
   CLIENT_PORTAL_STAGE_VALUES,
@@ -222,6 +223,7 @@ type SettingsState = {
   weekStart: string;
   currencyCode: string;
   customClients: string[];
+  clients: Client[];
   customProjectTemplates: SavedProjectTemplate[];
   projectTags: string[];
   salaryWorkType: string;
@@ -352,6 +354,7 @@ const defaultSettings: SettingsState = {
   weekStart: "Mon",
   currencyCode: "USD",
   customClients: [],
+  clients: [],
   customProjectTemplates: [],
   projectTags: [...defaultProjectTags],
   salaryWorkType: defaultSalaryWorkType,
@@ -541,8 +544,17 @@ export function TrackerApp({
   const detailProject = useMemo(() => items.find((item) => item.id === detailProjectId) ?? null, [detailProjectId, items]);
   const projectTagOptions = useMemo(() => projectWorkTypeOptions(settings, projects), [projects, settings]);
   const filterProjectTagOptions = useMemo(() => ["ALL", ...projectTagOptions], [projectTagOptions]);
-  const clientOptions = useMemo(() => buildClientOptions(projects, settings.customClients), [projects, settings.customClients]);
+  const clientRecords = useMemo(
+    () => mergeClientRecords(settings.clients, [...settings.customClients, ...projects.flatMap((project) => project.client ? [project.client] : [])]),
+    [projects, settings.clients, settings.customClients],
+  );
+  const clientOptions = useMemo(() => clientRecords.filter((client) => !client.archived).map((client) => client.name), [clientRecords]);
   const clientFilterOptions = useMemo(() => ["ALL", ...clientOptions], [clientOptions]);
+
+  useEffect(() => {
+    if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords)) return;
+    setSettings((current) => ({ ...current, clients: clientRecords }));
+  }, [clientRecords, setSettings, settings.clients]);
   const isClientBillableProject = useCallback((item: WorkItem) => (
     !isSalaryWorkType(item.workType, settings) &&
     isDoneStatus(item.status) &&
@@ -800,6 +812,8 @@ export function TrackerApp({
 
   function saveProject() {
     const canonicalClient = canonicalClientName(form.client || "", clientOptions);
+    const clientRecord = clientRecords.find((client) => client.name.toLowerCase() === canonicalClient.toLowerCase())
+      ?? mergeClientRecords([], [canonicalClient])[0];
     const normalizedWorkType = canonicalWorkType(form.workType, projectTagOptions);
     const normalizedForm = { ...form, client: canonicalClient, workType: normalizedWorkType, integrationLinks: normalizeProjectIntegrationLinks(form.integrationLinks) };
     const typeConfig = getTypeConfig(normalizedForm.workType, settings);
@@ -818,6 +832,7 @@ export function TrackerApp({
       createdAt: form.createdAt || new Date().toISOString(),
       profileId: profile.id,
       client: normalizedForm.client?.trim() || "",
+      clientId: clientRecord?.id,
       notes: normalizedForm.notes.trim(),
       earnings: typeConfig.earningsMode === "batch" ? 0 : safeMoneyValue(normalizedForm.earnings),
       paid: typeConfig.earningsMode === "batch" ? false : Boolean(normalizedForm.paid),
@@ -825,6 +840,9 @@ export function TrackerApp({
       checklistCompleted: normalizeChecklistCompleted(normalizedForm.checklistItems, normalizedForm.checklistCompleted),
       integrationLinks: normalizedForm.integrationLinks
     };
+    if (clientRecord && !settings.clients.some((client) => client.id === clientRecord.id)) {
+      setSettings((current) => ({ ...current, customClients: [...current.customClients, clientRecord.name], clients: [...current.clients, clientRecord] }));
+    }
     setItems((current) => (editingId ? current.map((item) => (item.id === editingId ? payload : item)) : [payload, ...current]));
     if (!editingId) {
       trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
@@ -851,15 +869,26 @@ export function TrackerApp({
     notify(editingId ? "Project updated." : "Project created.");
   }
 
-  function handleAddClient(clientName: string) {
-    const canonical = canonicalClientName(clientName, clientOptions, false);
+  function handleAddClient(client: Omit<Client, "id" | "archived">) {
+    const canonical = canonicalClientName(client.name, clientOptions, false);
     if (!canonical) return;
     setSettings((current) => {
-      const existing = findExistingClientName(canonical, [...current.customClients, ...buildClientOptions(projects)]);
+      const existing = current.clients.find((record) => record.name.toLowerCase() === canonical.toLowerCase());
       if (existing) return current;
-      return { ...current, customClients: [...current.customClients, canonical] };
+      const record = mergeClientRecords([], [canonical])[0];
+      return {
+        ...current,
+        customClients: [...current.customClients, canonical],
+        clients: [...current.clients, { ...record, ...client, name: canonical }],
+      };
     });
     notify(`Client "${canonical}" added.`);
+  }
+
+  function handleUpdateClient(client: Client) {
+    setSettings((current) => ({ ...current, clients: current.clients.map((record) => record.id === client.id ? client : record) }));
+    setItems((current) => current.map((project) => project.clientId === client.id ? { ...project, client: client.name } : project));
+    notify(client.archived ? `Client "${client.name}" archived.` : `Client "${client.name}" updated.`);
   }
 
   const pageContent = page === "dashboard" && personalProjects.length === 0 && !isSample ? (
@@ -919,7 +948,7 @@ export function TrackerApp({
       canDeleteProject={canDeleteProject}
     />
   ) : page === "clients" ? (
-    <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onViewProject={openProjectDetails} />
+    <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onViewProject={openProjectDetails} />
   ) : page === "timeline" ? (
     <PrecisionTimeline projects={personalProjects} onViewProject={openProjectDetails} />
   ) : page === "calendar" ? (
@@ -1055,6 +1084,7 @@ export function TrackerApp({
         onNewProject={() => openNewProject("personal")}
         canCreateProject={canCreateProjects}
         starterNavigation={!isSample && personalProjects.length === 0}
+        showTeamNavigation={activeTeamMembers.length > 1 || settings.teamMembers.length > 0}
         notificationSlot={<NotificationBell settings={settings} />}
       >
         {isSample ? <SampleModeBar /> : null}
@@ -1247,7 +1277,6 @@ function AppLoadingStatus() {
 
 function WelcomeChoiceDialog({
   open,
-  variant,
   onChooseLocal,
   onCreateAccount,
   onSignIn
@@ -1258,86 +1287,53 @@ function WelcomeChoiceDialog({
   onCreateAccount: () => void;
   onSignIn: () => void;
 }) {
-  if (variant === "control") {
-    return (
-      <OwnedDialog open={open} onOpenChange={() => {}}>
-        <OwnedDialogContent
-          showCloseButton={false}
-          className="border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-ink)] sm:max-w-lg"
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => event.preventDefault()}
-        >
-          <OwnedDialogHeader>
-            <OwnedDialogTitle className="text-[28px] leading-tight">Choose how to start</OwnedDialogTitle>
-            <OwnedDialogDescription>
-              Use Relay locally on this device, or create an account to sync supported workspace data.
-            </OwnedDialogDescription>
-          </OwnedDialogHeader>
-          <div className="grid gap-2">
-            <OwnedButton type="button" variant="outline" onClick={onChooseLocal}>Use locally</OwnedButton>
-            <OwnedButton type="button" onClick={onCreateAccount}>Create account</OwnedButton>
-            <OwnedButton type="button" variant="ghost" onClick={onSignIn} className="text-muted-foreground">Sign in</OwnedButton>
-          </div>
-        </OwnedDialogContent>
-      </OwnedDialog>
-    );
-  }
-
   return (
     <OwnedDialog open={open} onOpenChange={() => {}}>
       <OwnedDialogContent
         showCloseButton={false}
         data-testid="welcome-choice-dialog"
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--app-border)] bg-[var(--app-panel)] p-5 text-[var(--app-ink)] sm:p-6 lg:aspect-video lg:max-w-[960px] lg:grid-rows-[auto_1fr] lg:overflow-hidden"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--app-border)] bg-[var(--app-panel)] p-5 text-[var(--app-ink)] sm:max-w-[880px] sm:p-6"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">See how a real project moves through Relay</OwnedDialogTitle>
+          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">Choose how to use Relay</OwnedDialogTitle>
           <OwnedDialogDescription>
-            Explore a populated production workflow first. Choose where your own workspace lives only when you are ready.
+            Keep work on this device, sync an account, or explore a read-only sample.
           </OwnedDialogDescription>
         </OwnedDialogHeader>
-        <div className="grid min-h-0 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex min-h-0 flex-col justify-between rounded-lg border bg-card p-5 text-card-foreground">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-highlight)]">Guided preview</p>
-              <h3 className="mt-2 text-xl font-semibold">Experience the workflow</h3>
-              <p className="mt-2 max-w-[48ch] text-sm leading-relaxed text-muted-foreground">Open a read-only studio with an active deadline, a client review, recent activity, and a paid delivery. No account required.</p>
-            </div>
-            <OwnedButton asChild variant="outline" className="mt-5 min-h-12 w-full">
-              <Link href="/sample-studio">Explore a sample studio</Link>
-            </OwnedButton>
+        <div className="grid gap-3 md:grid-cols-3">
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Local Mode</p>
+            <h3 className="mt-2 text-lg font-semibold">Work on this device</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Fast solo workspace with no account.</p>
+            <p className="mt-4 text-xs leading-relaxed text-[var(--app-warning)]">Stored in this browser. Clearing site data can remove your work.</p>
+            <OwnedButton type="button" onClick={onChooseLocal} className="mt-4 w-full">Use Local Mode</OwnedButton>
           </section>
 
-          <div className="grid min-h-0 content-start gap-4">
-            <section className="rounded-lg border border-[var(--app-accent)] bg-card p-5 text-card-foreground shadow-[0_0_0_1px_color-mix(in_srgb,var(--app-accent)_18%,transparent)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-highlight)]">Your workspace</p>
-              <h3 className="mt-2 text-xl font-semibold">Pick up where you left off</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Sign in to sync your projects, settings, resources, and team workspace.</p>
-              <OwnedButton type="button" size="lg" onClick={onSignIn} className="mt-4 min-h-12 w-full shadow-[0_10px_28px_color-mix(in_srgb,var(--app-accent)_28%,transparent)]">Sign in</OwnedButton>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <OwnedButton type="button" variant="outline" onClick={onCreateAccount}>Create account</OwnedButton>
-                <OwnedButton type="button" variant="ghost" onClick={onChooseLocal}>Try on this device</OwnedButton>
-              </div>
-            </section>
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
+            <h3 className="mt-2 text-lg font-semibold">Sync your workspace</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Create an account for supported cloud and Team features.</p>
+            <OwnedButton type="button" variant="outline" onClick={onCreateAccount} className="mt-4 w-full">Create account</OwnedButton>
+          </section>
 
-            <OwnedAccordion type="multiple" className="grid gap-2">
-              <OwnedAccordionItem value="before-you-start" className="rounded-md border px-3">
-                <OwnedAccordionTrigger className="py-3 text-[13px] font-semibold hover:no-underline">Before you start</OwnedAccordionTrigger>
-                <OwnedAccordionContent className="text-[13px] leading-relaxed text-muted-foreground">
-                Local mode saves projects and settings in this browser, so clearing site data can remove them. Account mode syncs supported project, settings, resource, and salary-batch records. If sync fails, local records are only removed after confirmed uploads. Integrations currently save links and configuration; they are not automatic file sync. Read the <Link href="/privacy" style={{ color: accent }}>Privacy Policy</Link> and <Link href="/terms" style={{ color: accent }}>Terms</Link>.
-                </OwnedAccordionContent>
-              </OwnedAccordionItem>
-              <OwnedAccordionItem value="how-teams-work" className="rounded-md border px-3">
-                <OwnedAccordionTrigger className="py-3 text-[13px] font-semibold hover:no-underline">How teams work</OwnedAccordionTrigger>
-                <OwnedAccordionContent className="text-[13px] leading-relaxed text-muted-foreground">
-                Signed-in editors and producers can share team projects according to their current role permissions. Editors can publish private review links for clients. Connected-service settings are manual links and configuration, not OAuth or automatic transfers.
-                </OwnedAccordionContent>
-              </OwnedAccordionItem>
-            </OwnedAccordion>
-          </div>
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Sample Workspace</p>
+            <h3 className="mt-2 text-lg font-semibold">Explore a real workflow</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Open realistic read-only projects, reviews, activity, and delivery data.</p>
+            <OwnedButton asChild variant="outline" className="mt-4 w-full">
+              <Link href="/sample-studio">Open Sample Workspace</Link>
+            </OwnedButton>
+          </section>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground">
+          <p>Already have an account?</p>
+          <OwnedButton type="button" variant="ghost" onClick={onSignIn}>Sign in</OwnedButton>
+        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Account sync covers supported workspace records. Integrations store links and settings only. Read the <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link> and <Link href="/terms" className="underline underline-offset-2">Terms</Link>.
+        </p>
       </OwnedDialogContent>
     </OwnedDialog>
   );
@@ -3306,7 +3302,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   }
 
   function resetSettings() {
-    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
+    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
     notify("Settings reset to defaults.", "warning");
   }
 

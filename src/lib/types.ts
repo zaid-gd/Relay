@@ -49,6 +49,7 @@ export type WorkItem = {
   createdAt?: string;
   title: string;
   client?: string;
+  clientId?: string;
   status: StoredProjectStatus;
   workType: string;
   startDate: string;
@@ -68,6 +69,17 @@ export type WorkItem = {
   }>;
   checklistItems?: string[];
   checklistCompleted?: Record<string, boolean>;
+};
+
+export type Client = {
+  id: string;
+  name: string;
+  company: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  notes: string;
+  archived: boolean;
 };
 
 export type SavedProjectTemplate = {
@@ -157,6 +169,7 @@ export type SettingsState = {
   weekStart: string;
   currencyCode: string;
   customClients: string[];
+  clients: Client[];
   customProjectTemplates: SavedProjectTemplate[];
   projectTags: string[];
   salaryWorkType: string;

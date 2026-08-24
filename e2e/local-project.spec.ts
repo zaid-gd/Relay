@@ -1,6 +1,21 @@
 import { expect, test } from "@playwright/test";
 import { chooseLocalMode, createProject, openApp, openProject, projectRow } from "./helpers";
 
+test("chooses a workspace mode on first entry and remembers Local Mode", async ({ page }) => {
+  await openApp(page, "/");
+
+  const welcome = page.getByRole("dialog", { name: "Choose how to use Relay" });
+  await expect(welcome.getByRole("button", { name: "Use Local Mode" })).toBeVisible();
+  await expect(welcome.getByRole("button", { name: "Create account" })).toBeVisible();
+  await expect(welcome.getByRole("link", { name: "Open Sample Workspace" })).toHaveAttribute("href", "/sample-studio");
+  await expect(welcome.getByText(/clearing site data can remove your work/i)).toBeVisible();
+
+  await welcome.getByRole("button", { name: "Use Local Mode" }).click();
+  await expect(welcome).toBeHidden();
+  await page.reload();
+  await expect(welcome).toBeHidden();
+});
+
 test("creates and persists a project in local mode", async ({ page }) => {
   const title = `Local E2E Project ${Date.now()}`;
   await chooseLocalMode(page);
@@ -49,7 +64,7 @@ test("opens the Privacy Policy and Terms of Service from the profile menu", asyn
   await expect(page.getByRole("heading", { name: "Terms of Service", level: 1 })).toBeVisible();
 });
 
-test("uses a unified compact desktop shell", async ({ page }) => {
+test("uses the Studio Split desktop shell", async ({ page }) => {
   await chooseLocalMode(page);
   await openApp(page, "/projects");
 
@@ -63,11 +78,15 @@ test("uses a unified compact desktop shell", async ({ page }) => {
   const sidebarBox = await sidebar.boundingBox();
   const topbarBox = await topbar.boundingBox();
   const contentSurfaceBox = await contentSurface.boundingBox();
-  expect(sidebarBox?.width).toBe(60);
+  expect(sidebarBox?.width).toBe(240);
   expect(topbarBox?.height).toBe(48);
-  expect(topbarBox?.x).toBe(60);
-  expect(contentSurfaceBox?.x).toBe(60);
-  expect(contentSurfaceBox?.y).toBe(48);
+  expect(topbarBox?.x).toBe(240);
+  expect(contentSurfaceBox?.x).toBe(246);
+  expect(contentSurfaceBox?.y).toBe(54);
+  await expect(sidebar.getByRole("button", { name: "Quick Search (Ctrl K)" })).toBeVisible();
+  await expect(topbar.getByRole("button", { name: "Quick create project" })).toBeVisible();
+  await expect(topbar.getByRole("button", { name: "Open profile menu" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Team" })).toHaveCount(0);
 
   const surfaces = await page.evaluate(() => {
     const sidebarElement = document.querySelector("aside");
@@ -85,7 +104,7 @@ test("uses a unified compact desktop shell", async ({ page }) => {
   expect(surfaces.topbar).toBe(surfaces.sidebar);
   expect(surfaces.sidebarBorder).toBe("0px");
   expect(surfaces.topbarBorder).toBe("0px");
-  expect(parseFloat(surfaces.contentRadius ?? "0")).toBeGreaterThanOrEqual(16);
+  expect(parseFloat(surfaces.contentRadius ?? "0")).toBe(6);
   expect(surfaces.contentOverflow).toBe("auto");
 
   await contentSurface.evaluate((element) => {
@@ -97,8 +116,8 @@ test("uses a unified compact desktop shell", async ({ page }) => {
   });
   await expect.poll(() => contentSurface.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   const scrolledSurfaceBox = await contentSurface.boundingBox();
-  expect(scrolledSurfaceBox?.x).toBe(60);
-  expect(scrolledSurfaceBox?.y).toBe(48);
+  expect(scrolledSurfaceBox?.x).toBe(246);
+  expect(scrolledSurfaceBox?.y).toBe(54);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
