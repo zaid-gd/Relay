@@ -149,6 +149,8 @@ const shellTransition = {
   ease: [0.22, 1, 0.36, 1] as const,
 };
 
+let desktopSidebarCollapsed = false;
+
 const quickRouteShortcuts: Record<string, string> = {
   d: "/",
   c: "/calendar",
@@ -200,7 +202,11 @@ export function WorkspaceShell({
   const goChordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useHydratedReducedMotion();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsedState] = useState(desktopSidebarCollapsed);
+  const setCollapsed = (next: boolean) => {
+    desktopSidebarCollapsed = next;
+    setCollapsedState(next);
+  };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -509,21 +515,8 @@ function DesktopSidebar({
       </nav>
 
       <div className="border-t border-[var(--app-border)] p-1.5">
-        <button
-          type="button"
-          className={cn(
-            "mb-1 flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
-          )}
-          onClick={() => onCollapsedChange(!collapsed)}
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-          aria-expanded={!collapsed}
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          {!collapsed ? <span>Collapse sidebar</span> : null}
-        </button>
         {!collapsed ? (
-          <footer className="mt-2 border-t border-[var(--app-border)] px-2 pt-2 text-[11px] leading-5 text-[var(--app-subtle)]">
+          <footer className="mb-2 border-b border-[var(--app-border)] px-2 pb-2 text-[11px] leading-5 text-[var(--app-subtle)]">
             <nav aria-label="Support and legal" className="flex flex-wrap gap-x-3 gap-y-1">
               <Link className="hover:text-[var(--app-ink)]" href="/contact">Contact</Link>
               <Link className="hover:text-[var(--app-ink)]" href="/privacy">Privacy</Link>
@@ -533,6 +526,19 @@ function DesktopSidebar({
             <p className="mt-1">© {new Date().getFullYear()} Relay</p>
           </footer>
         ) : null}
+        <button
+          type="button"
+          className={cn(
+            "flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
+            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+          )}
+          onClick={() => onCollapsedChange(!collapsed)}
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          {!collapsed ? <span>Collapse sidebar</span> : null}
+        </button>
       </div>
     </motion.aside>
   );

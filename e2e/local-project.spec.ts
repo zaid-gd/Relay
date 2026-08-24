@@ -2,6 +2,24 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { chooseLocalMode, createProject, openApp, openProject, projectRow } from "./helpers";
 
+test("keeps the desktop sidebar collapsed across navigation with a fixed toggle position", async ({ page }) => {
+  await chooseLocalMode(page);
+  await openApp(page, "/projects");
+
+  const collapse = page.getByRole("button", { name: "Collapse navigation" });
+  const expandedBox = await collapse.boundingBox();
+  await collapse.click();
+
+  const expand = page.getByRole("button", { name: "Expand navigation" });
+  const collapsedBox = await expand.boundingBox();
+  if (!expandedBox || !collapsedBox) throw new Error("Sidebar toggle was not measurable");
+  expect(Math.abs((expandedBox.y + expandedBox.height) - (collapsedBox.y + collapsedBox.height))).toBeLessThanOrEqual(1);
+
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+});
+
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({ page }) => {
   await openApp(page, "/");
 
