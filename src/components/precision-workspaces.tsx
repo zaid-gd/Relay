@@ -215,7 +215,6 @@ export function PrecisionClients({
   return (
     <WorkspacePage family="master-detail" mode="fill">
       <PageHeader
-        eyebrow="Relationships"
         title="Clients"
         description="Projects, delivery history, and account context in one focused directory."
         actions={<div className="flex gap-2"><Button variant="outline" className="h-9" aria-pressed={showArchived} onClick={() => setShowArchived((value) => !value)}>Archived</Button><Button className="h-9" onClick={() => setAddOpen(true)}><Plus /> New Client</Button></div>}
@@ -297,7 +296,7 @@ export function PrecisionClients({
               className="flex min-h-0 min-w-0 flex-col lg:h-full"
             >
             <div className="flex flex-col gap-4 border-b border-[var(--app-border)] p-5 sm:flex-row sm:items-start">
-              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-[var(--app-active)] text-sm font-semibold text-[var(--app-highlight)]">{clientInitials(selected.name)}</span>
+              <span className="grid size-12 shrink-0 place-items-center rounded-[6px] bg-[var(--app-active)] text-sm font-semibold text-[var(--app-highlight)]">{clientInitials(selected.name)}</span>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-lg font-semibold">{selected.name}</h2>
                 <p className="mt-1 text-xs text-[var(--app-muted)]">{selected.company || `${selected.active} active projects · ${selected.delivered} delivered`}</p>
@@ -337,7 +336,7 @@ export function PrecisionClients({
                 <div><h3 className="text-sm font-semibold">Project history</h3><p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Current and completed work for this client.</p></div>
               </div>
               {selected.projects.length ? (
-                <div className="divide-y divide-[var(--app-border)] overflow-hidden rounded-lg border border-[var(--app-border)]">
+                <div className="divide-y divide-[var(--app-border)] overflow-hidden rounded-[6px] border border-[var(--app-border)]">
                   {selected.projects.slice().sort((a, b) => b.dueDate.localeCompare(a.dueDate)).map((project, index) => (
                     <motion.button
                       key={project.id}
@@ -358,7 +357,7 @@ export function PrecisionClients({
                   ))}
                 </div>
               ) : (
-                <div className="grid min-h-56 place-items-center rounded-lg border border-dashed border-[var(--app-border)] text-center"><div><BriefcaseBusiness className="mx-auto size-6 text-[var(--app-muted)]" /><p className="mt-2 text-sm font-semibold">No projects yet</p><p className="mt-1 text-xs text-[var(--app-muted)]">Assign this client when creating a project.</p></div></div>
+                <div className="grid min-h-56 place-items-center rounded-[6px] border border-dashed border-[var(--app-border)] text-center"><div><BriefcaseBusiness className="mx-auto size-6 text-[var(--app-muted)]" /><p className="mt-2 text-sm font-semibold">No projects yet</p><p className="mt-1 text-xs text-[var(--app-muted)]">Assign this client when creating a project.</p></div></div>
               )}
             </section>
             </motion.main>
