@@ -10,6 +10,7 @@ const createProjectValidator = v.object({
   profileId: v.string(),
   title: v.string(),
   clientId: v.string(),
+  salaryPlanId: v.optional(v.id("salaryPlans")),
   projectGroupId: v.optional(v.string()),
   workflowStages: v.array(workflowStageValidator),
   workType: v.string(),
@@ -29,6 +30,7 @@ const createProjectValidator = v.object({
 const projectUpdateValidator = v.object({
   title: v.optional(v.string()),
   clientId: v.optional(v.string()),
+  salaryPlanId: v.optional(v.union(v.id("salaryPlans"), v.null())),
   projectGroupId: v.optional(v.union(v.string(), v.null())),
   assigneeUserIds: v.optional(v.array(v.string())),
   workType: v.optional(v.string()),
@@ -185,31 +187,57 @@ async function validateClientAndGroup(
   return settings;
 }
 
+async function getSalaryPlan(ctx: FunctionCtx, planId: Doc<"salaryPlans">["_id"], ownerUserId: string) {
+  const plan = await ctx.db.get("salaryPlans", planId);
+  if (!plan || plan.ownerUserId !== ownerUserId) throw new Error("Salary Plan not found");
+  return plan;
+}
+
+async function validateSalaryPlan(
+  ctx: FunctionCtx,
+  planId: Doc<"salaryPlans">["_id"] | undefined,
+  ownerUserId: string,
+  teamId: string | undefined,
+  clientId: string,
+) {
+  if (!planId) return null;
+  if (teamId) throw new Error("Salary Plans are available for solo Projects only");
+  const plan = await getSalaryPlan(ctx, planId, ownerUserId);
+  if (plan.archived) throw new Error("Salary Plan is archived");
+  if (plan.clientId !== clientId) throw new Error("Project Client must match the Salary Plan");
+  return plan;
+}
+
 async function deliveryEffect(ctx: FunctionCtx, ownerUserId: string, project: Doc<"projects">) {
+  const plan = project.salaryPlanId
+    ? await getSalaryPlan(ctx, project.salaryPlanId, ownerUserId)
+    : null;
   const settings = await ctx.db
     .query("settings")
     .withIndex("by_userId", (q) => q.eq("userId", ownerUserId))
     .unique();
-  if (project.workType !== (settings?.salaryWorkType ?? "Job / Salary")) {
+  if (!plan && project.workType !== (settings?.salaryWorkType ?? "Job / Salary")) {
     return { result: { kind: "client" as const, earned: project.earnings }, projectIds: [] };
   }
 
-  const requiredProjectCount = Math.max(1, Math.floor(settings?.salaryBatchSize ?? 20));
-  const amount = Math.max(0, settings?.salaryBatchAmount ?? 10000);
+  const requiredProjectCount = plan?.requiredProjectCount ?? Math.max(1, Math.floor(settings?.salaryBatchSize ?? 20));
+  const amount = plan?.amount ?? Math.max(0, settings?.salaryBatchAmount ?? 10000);
   const batches = await ctx.db
     .query("projectSalaryBatches")
-    .withIndex("by_ownerUserId_and_workType", (q) =>
-      q.eq("ownerUserId", ownerUserId).eq("workType", project.workType))
-    .take(500);
-  const settledProjectIds = new Set(batches.flatMap((batch) => batch.projectIds));
+    .withIndex("by_ownerUserId_and_workType", (q) => q.eq("ownerUserId", ownerUserId).eq("workType", project.workType))
+    .collect();
+  const settledProjectIds = new Set(batches
+    .filter((batch) => plan ? batch.salaryPlanId === plan._id : !batch.salaryPlanId)
+    .flatMap((batch) => batch.projectIds));
   const projects = await ctx.db
     .query("projects")
     .withIndex("by_ownerUserId_and_teamId", (q) =>
       q.eq("ownerUserId", ownerUserId).eq("teamId", undefined))
-    .take(500);
+    .collect();
   const contributors = projects
     .filter((candidate) =>
       candidate.workType === project.workType &&
+      candidate.salaryPlanId === project.salaryPlanId &&
       !settledProjectIds.has(candidate.id) &&
       (candidate.id === project.id || candidate.status === "Delivered"))
     .sort((left, right) =>
@@ -225,6 +253,8 @@ async function deliveryEffect(ctx: FunctionCtx, ownerUserId: string, project: Do
       batchCreated,
     },
     projectIds: contributors.map((candidate) => candidate.id),
+    plan,
+    clientName: plan ? settings?.clients?.find((client) => client.id === plan.clientId)?.name : undefined,
   };
 }
 
@@ -280,7 +310,13 @@ export const setSalaryBatchPaid = mutation({
       .withIndex("by_ownerUserId_and_id", (q) => q.eq("ownerUserId", identity.tokenIdentifier).eq("id", args.batchId))
       .unique();
     if (!batch) throw new Error("Salary Batch not found");
-    await ctx.db.patch(batch._id, { paid: args.paid, paidAt: args.paid ? new Date().toISOString() : undefined });
+    const receivedAt = args.paid ? batch.receivedAt ?? new Date().toISOString() : undefined;
+    await ctx.db.patch(batch._id, {
+      paid: args.paid,
+      paidAt: args.paid ? batch.paidAt ?? receivedAt : undefined,
+      received: args.paid,
+      receivedAt,
+    });
     return null;
   },
 });
@@ -296,14 +332,23 @@ export const importSalaryBatches = mutation({
       .first();
     if (existing) throw new Error("Salary Batch import requires an empty Workspace");
     const seenProjectIds = new Set<string>();
+    const seenBatchIds = new Set<string>();
     for (const batch of args.batches) {
-      if (batch.projectIds.length !== batch.requiredProjectCount || batch.projectIds.some((id) => seenProjectIds.has(id))) {
+      if (
+        !batch.id.trim() || seenBatchIds.has(batch.id) ||
+        !Number.isInteger(batch.requiredProjectCount) || batch.requiredProjectCount < 1 ||
+        !Number.isFinite(batch.amount) || batch.amount < 0 ||
+        batch.projectIds.length !== batch.requiredProjectCount ||
+        new Set(batch.projectIds).size !== batch.projectIds.length ||
+        batch.projectIds.some((id) => !id.trim() || seenProjectIds.has(id))
+      ) {
         throw new Error("Salary Batch snapshot is invalid");
       }
       const projects = await Promise.all(batch.projectIds.map((id) => getProject(ctx, id)));
-      if (projects.some((project) => project.ownerUserId !== identity.tokenIdentifier || project.teamId || project.workType !== batch.workType)) {
+      if (projects.some((project) => project.ownerUserId !== identity.tokenIdentifier || project.teamId || project.workType !== batch.workType || project.status !== "Delivered")) {
         throw new Error("Salary Batch Projects must belong to this Workspace");
       }
+      seenBatchIds.add(batch.id);
       batch.projectIds.forEach((id) => seenProjectIds.add(id));
       await ctx.db.insert("projectSalaryBatches", { ...batch, ownerUserId: identity.tokenIdentifier });
     }
@@ -318,23 +363,36 @@ export const create = mutation({
     if (project.teamId) {
       await requireTeamPermission(ctx, project.teamId, identity.tokenIdentifier, "createProjects");
     }
-    if (!project.id.trim()) throw new Error("Project id is required");
+    const id = project.id.trim().slice(0, 80);
+    if (!id) throw new Error("Project id is required");
     if (!project.title.trim()) throw new Error("Project title is required");
-    if (await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", project.id)).unique()) {
+    if (await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", id)).unique()) {
       throw new Error("Project id already exists");
     }
+    const reservedByBatch = (await ctx.db
+      .query("projectSalaryBatches")
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
+      .collect())
+      .some((batch) => batch.projectIds.includes(id));
+    if (reservedByBatch) throw new Error("Project id is reserved by Salary Batch history");
     const settings = await validateClientAndGroup(ctx, {
       userId: identity.tokenIdentifier,
       teamId: project.teamId,
       clientId: project.clientId,
       projectGroupId: project.projectGroupId,
     });
+    const salaryPlan = await validateSalaryPlan(
+      ctx,
+      project.salaryPlanId,
+      identity.tokenIdentifier,
+      project.teamId,
+      project.clientId,
+    );
     const workflowStages = normalizeWorkflow(project.workflowStages);
     const firstStage = workflowStages[0];
     if (firstStage.purpose === "delivered") {
       throw new Error("A Project cannot start in its Delivered stage");
     }
-    const id = project.id.trim().slice(0, 80);
     const now = new Date().toISOString();
     const assigneeUserIds = await validatedAssignees(ctx, project.teamId, project.assigneeUserIds);
     const { starterOutputs = [], ...projectFields } = project;
@@ -349,7 +407,7 @@ export const create = mutation({
       workflowStages,
       workflowStageId: firstStage.id,
       status: statusForPurpose(firstStage.purpose),
-      earnings: !project.teamId && project.workType === settings.salaryWorkType
+      earnings: salaryPlan || (!project.teamId && project.workType === settings.salaryWorkType)
         ? 0
         : Math.max(0, project.earnings),
       archived: false,
@@ -387,17 +445,35 @@ export const update = mutation({
     const projectGroupId = args.changes.projectGroupId === null
       ? undefined
       : args.changes.projectGroupId ?? project.projectGroupId;
+    const salaryPlanId = args.changes.salaryPlanId === null
+      ? undefined
+      : args.changes.salaryPlanId ?? project.salaryPlanId;
+    if (salaryPlanId !== project.salaryPlanId) {
+      const settledBatch = (await ctx.db
+        .query("projectSalaryBatches")
+        .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", project.ownerUserId))
+        .collect())
+        .some((batch) => batch.projectIds.includes(project.id));
+      if (settledBatch) throw new Error("A Project in a completed Salary Batch cannot change Salary Plans");
+    }
     const settings = await validateClientAndGroup(ctx, {
       userId: identity.tokenIdentifier,
       teamId: project.teamId,
       clientId,
       projectGroupId,
     });
+    const salaryPlan = await validateSalaryPlan(
+      ctx,
+      salaryPlanId,
+      identity.tokenIdentifier,
+      project.teamId,
+      clientId,
+    );
     const title = args.changes.title?.trim();
     if (args.changes.title !== undefined && !title) throw new Error("Project title is required");
     const paid = args.changes.paid ?? project.paid;
     const workType = args.changes.workType ?? project.workType;
-    const earnings = !project.teamId && workType === settings.salaryWorkType
+    const earnings = salaryPlan || (!project.teamId && workType === settings.salaryWorkType)
       ? 0
       : Math.max(0, args.changes.earnings ?? project.earnings);
     const assigneeUserIds = args.changes.assigneeUserIds === undefined
@@ -405,6 +481,8 @@ export const update = mutation({
       : await validatedAssignees(ctx, project.teamId, args.changes.assigneeUserIds);
     await ctx.db.patch(project._id, {
       ...args.changes,
+      clientId,
+      salaryPlanId,
       projectGroupId,
       earnings,
       ...(title === undefined ? {} : { title: title.slice(0, 160) }),
@@ -484,9 +562,8 @@ export const transitionStage = mutation({
     if (effect.result.kind === "client") return { ...effect.result, completedAt };
     const batches = await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId_and_workType", (q) =>
-        q.eq("ownerUserId", identity.tokenIdentifier).eq("workType", project.workType))
-      .take(500);
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
+      .collect();
     if (effect.result.batchCreated) {
       const number = batches.reduce((highest, batch) => Math.max(highest, batch.number), 0) + 1;
       await ctx.db.insert("projectSalaryBatches", {
@@ -497,8 +574,16 @@ export const transitionStage = mutation({
         requiredProjectCount: effect.result.requiredProjectCount,
         amount: effect.result.amount,
         projectIds: effect.projectIds,
+        ...(effect.plan ? {
+          salaryPlanId: effect.plan._id,
+          clientId: effect.plan.clientId,
+          clientName: effect.clientName,
+          planStartDate: effect.plan.startDate,
+          planNotes: effect.plan.notes,
+        } : {}),
         completedAt: now,
         paid: false,
+        received: false,
       });
     }
     return { ...effect.result, completedAt };

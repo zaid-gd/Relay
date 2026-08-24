@@ -31,6 +31,7 @@ export default defineSchema({
     profileId: v.string(),
     title: v.string(),
     clientId: v.string(),
+    salaryPlanId: v.optional(v.id("salaryPlans")),
     projectGroupId: v.optional(v.string()),
     archived: v.boolean(),
     status: storedProjectStatusValidator,
@@ -63,13 +64,36 @@ export default defineSchema({
     requiredProjectCount: v.number(),
     amount: v.number(),
     projectIds: v.array(v.string()),
+    salaryPlanId: v.optional(v.id("salaryPlans")),
+    clientId: v.optional(v.string()),
+    clientName: v.optional(v.string()),
+    planStartDate: v.optional(v.string()),
+    planNotes: v.optional(v.string()),
     completedAt: v.string(),
     paid: v.boolean(),
     paidAt: v.optional(v.string()),
+    received: v.optional(v.boolean()),
+    receivedAt: v.optional(v.string()),
+    correctionNote: v.optional(v.string()),
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_ownerUserId_and_id", ["ownerUserId", "id"])
     .index("by_ownerUserId_and_workType", ["ownerUserId", "workType"]),
+
+  salaryPlans: defineTable({
+    ownerUserId: v.string(),
+    clientId: v.string(),
+    requiredProjectCount: v.number(),
+    amount: v.number(),
+    startDate: v.string(),
+    notes: v.string(),
+    archived: v.boolean(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_ownerUserId", ["ownerUserId"])
+    .index("by_ownerUserId_and_archived", ["ownerUserId", "archived"])
+    .index("by_ownerUserId_and_clientId", ["ownerUserId", "clientId"]),
 
   projectOutputs: defineTable({
     ownerUserId: v.string(),

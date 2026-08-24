@@ -1,4 +1,4 @@
-import type { Client, ProjectGroup, SavedProjectTemplate, WorkItem, WorkflowStage } from "@/lib/types";
+import type { Client, ProjectGroup, SalaryPlan, SavedProjectTemplate, WorkItem, WorkflowStage } from "@/lib/types";
 import type { StoredProjectStatus } from "@/lib/domain-values";
 import { DEFAULT_WORKFLOW_STAGES, normalizeWorkflowStages } from "@/lib/workflow-templates";
 import { z } from "zod";
@@ -21,6 +21,7 @@ export const newProjectFormSchema = z.strictObject({
   workflowTemplateId: z.string().optional(),
   dueDate: z.iso.date("Choose a valid due date."),
   financialType: z.enum(["client", "salary-plan"]),
+  salaryPlanId: z.string().optional(),
 });
 
 export type NewProjectInput = z.infer<typeof newProjectFormSchema>;
@@ -100,6 +101,7 @@ const newProjectFields = new Set([
   "workflowTemplateId",
   "dueDate",
   "financialType",
+  "salaryPlanId",
 ]);
 
 function isIsoDate(value: string) {
@@ -114,6 +116,7 @@ export function validateNewProjectInput(
     clients: readonly Client[];
     projectGroups: readonly ProjectGroup[];
     workflowTemplates: readonly SavedProjectTemplate[];
+    salaryPlans?: readonly SalaryPlan[];
   },
 ): ValidationResult<NewProjectInput> {
   const name = trimmedString(input.name);
@@ -124,6 +127,7 @@ export function validateNewProjectInput(
   const financialType = input.financialType === "client" || input.financialType === "salary-plan"
     ? input.financialType
     : undefined;
+  const salaryPlanId = trimmedString(input.salaryPlanId);
   const errors = Object.keys(input)
     .filter((field) => !newProjectFields.has(field))
     .map((field) => `Unexpected field: ${field}.`);
@@ -146,6 +150,14 @@ export function validateNewProjectInput(
   if (!financialType) {
     errors.push("Financial type must be client or salary-plan.");
   }
+  const salaryPlan = salaryPlanId
+    ? references.salaryPlans?.find((plan) => plan.id === salaryPlanId && !plan.archived)
+    : undefined;
+  const hasSalaryPlanCatalog = Boolean(references.salaryPlans?.length);
+  if (salaryPlanId && hasSalaryPlanCatalog && !salaryPlan) errors.push("Active Salary Plan does not exist.");
+  if (salaryPlan && salaryPlan.clientId !== clientId) errors.push("Salary Plan Client must match the selected Client.");
+  if (hasSalaryPlanCatalog && financialType === "salary-plan" && !salaryPlanId) errors.push("Salary Plan is required.");
+  if (financialType === "client" && salaryPlanId) errors.push("Salary Plan is only valid for Salary Projects.");
 
   if (errors.length || !financialType) return { ok: false, errors };
 
@@ -158,6 +170,7 @@ export function validateNewProjectInput(
       ...(workflowTemplateId ? { workflowTemplateId } : {}),
       dueDate,
       financialType,
+      ...(salaryPlanId ? { salaryPlanId } : {}),
     },
   };
 }

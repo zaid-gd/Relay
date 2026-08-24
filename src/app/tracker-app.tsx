@@ -81,6 +81,7 @@ import { PrecisionClients, PrecisionFeedback, PrecisionReports } from "@/compone
 import { PrecisionMedia } from "@/components/precision-media";
 import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
 import { ProjectPortalPanel } from "@/components/project-portal-panel";
+import { SalaryPlansPanel } from "@/components/salary-plans-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
@@ -443,6 +444,7 @@ export function TrackerApp({
     resourceLinks,
     setResourceLinks,
     salaryBatches,
+    salaryPlans,
     isAuthEnabled,
     isSignedIn,
     isAuthLoaded,
@@ -782,6 +784,7 @@ export function TrackerApp({
     clients: clientRecords,
     projectGroups,
     workflowTemplates,
+    salaryPlans,
     projectTags: settings.projectTags,
     salaryWorkType: settings.salaryWorkType,
     profileId: profile.id,
@@ -1048,14 +1051,17 @@ export function TrackerApp({
       canManageTemplates={!teamData || canManageTeamProjects}
     />
   ) : page === "reports" ? (
-    <PrecisionReports
-      projects={projects}
-      salaryBatches={salaryBatches}
-      settings={settings}
-      editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
-      currentUserId={teamData?.currentMember.userId}
-      onUpdateBatchPayment={updateSalaryBatchPayment}
-    />
+    <div className="grid gap-4">
+      <PrecisionReports
+        projects={projects}
+        salaryBatches={salaryBatches}
+        settings={settings}
+        editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
+        currentUserId={teamData?.currentMember.userId}
+        onUpdateBatchPayment={updateSalaryBatchPayment}
+      />
+      <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner={!teamData || teamData.currentMember.role === "Owner"} />
+    </div>
   ) : page === "integrations" ? (
     <IntegrationsDesignPage projects={personalProjects} settings={settings} setSettings={setSettings} notify={notify} onEditProject={openEditProject} />
   ) : page === "team" ? (
@@ -1083,6 +1089,8 @@ export function TrackerApp({
         workflowTemplates={workflowTemplates}
         initialTemplateId={newProjectTemplateId}
         salaryPlanLabel={`${settings.salaryWorkType} Plan`}
+        salaryPlans={isSignedIn ? (projectStartScope === "team" ? [] : salaryPlans) : undefined}
+        currencyCode={settings.currencyCode}
         onCreateClient={(client) => handleAddClient({ ...client, contactName: "", phone: "", notes: "" })}
         onClose={() => setNewProjectOpen(false)}
         onCreate={createProject}
@@ -3581,7 +3589,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
             </div>
             <p className="mt-3 text-xs text-muted-foreground">Import replaces Local Mode data. Cloud import works only when the Workspace has no projects, files, or Salary Batches.</p>
           </SettingsPanel>
-          <SettingsPanel id="project-rules" title="Production defaults" subtitle="Configure project tags, salary tracking, payout value, and batch size.">
+          <SettingsPanel id="project-rules" title="Production defaults" subtitle="Legacy local fallback for project tags and salary batch defaults. Authenticated owners should use Salary Plans below.">
             <div className="grid gap-3">
               {settings.projectTags.map((tag, index) => (
                 <div key={`project-tag-${index}`} className="flex min-w-0 items-end gap-3">
@@ -3619,7 +3627,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                   options={settings.projectTags}
                   onChange={(value) => setSettings({ ...settings, salaryWorkType: value })}
                 />
-                <FieldLayout label="Videos per salary batch">
+                <FieldLayout label="Legacy videos per batch">
                   <OwnedInput
                     type="number"
                     value={normalizedSalaryBatchSize(settings.salaryBatchSize)}
@@ -3628,7 +3636,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                     onChange={(event) => updateSalaryBatchSize(event.target.value)}
                   />
                 </FieldLayout>
-                <FieldLayout label="Salary per batch">
+                <FieldLayout label="Legacy salary per batch">
                   <OwnedInput
                     type="number"
                     value={normalizedSalaryBatchAmount(settings.salaryBatchAmount)}
@@ -5761,10 +5769,11 @@ function ProjectDialog({
             value={form.client || ""}
             options={clientOptions}
             onChange={(client) => setForm({ ...form, client })}
+            disabled={Boolean(form.salaryPlanId)}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <ProjectSelect label="Status" value={form.status} options={statusOptions} onChange={(value) => setForm({ ...form, status: value })} />
-            <ProjectSelect label="Tag" value={selectedWorkType} options={workTypeOptions} onChange={(value) => setForm({ ...form, workType: value, earnings: 0 })} />
+            <ProjectSelect label="Tag" value={selectedWorkType} options={workTypeOptions} disabled={Boolean(form.salaryPlanId)} onChange={(value) => setForm({ ...form, workType: value, earnings: 0 })} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <ProjectDatePicker label="Start date" value={form.startDate} settings={settings} onChange={(value) => setForm({ ...form, startDate: value })} />
@@ -5772,10 +5781,10 @@ function ProjectDialog({
           </div>
           <FieldLayout
             label="Earnings"
-            disabled={typeConfig.earningsMode === "batch"}
-            description={typeConfig.earningsMode === "batch" ? `${settings.salaryWorkType} earnings are batch tracked in settings.` : undefined}
+            disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"}
+            description={form.salaryPlanId ? "This Salary Plan fixes the Client and tracks money only when a full batch completes." : typeConfig.earningsMode === "batch" ? `${settings.salaryWorkType} earnings are batch tracked in settings.` : undefined}
           >
-            <OwnedInput type="number" value={form.earnings} onChange={(event) => setForm({ ...form, earnings: Number(event.target.value || 0) })} />
+            <OwnedInput type="number" disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"} value={form.earnings} onChange={(event) => setForm({ ...form, earnings: Number(event.target.value || 0) })} />
           </FieldLayout>
           <FieldLayout label="Notes">
             <OwnedTextarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} density="comfortable" />
@@ -5807,13 +5816,13 @@ function ProjectDialog({
   );
 }
 
-function ProjectClientCombobox({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+function ProjectClientCombobox({ value, options, onChange, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout label="Client" description={clientSuggestionText(value, options)}>
-        <OwnedPopoverTrigger asChild>
-          <OwnedButton type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+      <FieldLayout label="Client" disabled={disabled} description={disabled ? "Fixed by the selected Salary Plan." : clientSuggestionText(value, options)}>
+          <OwnedPopoverTrigger asChild>
+            <OwnedButton type="button" variant="outline" role="combobox" disabled={disabled} aria-expanded={open} className="w-full justify-between font-normal">
             <span className={value ? "truncate" : "truncate text-muted-foreground"}>{value || (options.length ? "Choose existing or type new client" : "Type a new client name")}</span>
             <ChevronsUpDown className="opacity-50" aria-hidden="true" />
           </OwnedButton>

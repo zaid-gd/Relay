@@ -6,7 +6,7 @@ import { useConvex, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { useOptionalAuth } from "@/lib/optional-auth";
-import type { WorkItem, SettingsState, SalaryBatch, SalaryState, TeamMember, IntegrationConfig, ResourceLink, SavedProjectTemplate, ProjectGroup } from "./types";
+import type { WorkItem, SettingsState, SalaryBatch, SalaryPlan, SalaryState, TeamMember, IntegrationConfig, ResourceLink, SavedProjectTemplate, ProjectGroup } from "./types";
 import { normalizeIntegrationLinks } from "./integrations";
 import { normalizeClientRecords } from "./clients";
 import { createWorkspaceBackup, parseWorkspaceBackup } from "./workspace-backup";
@@ -37,6 +37,7 @@ const PROJECT_GROUPS_STORAGE_KEY = "relay:project-groups:v1";
 const projectsApi = {
   list: makeFunctionReference<"query", Record<string, never>, unknown[]>("projects:list"),
   listSalaryBatches: makeFunctionReference<"query", Record<string, never>, unknown[]>("projects:listSalaryBatches"),
+  listSalaryPlans: makeFunctionReference<"query", { includeArchived?: boolean }, unknown[]>("salaryPlans:list"),
   create: makeFunctionReference<"mutation", { project: ReturnType<typeof cloudProjectInput> }, string>("projects:create"),
   update: makeFunctionReference<"mutation", { projectId: string; changes: ReturnType<typeof cloudProjectChanges> }, null>("projects:update"),
   setArchived: makeFunctionReference<"mutation", { projectId: string; archived: boolean }, null>("projects:setArchived"),
@@ -304,6 +305,7 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
     client: typeof value.client === "string" ? value.client : "",
     clientId: typeof value.clientId === "string" ? value.clientId : undefined,
     projectGroupId: typeof value.projectGroupId === "string" ? value.projectGroupId : undefined,
+    salaryPlanId: typeof value.salaryPlanId === "string" && value.salaryPlanId.trim() ? value.salaryPlanId : undefined,
     archived: value.archived === true,
     status: normalizeStoredProjectStatus(value.status),
     workType: stringSetting(value.workType, "Job / Salary"),
@@ -363,6 +365,14 @@ function normalizeSalaryState(value: unknown): SalaryState {
         projectIds: Array.isArray(batch.projectIds) ? batch.projectIds.flatMap((id): string[] => typeof id === "string" ? [id] : []) : undefined,
         requiredProjectCount: typeof batch.requiredProjectCount === "number" ? Math.max(1, Math.floor(batch.requiredProjectCount)) : undefined,
         workType: typeof batch.workType === "string" ? batch.workType : undefined,
+        salaryPlanId: typeof batch.salaryPlanId === "string" ? batch.salaryPlanId : undefined,
+        clientId: typeof batch.clientId === "string" ? batch.clientId : undefined,
+        clientName: typeof batch.clientName === "string" ? batch.clientName : undefined,
+        planStartDate: typeof batch.planStartDate === "string" ? batch.planStartDate : undefined,
+        planNotes: typeof batch.planNotes === "string" ? batch.planNotes : undefined,
+        received: typeof batch.received === "boolean" ? batch.received : undefined,
+        receivedAt: typeof batch.receivedAt === "string" ? batch.receivedAt : undefined,
+        correctionNote: typeof batch.correctionNote === "string" ? batch.correctionNote : undefined,
       }];
     }),
   };
@@ -557,6 +567,27 @@ function readInitialItems(): WorkItem[] {
   return normalizeWorkItems(storedItems);
 }
 
+function normalizeSalaryPlans(value: unknown): SalaryPlan[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate): SalaryPlan[] => {
+    if (!isPlainRecord(candidate) || typeof candidate._id !== "string" || typeof candidate.clientId !== "string") return [];
+    const requiredProjectCount = Number(candidate.requiredProjectCount);
+    const amount = Number(candidate.amount);
+    if (!Number.isInteger(requiredProjectCount) || requiredProjectCount < 1 || !Number.isFinite(amount) || amount < 0) return [];
+    return [{
+      id: candidate._id,
+      clientId: candidate.clientId,
+      requiredProjectCount,
+      amount,
+      startDate: typeof candidate.startDate === "string" ? candidate.startDate : "",
+      notes: typeof candidate.notes === "string" ? candidate.notes : "",
+      archived: candidate.archived === true,
+      createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : undefined,
+      updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : undefined,
+    }];
+  });
+}
+
 function normalizeProjectSalaryBatches(value: unknown): SalaryBatch[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((batch): SalaryBatch[] => {
@@ -573,6 +604,14 @@ function normalizeProjectSalaryBatches(value: unknown): SalaryBatch[] {
       projectIds: Array.isArray(batch.projectIds) ? batch.projectIds.flatMap((id): string[] => typeof id === "string" ? [id] : []) : [],
       requiredProjectCount: typeof batch.requiredProjectCount === "number" ? batch.requiredProjectCount : undefined,
       workType: typeof batch.workType === "string" ? batch.workType : undefined,
+      salaryPlanId: typeof batch.salaryPlanId === "string" ? batch.salaryPlanId : undefined,
+      clientId: typeof batch.clientId === "string" ? batch.clientId : undefined,
+      clientName: typeof batch.clientName === "string" ? batch.clientName : undefined,
+      planStartDate: typeof batch.planStartDate === "string" ? batch.planStartDate : undefined,
+      planNotes: typeof batch.planNotes === "string" ? batch.planNotes : undefined,
+      received: typeof batch.received === "boolean" ? batch.received : undefined,
+      receivedAt: typeof batch.receivedAt === "string" ? batch.receivedAt : undefined,
+      correctionNote: typeof batch.correctionNote === "string" ? batch.correctionNote : undefined,
     }];
   });
 }
@@ -827,6 +866,7 @@ interface DataContextValue {
   resourceLinks: ResourceLink[];
   setResourceLinks: React.Dispatch<React.SetStateAction<ResourceLink[]>>;
   salaryBatches: SalaryBatch[];
+  salaryPlans: SalaryPlan[];
   reconcileSalaryBatches: (items: WorkItem[]) => void;
   updateSalaryBatchPayment: (batchId: string, paid: boolean) => void;
   exportBackup: () => string;
@@ -881,6 +921,7 @@ function SampleDataProvider({ children }: { children: React.ReactNode }) {
     resourceLinks: sampleStudioResources,
     setResourceLinks: immutableResources,
     salaryBatches: [],
+    salaryPlans: [],
     reconcileSalaryBatches: () => undefined,
     updateSalaryBatchPayment: () => setToast({ message: "Payment state is fixed in the read-only sample.", tone: "info" }),
     exportBackup: () => createWorkspaceBackup({ projects: sampleStudioProjects, clients: sampleStudioSettings.clients, projectGroups: [], resources: sampleStudioResources, salaryBatches: [], settings: { ...sampleStudioSettings } }),
@@ -902,6 +943,7 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
   const [settings, setSettingsState] = useState<SettingsState>(() => freshDefaultSettings());
   const [resourceLinks, setResourceLinksState] = useState<ResourceLink[]>([]);
   const [salaryBatches, setSalaryBatches] = useState<SalaryBatch[]>([]);
+  const [salaryPlans] = useState<SalaryPlan[]>([]);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   useEffect(() => {
@@ -1060,6 +1102,7 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     resourceLinks,
     setResourceLinks,
     salaryBatches,
+    salaryPlans,
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
     exportBackup,
@@ -1088,6 +1131,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<SettingsState>(() => freshDefaultSettings());
   const [resourceLinks, setResourceLinksState] = useState<ResourceLink[]>([]);
   const [salaryBatches, setSalaryBatches] = useState<SalaryBatch[]>([]);
+  const [salaryPlans, setSalaryPlans] = useState<SalaryPlan[]>([]);
   const [ready, setReady] = useState(false);
   const [cloudInitialized, setCloudInitialized] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -1101,6 +1145,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const convexSettings = useQuery(api.settings.get, {});
   const convexBatches = useQuery(api.salaryBatches.list, {});
   const convexProjectBatches = useQuery(projectsApi.listSalaryBatches, {});
+  const convexSalaryPlans = useQuery(projectsApi.listSalaryPlans, {});
   const convexResources = useQuery(api.resourceLinks.list, {});
   const createProject = useMutation(projectsApi.create);
   const updateProject = useMutation(projectsApi.update);
@@ -1153,6 +1198,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       setProjectGroupsState(readInitialProjectGroups(nextSettings.clients));
       setResourceLinksState(readInitialResources());
       setSalaryBatches(normalizeSalaryState(readJson<unknown>(SALARY_STORAGE_KEY, { batches: [] })).batches);
+      setSalaryPlans([]);
       let cancelled = false;
       void diagnoseConvexAuthToken(getToken).then((message) => {
         if (!cancelled) setToast({ tone: "warning", message });
@@ -1163,7 +1209,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexResources === undefined) return;
+    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined || convexResources === undefined) return;
     if (cloudInitialized) return;
 
     const loadedItems = normalizeWorkItems(convexItems);
@@ -1171,6 +1217,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     const normalizedLoadedSettings = loadedSettings ? mergeSettings(loadedSettings) : readInitialSettings();
     const loadedProjectGroups = normalizeProjectGroups(convexProjectGroups, normalizedLoadedSettings.clients);
     const loadedBatches = mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches));
+    const loadedSalaryPlans = normalizeSalaryPlans(convexSalaryPlans);
     const loadedResources = normalizeResourceLinks(convexResources);
     let cancelled = false;
     const token = initializationToken.current + 1;
@@ -1264,6 +1311,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       setProjectGroupsState(nextProjectGroups);
       setResourceLinksState(nextResources);
       setSalaryBatches(nextBatches);
+      setSalaryPlans(loadedSalaryPlans);
       setCloudInitialized(true);
       setReady(true);
     }
@@ -1285,6 +1333,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     convexSettings,
     convexBatches,
     convexProjectBatches,
+    convexSalaryPlans,
     convexResources,
     createProject,
     upsertProjectGroup,
@@ -1297,12 +1346,13 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   // Keep signed-in workspaces live after the initial cloud load. Team project
   // changes from other members arrive through Convex subscriptions here.
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexBatches === undefined || convexProjectBatches === undefined) return;
+    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined) return;
     setItemsState(normalizeWorkItems(convexItems));
     setProjectGroupsState(normalizeProjectGroups(convexProjectGroups, settings.clients));
     setResourceLinksState(normalizeResourceLinks(convexResources));
     setSalaryBatches(mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches)));
-  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexBatches, convexItems, convexProjectBatches, convexProjectGroups, convexResources, isSignedIn, settings.clients]);
+    setSalaryPlans(normalizeSalaryPlans(convexSalaryPlans));
+  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexBatches, convexItems, convexProjectBatches, convexProjectGroups, convexResources, convexSalaryPlans, isSignedIn, settings.clients]);
 
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn || !user || !ready) return;
@@ -1579,6 +1629,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     resourceLinks,
     setResourceLinks,
     salaryBatches,
+    salaryPlans,
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
     exportBackup,
@@ -1616,6 +1667,7 @@ function cloudProjectInput(item: WorkItem, clients: readonly import("./types").C
     profileId: item.profileId,
     title: item.title,
     clientId,
+    salaryPlanId: item.salaryPlanId,
     projectGroupId: item.projectGroupId,
     workflowStages,
     workType: item.workType,

@@ -67,6 +67,7 @@ export type WorkItem = {
   client?: string;
   clientId?: string;
   projectGroupId?: string;
+  salaryPlanId?: string;
   archived?: boolean;
   status: StoredProjectStatus;
   workflowStageId?: string;
@@ -156,6 +157,26 @@ export type SalaryBatch = {
   projectIds?: string[];
   requiredProjectCount?: number;
   workType?: string;
+  salaryPlanId?: string;
+  clientId?: string;
+  clientName?: string;
+  planStartDate?: string;
+  planNotes?: string;
+  received?: boolean;
+  receivedAt?: string;
+  correctionNote?: string;
+};
+
+export type SalaryPlan = {
+  id: string;
+  clientId: string;
+  requiredProjectCount: number;
+  amount: number;
+  startDate: string;
+  notes: string;
+  archived: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SalaryState = {

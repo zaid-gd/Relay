@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { StoredProjectStatus } from "@/lib/domain-values";
-import type { Client, ProjectGroup, SavedProjectTemplate, WorkItem } from "@/lib/types";
+import type { Client, ProjectGroup, SalaryPlan, SavedProjectTemplate, WorkItem } from "@/lib/types";
 import { applyProjectTemplate } from "@/lib/project-templates";
 import { DEFAULT_WORKFLOW_STAGES } from "@/lib/workflow-templates";
 import { getProjectWorkflowStage, getWorkflowStageStatus, moveProjectToStage, resolveProjectWorkflowStage, validateNewProjectInput, type NewProjectInput } from "./project-domain";
@@ -82,6 +82,7 @@ type ProjectCreationControllerOptions = {
   clients: readonly Client[];
   projectGroups: readonly ProjectGroup[];
   workflowTemplates: readonly SavedProjectTemplate[];
+  salaryPlans?: readonly SalaryPlan[];
   projectTags: readonly string[];
   salaryWorkType: string;
   profileId: string;
@@ -100,6 +101,7 @@ export function useProjectCreationController(options: ProjectCreationControllerO
       clients: options.clients,
       projectGroups: options.projectGroups,
       workflowTemplates: options.workflowTemplates,
+      salaryPlans: options.salaryPlans,
     });
     if (!validation.ok) {
       options.notify(validation.errors[0] ?? "Project details are invalid.", "warning");
@@ -126,6 +128,8 @@ export function useProjectCreationController(options: ProjectCreationControllerO
       client: client.name,
       clientId: client.id,
       projectGroupId: value.projectGroupId,
+      salaryPlanId: value.salaryPlanId,
+      earnings: value.salaryPlanId ? 0 : templateValues.earnings,
       ownerUserId: options.scope === "team" ? options.ownerUserId : undefined,
       createdAt: now,
     };

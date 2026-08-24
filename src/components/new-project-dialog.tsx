@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import type { Client, ProjectGroup, SavedProjectTemplate } from "@/lib/types";
+import type { Client, ProjectGroup, SalaryPlan, SavedProjectTemplate } from "@/lib/types";
 import { newProjectFormSchema, type NewProjectFormValues, type NewProjectInput } from "@/features/projects/project-domain";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +17,8 @@ type NewProjectDialogProps = {
   workflowTemplates: readonly SavedProjectTemplate[];
   initialTemplateId?: string;
   salaryPlanLabel: string;
+  salaryPlans?: readonly SalaryPlan[];
+  currencyCode?: string;
   onCreateClient: (input: Pick<Client, "name" | "email" | "company">) => Client | null;
   onClose: () => void;
   onCreate: (input: NewProjectInput) => void;
@@ -31,11 +33,13 @@ const defaultValues = (initialTemplateId: string): NewProjectFormValues => ({
   workflowTemplateId: initialTemplateId,
   dueDate: defaultDueDate(),
   financialType: "client",
+  salaryPlanId: "",
 });
 
-export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", salaryPlanLabel, onCreateClient, onClose, onCreate }: NewProjectDialogProps) {
+export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", salaryPlanLabel, salaryPlans, currencyCode = "USD", onCreateClient, onClose, onCreate }: NewProjectDialogProps) {
   const activeClients = clients.filter((client) => !client.archived);
   const activeTemplates = workflowTemplates.filter((template) => !template.archived);
+  const activeSalaryPlans = salaryPlans?.filter((plan) => !plan.archived) ?? [];
   const [creatingClient, setCreatingClient] = useState(false);
   const [clientDraft, setClientDraft] = useState({ name: "", email: "", company: "" });
   const [clientError, setClientError] = useState("");
@@ -49,6 +53,7 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
       ...(value.workflowTemplateId ? { workflowTemplateId: value.workflowTemplateId } : {}),
       dueDate: value.dueDate,
       financialType: value.financialType,
+      ...(value.salaryPlanId ? { salaryPlanId: value.salaryPlanId } : {}),
     }),
   });
 
@@ -97,11 +102,18 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
             {(field) => (
               <FieldLayout label="Client">
                 <div>
-                <Select value={field.state.value} onValueChange={(value) => { field.handleChange(value); form.setFieldValue("projectGroupId", ""); }}>
-                  <SelectTrigger><SelectValue placeholder="Choose a Client" /></SelectTrigger>
-                  <SelectContent>{activeClients.map((client) => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <Button type="button" variant="ghost" size="sm" className="mt-1 px-0" onClick={() => setCreatingClient((current) => !current)}>Create new Client</Button>
+                <form.Subscribe selector={(state) => state.values.salaryPlanId}>
+                  {(salaryPlanId) => {
+                    const selectedPlan = activeSalaryPlans.find((plan) => plan.id === salaryPlanId);
+                    return <>
+                      <Select disabled={Boolean(selectedPlan)} value={field.state.value} onValueChange={(value) => { field.handleChange(value); form.setFieldValue("projectGroupId", ""); }}>
+                        <SelectTrigger><SelectValue placeholder="Choose a Client" /></SelectTrigger>
+                        <SelectContent>{activeClients.map((client) => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Button type="button" variant="ghost" size="sm" className="mt-1 px-0" disabled={Boolean(selectedPlan)} onClick={() => setCreatingClient((current) => !current)}>Create new Client</Button>
+                    </>;
+                  }}
+                </form.Subscribe>
                 {creatingClient ? <div className="mt-2 grid gap-2 border-l border-border pl-3">
                   <Input aria-label="New Client name" placeholder="Client name" value={clientDraft.name} onChange={(event) => setClientDraft((current) => ({ ...current, name: event.target.value }))} />
                   <div className="grid gap-2 sm:grid-cols-2"><Input aria-label="New Client email" type="email" placeholder="Email (optional)" value={clientDraft.email} onChange={(event) => setClientDraft((current) => ({ ...current, email: event.target.value }))} /><Input aria-label="New Client company" placeholder="Company (optional)" value={clientDraft.company} onChange={(event) => setClientDraft((current) => ({ ...current, company: event.target.value }))} /></div>
@@ -142,9 +154,35 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
           <div className="grid gap-4 sm:grid-cols-2">
             <form.Field name="dueDate">{(field) => <FieldLayout label="Due date"><Input type="date" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} /></FieldLayout>}</form.Field>
             <form.Field name="financialType">
-              {(field) => <FieldLayout label="Financial type"><Select value={field.state.value} onValueChange={(value) => { if (value === "client" || value === "salary-plan") field.handleChange(value); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="client">Client Project</SelectItem><SelectItem value="salary-plan">{salaryPlanLabel}</SelectItem></SelectContent></Select></FieldLayout>}
+              {(field) => <FieldLayout label="Financial type"><Select value={field.state.value} onValueChange={(value) => { if (value === "client" || value === "salary-plan") { field.handleChange(value); if (value === "client") form.setFieldValue("salaryPlanId", ""); } }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="client">Client Project</SelectItem><SelectItem disabled={salaryPlans !== undefined && activeSalaryPlans.length === 0} value="salary-plan">{salaryPlanLabel}</SelectItem></SelectContent></Select></FieldLayout>}
             </form.Field>
           </div>
+          <form.Subscribe selector={(state) => state.values.financialType}>
+            {(financialType) => financialType === "salary-plan" && salaryPlans !== undefined ? (
+              <form.Field name="salaryPlanId">
+                {(field) => <FieldLayout label="Salary Plan" description="The Plan fixes the Client and keeps Project earnings at zero.">
+                  <Select value={field.state.value || "none"} onValueChange={(value) => {
+                    const plan = activeSalaryPlans.find((candidate) => candidate.id === value);
+                    field.handleChange(value === "none" ? "" : value);
+                    if (plan) {
+                      form.setFieldValue("clientId", plan.clientId);
+                      form.setFieldValue("projectGroupId", "");
+                    }
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Choose a Salary Plan" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Choose a Salary Plan</SelectItem>
+                      {activeSalaryPlans.map((plan) => {
+                        const client = activeClients.find((candidate) => candidate.id === plan.clientId);
+                        const amount = new Intl.NumberFormat("en", { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(plan.amount);
+                        return <SelectItem key={plan.id} value={plan.id}>{client?.name ?? "Unknown Client"} · {plan.requiredProjectCount} Projects · {amount}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </FieldLayout>}
+              </form.Field>
+            ) : null}
+          </form.Subscribe>
           <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
             {([canSubmit, isSubmitting]) => (
               <DialogFooter>

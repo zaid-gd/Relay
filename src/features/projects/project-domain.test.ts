@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Client, SavedProjectTemplate, WorkItem, WorkflowStage } from "@/lib/types";
+import type { Client, SalaryPlan, SavedProjectTemplate, WorkItem, WorkflowStage } from "@/lib/types";
 import {
   deriveProjectGroupSummary,
   getProjectDeliveryConfirmation,
@@ -94,6 +94,15 @@ describe("new Project input", () => {
     { id: "group-a", name: "Campaign", clientId: "client-a", notes: "", archived: false, createdAt: "2026-08-24T00:00:00.000Z" },
     { id: "group-b", name: "Other", clientId: "client-b", notes: "", archived: false, createdAt: "2026-08-24T00:00:00.000Z" },
   ];
+  const salaryPlan: SalaryPlan = {
+    id: "plan-a",
+    clientId: "client-a",
+    requiredProjectCount: 5,
+    amount: 1000,
+    startDate: "2026-08-24",
+    notes: "",
+    archived: false,
+  };
 
   it("accepts and normalizes the short form", () => {
     expect(validateNewProjectInput({
@@ -128,6 +137,13 @@ describe("new Project input", () => {
       ok: false,
       errors: ["Unexpected field: notes.", "Project Group must belong to the selected Client."],
     });
+  });
+
+  it("requires an active Salary Plan and keeps it tied to its Client", () => {
+    const references = { clients, projectGroups: groups, workflowTemplates: [template], salaryPlans: [salaryPlan] };
+    expect(validateNewProjectInput({ name: "Salary edit", clientId: "client-a", dueDate: "2026-09-01", financialType: "salary-plan" }, references)).toMatchObject({ ok: false, errors: ["Salary Plan is required."] });
+    expect(validateNewProjectInput({ name: "Salary edit", clientId: "client-b", dueDate: "2026-09-01", financialType: "salary-plan", salaryPlanId: "plan-a" }, references)).toMatchObject({ ok: false, errors: ["Salary Plan Client must match the selected Client."] });
+    expect(validateNewProjectInput({ name: "Salary edit", clientId: "client-a", dueDate: "2026-09-01", financialType: "salary-plan", salaryPlanId: "plan-a" }, references)).toEqual({ ok: true, value: { name: "Salary edit", clientId: "client-a", dueDate: "2026-09-01", financialType: "salary-plan", salaryPlanId: "plan-a" } });
   });
 });
 
