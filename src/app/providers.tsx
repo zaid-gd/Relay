@@ -8,6 +8,7 @@ import { DataProvider } from "@/lib/data-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
 import { ClerkAuthBridge } from "@/lib/optional-auth";
+import { FirstLoginPlanDialog } from "@/components/subscription-plans";
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -24,6 +25,9 @@ function useLocalConvexAuth() {
 }
 
 const clerkAppearance = {
+  variables: {
+    borderRadius: "6px",
+  },
   elements: {
     modalBackdrop: {
       alignItems: "center",
@@ -96,6 +100,7 @@ export function Providers({ children, clerkPublishableKey, convexUrl }: Provider
         {hasConvexConfig ? (
           <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
             {app}
+            <FirstLoginPlanDialog />
           </ConvexProviderWithClerk>
         ) : (
           <ConvexProviderWithAuth client={convex} useAuth={useLocalConvexAuth}>

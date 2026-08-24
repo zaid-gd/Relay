@@ -7,6 +7,7 @@ import {
   CheckSquare2,
   ChevronDown,
   CircleUserRound,
+  CreditCard,
   FileText,
   FolderKanban,
   Images,
@@ -201,6 +202,7 @@ export function WorkspaceShell({
   const goChordRef = useRef(false);
   const goChordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useHydratedReducedMotion();
+  const { isSignedIn } = useOptionalAuth();
   const router = useRouter();
   const [collapsed, setCollapsedState] = useState(desktopSidebarCollapsed);
   const setCollapsed = (next: boolean) => {
@@ -297,6 +299,14 @@ export function WorkspaceShell({
           </div>
 
           <div className="ml-3 flex items-center gap-1.5 lg:ml-0">
+            {isSignedIn ? (
+              <Button asChild variant="outline" className="h-8 px-2.5 text-xs shadow-none">
+                <Link href="/account#plans">
+                  <CreditCard className="size-3.5" />
+                  <span className="hidden sm:inline">Plans & billing</span>
+                </Link>
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -677,6 +687,13 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
+        ) : null}
+        {isSignedIn ? (
+          <DropdownMenuItem asChild>
+            <Link href="/account#plans">
+              <CreditCard /> Plans & billing
+            </Link>
+          </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
           <Link

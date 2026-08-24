@@ -25,7 +25,9 @@ vi.mock("@clerk/nextjs", () => ({
     isSignedIn: false,
     getToken: async () => null,
   }),
+  useUser: () => ({ isLoaded: true, isSignedIn: false, user: null }),
 }));
+
 
 vi.mock("convex/react", () => ({
   ConvexProviderWithAuth: ({ children }: { children: React.ReactNode }) => (

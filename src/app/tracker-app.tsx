@@ -86,6 +86,7 @@ import { ProjectPortalPanel } from "@/components/project-portal-panel";
 import { SalaryPlansPanel } from "@/components/salary-plans-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
+import { ClerkPricingPlans } from "@/components/subscription-plans";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
 import { buildPayoutReport } from "@/lib/payout-reporting";
 import { buildWorkspaceSearchIndex, type WorkspaceFile, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
@@ -1354,10 +1355,15 @@ function AccountSettingsPage() {
         }
       />
       <PageContent data-family-region="account-administration" className="space-y-5">
-        <MetricStrip columns={2}>
-          <MetricItem label="Private account" value={isLoaded ? (isSignedIn ? "Connected" : "Local") : "Loading"} supporting="Login, security, and provider controls" />
-          <MetricItem label="Public profile" value={isSignedIn ? "Ready" : "Locked"} supporting="The profile clients and collaborators can see" />
-        </MetricStrip>
+        {isSignedIn ? (
+          <div id="plans" className="scroll-mt-16">
+            <ContentSection title="Plans and billing" description="Clerk manages plan selection, checkout, and subscription status." bodyMode="flush">
+              <div className="p-4 md:p-6">
+                <ClerkPricingPlans />
+              </div>
+            </ContentSection>
+          </div>
+        ) : null}
 
         <ContentSection title="Private account" description="Authentication and account controls stay inside this signed-in area." bodyMode="flush" className="scroll-mt-6">
           {!isLoaded ? (
@@ -1386,8 +1392,20 @@ function AccountSettingsPage() {
             </div>
           ) : (
             <div className="max-h-[min(720px,calc(100dvh-13rem))] overflow-y-auto p-2.5 overscroll-contain md:p-3.5">
-              <div className="[&_.cl-card]:shadow-none [&_.cl-cardBox]:w-full [&_.cl-cardBox]:rounded-lg [&_.cl-cardBox]:border [&_.cl-cardBox]:border-[var(--app-border)] [&_.cl-cardBox]:bg-[var(--app-soft-panel)] [&_.cl-cardBox]:shadow-none [&_.cl-navbar]:border-[var(--app-border)] [&_.cl-pageScrollBox]:py-1 [&_.cl-rootBox]:w-full">
-                <UserProfile routing="hash" />
+              <div>
+                <UserProfile
+                  routing="hash"
+                  appearance={{
+                    variables: { borderRadius: "6px" },
+                    elements: {
+                      rootBox: "w-full",
+                      cardBox: "w-full max-w-none rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] shadow-none",
+                      card: "shadow-none",
+                      navbar: "border-[var(--app-border)]",
+                      pageScrollBox: "py-1",
+                    },
+                  }}
+                />
               </div>
             </div>
           )}
