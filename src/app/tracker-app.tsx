@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import { AnimatePresence, motion } from "motion/react";
 import { UserProfile } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useData } from "@/lib/data-context";
+import { useData, useProjectGroups } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
-import { validateNewProjectInput, type NewProjectInput } from "@/features/projects/project-domain";
+import { useProjectController, useProjectCreationController } from "@/features/projects/project-controller";
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { ProjectGroupsDialog } from "@/components/project-groups-dialog";
 import { mergeClientRecords } from "@/lib/clients";
@@ -42,7 +42,6 @@ import {
 import type { IntegrationLink, IntegrationLinks, IntegrationServiceId } from "@/lib/integrations";
 import {
   PROJECT_TEMPLATES,
-  applyProjectTemplate,
   type ProjectTemplate,
 } from "@/lib/project-templates";
 import {
@@ -209,7 +208,7 @@ type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_de
 type ProjectWorkspaceView = "overview" | "outputs" | "review" | "files" | "activity";
 
 function projectWorkspaceView(value: string | null): ProjectWorkspaceView {
-  return value === "outputs" || value === "review" || value === "files" || value === "activity" ? value : "overview";
+  return value === "overview" || value === "review" || value === "files" || value === "activity" ? value : "outputs";
 }
 type WorkspaceMemberOption = {
   userId: string;
@@ -441,8 +440,6 @@ export function TrackerApp({
   const {
     items,
     setItems,
-    projectGroups,
-    setProjectGroups,
     settings,
     setSettings,
     resourceLinks,
@@ -456,8 +453,9 @@ export function TrackerApp({
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
   } = useData();
+  const { groups: projectGroups, saveGroup: saveProjectGroup, setGroupArchived } = useProjectGroups();
   const router = useRouter();
-  const activeProjectView = projectWorkspaceView(projectView ?? null);
+  const [activeProjectView, setActiveProjectView] = useState<ProjectWorkspaceView>(() => projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
   const { openSignIn, openSignUp } = useOptionalAuth();
   const isSample = experienceMode === "sample";
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
@@ -499,6 +497,10 @@ export function TrackerApp({
   useEffect(() => {
     if (projectId) setDetailProjectId(projectId);
   }, [projectId]);
+
+  useEffect(() => {
+    setActiveProjectView(projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
+  }, [projectId, projectView]);
 
   useEffect(() => {
     applyRootThemeVariables(settings);
@@ -750,12 +752,13 @@ export function TrackerApp({
     if (target) setDeleteTarget(target);
   }
 
-  function updateProjectStatus(project: WorkItem, status: ProjectStatus) {
-    if (project.teamId && !canUpdateProjectStatus && !canEditProjects) {
-      notify("Your team role cannot update project status.", "warning");
-      return;
-    }
-    setItems((current) => current.map((item) => (item.id === project.id ? { ...item, status } : item)));
+  const { archiveProject, updateProjectStatus } = useProjectController({
+    setProjects: setItems,
+    canEditTeamProjects: canEditProjects,
+    canUpdateTeamStatus: canUpdateProjectStatus,
+    notify,
+    onStatusChanged: (project, previousStatus) => {
+      const status = project.status;
     setDashboardActivity((current) => {
       const activity: DashboardActivity = {
         id: createId(),
@@ -769,10 +772,40 @@ export function TrackerApp({
     logLocalProjectActivity({
       projectId: project.id,
       kind: "status_changed",
-      message: `${project.title} status changed from ${project.status} to ${status}.`
+        message: `${project.title} status changed from ${previousStatus} to ${status}.`
     });
-    notify(`${project.title} status updated.`);
-  }
+    },
+  });
+
+  const createProject = useProjectCreationController({
+    clients: clientRecords,
+    projectGroups,
+    workflowTemplates,
+    projectTags: settings.projectTags,
+    salaryWorkType: settings.salaryWorkType,
+    profileId: profile.id,
+    baseNotes: defaultProjectNotes(settings),
+    scope: projectStartScope,
+    teamId: currentTeamId,
+    ownerUserId: teamData?.currentMember.userId,
+    setProjects: setItems,
+    notify,
+    onCreated: (project) => {
+      const activity: DashboardActivity = {
+        id: createId(),
+        kind: "created",
+        message: `${project.title} was created`,
+        projectId: project.id,
+        createdAt: project.createdAt,
+      };
+      setDashboardActivity((current) => [activity, ...current].slice(0, 20));
+      logLocalProjectActivity({ projectId: project.id, kind: "project_created", message: `${project.title} was created.`, createdAt: project.createdAt });
+      trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+      setNewProjectOpen(false);
+      notify("Project created.");
+      router.push(`/projects/${encodeURIComponent(project.id)}`);
+    },
+  });
 
   function updateProjectChecklist(project: WorkItem, itemKey: string, completed: boolean) {
     if (project.teamId && !canEditProjects) {
@@ -817,54 +850,6 @@ export function TrackerApp({
     if (detailProjectId === deleteTarget.id) setDetailProjectId("");
     setDeleteTarget(null);
     notify("Project deleted.", "warning");
-  }
-
-  function createProject(input: NewProjectInput) {
-    const validation = validateNewProjectInput(input, {
-      clients: clientRecords,
-      projectGroups,
-      workflowTemplates,
-    });
-    if (!validation.ok) {
-      notify(validation.errors[0] ?? "Project details are invalid.", "warning");
-      return;
-    }
-    const value = validation.value;
-    const client = clientRecords.find((record) => record.id === value.clientId);
-    if (!client) return;
-    const template = workflowTemplates.find((record) => record.id === value.workflowTemplateId);
-    const freelanceTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("freelance"))
-      ?? settings.projectTags.find((tag) => !isSalaryWorkType(tag, settings))
-      ?? "Freelance";
-    const workType = value.financialType === "salary-plan" ? settings.salaryWorkType : freelanceTag;
-    const templateValues = template
-      ? applyProjectTemplate(template, {
-          profileId: profile.id,
-          startDate: iso(todayDate()),
-          dueDate: value.dueDate,
-          workType,
-          baseNotes: defaultProjectNotes(settings),
-          teamId: projectStartScope === "team" ? currentTeamId : undefined,
-        })
-      : { ...emptyForm(), workType, dueDate: value.dueDate, teamId: projectStartScope === "team" ? currentTeamId : undefined };
-    const payload: WorkItem = {
-      ...templateValues,
-      id: createId(),
-      title: value.name,
-      client: client.name,
-      clientId: client.id,
-      projectGroupId: value.projectGroupId,
-      ownerUserId: projectStartScope === "team" ? teamData?.currentMember.userId : undefined,
-      createdAt: new Date().toISOString(),
-    };
-    setItems((current) => [payload, ...current]);
-    const activity: DashboardActivity = { id: createId(), kind: "created", message: `${payload.title} was created`, projectId: payload.id, createdAt: new Date().toISOString() };
-    setDashboardActivity((current) => [activity, ...current].slice(0, 20));
-    logLocalProjectActivity({ projectId: payload.id, kind: "project_created", message: `${payload.title} was created.`, createdAt: payload.createdAt });
-    trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
-    setNewProjectOpen(false);
-    notify("Project created.");
-    router.push(`/projects/${encodeURIComponent(payload.id)}`);
   }
 
   function saveProject() {
@@ -927,20 +912,22 @@ export function TrackerApp({
     if (!editingId) router.push(`/projects/${encodeURIComponent(payload.id)}`);
   }
 
-  function handleAddClient(client: Omit<Client, "id" | "archived">) {
+  function handleAddClient(client: Omit<Client, "id" | "archived">): Client | null {
     const canonical = canonicalClientName(client.name, clientOptions, false);
-    if (!canonical) return;
+    if (!canonical) return null;
+    const existing = clientRecords.find((record) => record.name.toLowerCase() === canonical.toLowerCase());
+    if (existing) return existing;
+    const record = { ...mergeClientRecords([], [canonical])[0], ...client, name: canonical };
     setSettings((current) => {
-      const existing = current.clients.find((record) => record.name.toLowerCase() === canonical.toLowerCase());
-      if (existing) return current;
-      const record = mergeClientRecords([], [canonical])[0];
+      if (current.clients.some((item) => item.id === record.id)) return current;
       return {
         ...current,
         customClients: [...current.customClients, canonical],
-        clients: [...current.clients, { ...record, ...client, name: canonical }],
+        clients: [...current.clients, record],
       };
     });
     notify(`Client "${canonical}" added.`);
+    return record;
   }
 
   function handleUpdateClient(client: Client) {
@@ -962,7 +949,11 @@ export function TrackerApp({
       teamMembers={activeTeamMembers}
       localActivity={localProjectActivity.filter((event) => event.projectId === detailProject.id)}
       onBack={() => router.push("/projects")}
-      onViewChange={(view) => router.replace(`/projects/${encodeURIComponent(detailProject.id)}?view=${view}`)}
+      onViewChange={(view) => {
+        setActiveProjectView(view);
+        window.localStorage.setItem("relay:last-project-workspace-view", view);
+        router.replace(`/projects/${encodeURIComponent(detailProject.id)}?view=${view}`);
+      }}
       onEdit={openEditProject}
       onDelete={(project) => requestDeleteProject(project.id)}
       onStatusChange={updateProjectStatus}
@@ -1016,10 +1007,17 @@ export function TrackerApp({
       personalProjects={personalProjects}
       teamProjects={teamProjects}
       teamName={teamData?.workspace?.name}
+      currentUserId={teamData?.currentMember.userId ?? ""}
+      currentUserRole={teamData?.currentMember.role}
+      teamMembers={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
+      allowAllTeamProjects={teamData?.workspace.allowAllTeamProjects ?? false}
+      loading={!isAuthLoaded}
+      error={teamSyncUnavailable ? "Team Projects are unavailable until cloud authentication reconnects." : undefined}
       onNewProject={openNewProject}
       onViewProject={openProjectDetails}
       onEditProject={openEditProject}
       onDeleteProject={requestDeleteProject}
+      onArchiveProject={archiveProject}
       canCreateProjects={canCreateProjects}
       canCreateTeamProjects={canCreateTeamProjects}
       canEditProjects={canEditProjects}
@@ -1082,6 +1080,8 @@ export function TrackerApp({
         projectGroups={projectGroups.filter((group) => group.teamId === (projectStartScope === "team" ? currentTeamId : undefined))}
         workflowTemplates={workflowTemplates}
         initialTemplateId={newProjectTemplateId}
+        salaryPlanLabel={`${settings.salaryWorkType} Plan`}
+        onCreateClient={(client) => handleAddClient({ ...client, contactName: "", phone: "", notes: "" })}
         onClose={() => setNewProjectOpen(false)}
         onCreate={createProject}
       />
@@ -1093,7 +1093,8 @@ export function TrackerApp({
         projects={projectGroupsScope === "team" ? teamProjects : personalProjects}
         currency={settings.currencyCode}
         onClose={() => setProjectGroupsOpen(false)}
-        onChange={setProjectGroups}
+        onSave={saveProjectGroup}
+        onArchive={setGroupArchived}
       />
       <ProjectDialog
         open={dialogOpen}

@@ -240,3 +240,35 @@ test("shows the compact dashboard overview and links to all projects", async ({ 
   await viewAll.click();
   await expect(page).toHaveURL(/\/projects$/);
 });
+
+test("operates the Projects table by keyboard", async ({ page }) => {
+  await chooseLocalMode(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("video-editing-work-tracker:v1", JSON.stringify([
+      { id: "keyboard-a", profileId: "video-editor", title: "Keyboard Alpha", client: "E2E Client", clientId: "client-e2e", status: "Planned", workType: "Freelance", startDate: "2026-08-01", dueDate: "2026-08-20", earnings: 100, notes: "" },
+      { id: "keyboard-b", profileId: "video-editor", title: "Keyboard Beta", client: "E2E Client", clientId: "client-e2e", status: "In Progress", workType: "Freelance", startDate: "2026-08-01", dueDate: "2026-08-21", earnings: 200, notes: "" },
+    ]));
+    window.localStorage.setItem("video-editing-work-tracker:settings:v1", JSON.stringify({
+      clients: [{ id: "client-e2e", name: "E2E Client", company: "", contactName: "", email: "", phone: "", notes: "", archived: false }],
+    }));
+  });
+  await openApp(page, "/projects?view=table");
+
+  const table = page.getByRole("table", { name: "Personal project library" });
+  await expect(table.getByRole("columnheader", { name: "Name" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Client" })).toBeVisible();
+  const rows = table.getByTestId("project-row");
+  await expect(rows).toHaveCount(2);
+
+  await rows.first().focus();
+  await page.keyboard.press("End");
+  await expect(rows.last()).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(rows.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.last()).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(rows.last()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/projects\/keyboard-b(?:\?|$)/);
+});

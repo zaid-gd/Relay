@@ -1,11 +1,12 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/features/projects/**/*.test.ts"],
+    include: ["src/features/projects/**/*.test.ts", "src/components/precision-projects.test.tsx"],
   },
   resolve: {
-    alias: { "@": new URL("../../../", import.meta.url).pathname },
+    alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) },
   },
 });

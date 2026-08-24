@@ -18,12 +18,13 @@ type ProjectGroupsDialogProps = {
   projects: readonly WorkItem[];
   currency: string;
   onClose: () => void;
-  onChange: (groups: ProjectGroup[]) => void;
+  onSave: (group: ProjectGroup) => void;
+  onArchive: (groupId: string, archived: boolean) => void;
 };
 
 const money = (value: number, currency: string) => new Intl.NumberFormat("en", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 
-export function ProjectGroupsDialog({ open, teamId, clients, groups, projects, currency, onClose, onChange }: ProjectGroupsDialogProps) {
+export function ProjectGroupsDialog({ open, teamId, clients, groups, projects, currency, onClose, onSave, onArchive }: ProjectGroupsDialogProps) {
   const [editingId, setEditingId] = useState("");
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
@@ -57,17 +58,23 @@ export function ProjectGroupsDialog({ open, teamId, clients, groups, projects, c
       setError(result.errors[0] ?? "Project Group is invalid.");
       return;
     }
-    onChange(editingId ? groups.map((group) => group.id === editingId ? result.value : group) : [result.value, ...groups]);
+    onSave(result.value);
     reset();
   }
 
   function toggleArchive(group: ProjectGroup) {
-    onChange(groups.map((item) => item.id === group.id ? { ...item, archived: !item.archived } : item));
+    onArchive(group.id, !group.archived);
     if (editingId === group.id) reset();
   }
 
+  function requestClose() {
+    if ((name.trim() || clientId || notes.trim()) && typeof window !== "undefined" && !window.confirm("Discard these Project Group changes?")) return;
+    reset();
+    onClose();
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto border-border bg-background text-foreground sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Project Groups</DialogTitle>

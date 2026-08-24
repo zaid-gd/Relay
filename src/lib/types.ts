@@ -51,6 +51,7 @@ export type WorkItem = {
   client?: string;
   clientId?: string;
   projectGroupId?: string;
+  archived?: boolean;
   status: StoredProjectStatus;
   workType: string;
   startDate: string;
@@ -58,6 +59,7 @@ export type WorkItem = {
   earnings: number;
   paid?: boolean;
   paidDate?: string;
+  completedAt?: string;
   notes: string;
   integrationLinks?: IntegrationLinks;
   templateId?: string;

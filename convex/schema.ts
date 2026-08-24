@@ -30,6 +30,7 @@ export default defineSchema({
     client: v.optional(v.string()),
     clientId: v.optional(v.string()),
     projectGroupId: v.optional(v.string()),
+    archived: v.optional(v.boolean()),
     status: storedProjectStatusValidator,
     workType: v.string(),
     startDate: v.string(),
@@ -37,6 +38,7 @@ export default defineSchema({
     earnings: v.number(),
     paid: v.optional(v.boolean()),
     paidDate: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
     notes: v.string(),
     templateId: v.optional(v.string()),
     templateProjectType: v.optional(v.string()),
@@ -75,6 +77,7 @@ export default defineSchema({
     createdAt: v.string(),
   })
     .index("by_userId_and_teamId", ["userId", "teamId"])
+    .index("by_userId_and_id", ["userId", "id"])
     .index("by_teamId", ["teamId"])
     .index("by_teamId_and_id", ["teamId", "id"]),
 
@@ -209,6 +212,7 @@ export default defineSchema({
     name: v.string(),
     inviteCode: v.string(),
     createdAt: v.string(),
+    allowAllTeamProjects: v.optional(v.boolean()),
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_inviteCode", ["inviteCode"]),

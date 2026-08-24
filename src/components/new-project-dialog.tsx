@@ -1,24 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { z } from "zod";
 import type { Client, ProjectGroup, SavedProjectTemplate } from "@/lib/types";
-import type { NewProjectInput } from "@/features/projects/project-domain";
+import { newProjectFormSchema, type NewProjectFormValues, type NewProjectInput } from "@/features/projects/project-domain";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FieldLayout } from "@/components/ui/field-layout";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const newProjectSchema = z.object({
-  name: z.string().trim().min(1, "Project name is required."),
-  clientId: z.string().min(1, "Client is required."),
-  projectGroupId: z.string(),
-  workflowTemplateId: z.string(),
-  dueDate: z.iso.date("Choose a valid due date."),
-  financialType: z.enum(["client", "salary-plan"]),
-});
 
 type NewProjectDialogProps = {
   open: boolean;
@@ -26,20 +16,13 @@ type NewProjectDialogProps = {
   projectGroups: readonly ProjectGroup[];
   workflowTemplates: readonly SavedProjectTemplate[];
   initialTemplateId?: string;
+  salaryPlanLabel: string;
+  onCreateClient: (input: Pick<Client, "name" | "email" | "company">) => Client | null;
   onClose: () => void;
   onCreate: (input: NewProjectInput) => void;
 };
 
 const defaultDueDate = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
-
-type NewProjectFormValues = {
-  name: string;
-  clientId: string;
-  projectGroupId: string;
-  workflowTemplateId: string;
-  dueDate: string;
-  financialType: NewProjectInput["financialType"];
-};
 
 const defaultValues = (initialTemplateId: string): NewProjectFormValues => ({
   name: "",
@@ -50,12 +33,15 @@ const defaultValues = (initialTemplateId: string): NewProjectFormValues => ({
   financialType: "client",
 });
 
-export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", onClose, onCreate }: NewProjectDialogProps) {
+export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", salaryPlanLabel, onCreateClient, onClose, onCreate }: NewProjectDialogProps) {
   const activeClients = clients.filter((client) => !client.archived);
   const activeTemplates = workflowTemplates.filter((template) => !template.archived);
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [clientDraft, setClientDraft] = useState({ name: "", email: "", company: "" });
+  const [clientError, setClientError] = useState("");
   const form = useForm({
     defaultValues: defaultValues(initialTemplateId),
-    validators: { onSubmit: newProjectSchema },
+    validators: { onSubmit: newProjectFormSchema },
     onSubmit: ({ value }) => onCreate({
       name: value.name.trim(),
       clientId: value.clientId,
@@ -69,10 +55,35 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
   useEffect(() => {
     if (!open) return;
     form.reset(defaultValues(initialTemplateId));
+    setCreatingClient(false);
+    setClientDraft({ name: "", email: "", company: "" });
+    setClientError("");
   }, [form, initialTemplateId, open]);
 
+  function createClient() {
+    if (!clientDraft.name.trim()) {
+      setClientError("Client name is required.");
+      return;
+    }
+    const client = onCreateClient(clientDraft);
+    if (!client) {
+      setClientError("That Client could not be created.");
+      return;
+    }
+    form.setFieldValue("clientId", client.id);
+    form.setFieldValue("projectGroupId", "");
+    setCreatingClient(false);
+    setClientError("");
+  }
+
+  function requestClose() {
+    const hasClientDraft = Object.values(clientDraft).some((value) => value.trim());
+    if ((form.state.isDirty || hasClientDraft) && typeof window !== "undefined" && !window.confirm("Discard this unfinished Project?")) return;
+    onClose();
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
       <DialogContent className="border-border bg-background text-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
@@ -85,10 +96,19 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
           <form.Field name="clientId">
             {(field) => (
               <FieldLayout label="Client">
+                <div>
                 <Select value={field.state.value} onValueChange={(value) => { field.handleChange(value); form.setFieldValue("projectGroupId", ""); }}>
                   <SelectTrigger><SelectValue placeholder="Choose a Client" /></SelectTrigger>
                   <SelectContent>{activeClients.map((client) => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}</SelectContent>
                 </Select>
+                <Button type="button" variant="ghost" size="sm" className="mt-1 px-0" onClick={() => setCreatingClient((current) => !current)}>Create new Client</Button>
+                {creatingClient ? <div className="mt-2 grid gap-2 border-l border-border pl-3">
+                  <Input aria-label="New Client name" placeholder="Client name" value={clientDraft.name} onChange={(event) => setClientDraft((current) => ({ ...current, name: event.target.value }))} />
+                  <div className="grid gap-2 sm:grid-cols-2"><Input aria-label="New Client email" type="email" placeholder="Email (optional)" value={clientDraft.email} onChange={(event) => setClientDraft((current) => ({ ...current, email: event.target.value }))} /><Input aria-label="New Client company" placeholder="Company (optional)" value={clientDraft.company} onChange={(event) => setClientDraft((current) => ({ ...current, company: event.target.value }))} /></div>
+                  {clientError ? <p role="alert" className="text-sm text-destructive">{clientError}</p> : null}
+                  <div className="flex gap-2"><Button type="button" size="sm" onClick={createClient}>Add Client</Button><Button type="button" size="sm" variant="ghost" onClick={() => setCreatingClient(false)}>Cancel</Button></div>
+                </div> : null}
+                </div>
               </FieldLayout>
             )}
           </form.Field>
@@ -122,13 +142,13 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
           <div className="grid gap-4 sm:grid-cols-2">
             <form.Field name="dueDate">{(field) => <FieldLayout label="Due date"><Input type="date" value={field.state.value} onChange={(event) => field.handleChange(event.target.value)} /></FieldLayout>}</form.Field>
             <form.Field name="financialType">
-              {(field) => <FieldLayout label="Financial type"><Select value={field.state.value} onValueChange={(value) => { if (value === "client" || value === "salary-plan") field.handleChange(value); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="client">Client Project</SelectItem><SelectItem value="salary-plan">Salary Plan</SelectItem></SelectContent></Select></FieldLayout>}
+              {(field) => <FieldLayout label="Financial type"><Select value={field.state.value} onValueChange={(value) => { if (value === "client" || value === "salary-plan") field.handleChange(value); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="client">Client Project</SelectItem><SelectItem value="salary-plan">{salaryPlanLabel}</SelectItem></SelectContent></Select></FieldLayout>}
             </form.Field>
           </div>
           <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
             {([canSubmit, isSubmitting]) => (
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={requestClose}>Cancel</Button>
                 <Button type="submit" disabled={!canSubmit || isSubmitting}>{isSubmitting ? "Creating..." : "Create Project"}</Button>
               </DialogFooter>
             )}

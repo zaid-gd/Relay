@@ -4,9 +4,9 @@ import {
   deriveProjectGroupSummary,
   normalizeProjectGroup,
   normalizeProjectGroups,
+  projectStatusUpdate,
   validateNewProjectInput,
   type ProjectGroup,
-  type ProjectWithGroup,
 } from "./project-domain";
 
 const clients: Client[] = [
@@ -26,7 +26,7 @@ const template: SavedProjectTemplate = {
   checklistItems: [],
 };
 
-function project(overrides: Partial<ProjectWithGroup>): ProjectWithGroup {
+function project(overrides: Partial<WorkItem>): WorkItem {
   const base: WorkItem = {
     id: "project",
     profileId: "profile",
@@ -121,5 +121,14 @@ describe("new Project input", () => {
       ok: false,
       errors: ["Unexpected field: notes.", "Project Group must belong to the selected Client."],
     });
+  });
+});
+
+describe("Project delivery", () => {
+  it("records the first delivery time and keeps it across later status changes", () => {
+    const source = project({ status: "In Progress" });
+    const delivered = projectStatusUpdate(source, "Delivered", "2026-08-24T12:00:00.000Z");
+    expect(delivered).toEqual({ status: "Delivered", completedAt: "2026-08-24T12:00:00.000Z" });
+    expect(projectStatusUpdate({ ...source, ...delivered }, "Revision", "2026-08-25T12:00:00.000Z")).toEqual({ status: "Revision", completedAt: delivered.completedAt });
   });
 });

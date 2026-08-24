@@ -1,8 +1,8 @@
 import type { Client, ProjectGroup, SavedProjectTemplate, WorkItem } from "@/lib/types";
+import type { StoredProjectStatus } from "@/lib/domain-values";
+import { z } from "zod";
 
 export type { ProjectGroup } from "@/lib/types";
-
-export type ProjectWithGroup = WorkItem & { projectGroupId?: ProjectGroup["id"] };
 
 export type ProjectGroupSummary = {
   projectCount: number;
@@ -13,14 +13,17 @@ export type ProjectGroupSummary = {
   outstanding: number;
 };
 
-export type NewProjectInput = {
-  name: string;
-  clientId: Client["id"];
-  projectGroupId?: ProjectGroup["id"];
-  workflowTemplateId?: SavedProjectTemplate["id"];
-  dueDate: string;
-  financialType: "client" | "salary-plan";
-};
+export const newProjectFormSchema = z.strictObject({
+  name: z.string().trim().min(1, "Project name is required."),
+  clientId: z.string().min(1, "Client is required."),
+  projectGroupId: z.string().optional(),
+  workflowTemplateId: z.string().optional(),
+  dueDate: z.iso.date("Choose a valid due date."),
+  financialType: z.enum(["client", "salary-plan"]),
+});
+
+export type NewProjectInput = z.infer<typeof newProjectFormSchema>;
+export type NewProjectFormValues = z.input<typeof newProjectFormSchema>;
 
 type ValidationResult<T> =
   | { ok: true; value: T }
@@ -72,7 +75,7 @@ export function normalizeProjectGroups(input: unknown, clients: readonly Client[
 
 export function deriveProjectGroupSummary(
   group: ProjectGroup,
-  projects: readonly ProjectWithGroup[],
+  projects: readonly WorkItem[],
 ): ProjectGroupSummary {
   const grouped = projects.filter((project) => project.projectGroupId === group.id);
   const delivered = grouped.filter((project) => project.status === "Delivered");
@@ -155,5 +158,12 @@ export function validateNewProjectInput(
       dueDate,
       financialType,
     },
+  };
+}
+
+export function projectStatusUpdate(project: WorkItem, status: StoredProjectStatus, changedAt: string): Pick<WorkItem, "status" | "completedAt"> {
+  return {
+    status,
+    completedAt: status === "Delivered" ? project.completedAt ?? changedAt : project.completedAt,
   };
 }

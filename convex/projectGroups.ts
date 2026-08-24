@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
 
 const projectGroupValidator = v.object({
   id: v.string(),
@@ -32,8 +31,8 @@ export const list = query({
   },
 });
 
-export const replaceAll = mutation({
-  args: { groups: v.array(projectGroupValidator) },
+export const upsert = mutation({
+  args: { group: projectGroupValidator },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -42,33 +41,21 @@ export const replaceAll = mutation({
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", "active"))
       .first();
-    const canManageTeamGroups = Boolean(membership?.permissions.editProjects);
-    const personal = await ctx.db
-      .query("projectGroups")
-      .withIndex("by_userId_and_teamId", (q) => q.eq("userId", userId).eq("teamId", undefined))
-      .take(500);
-    const team = membership
-      ? await ctx.db.query("projectGroups").withIndex("by_teamId", (q) => q.eq("teamId", membership.teamId)).take(500)
-      : [];
-    const existing = new Map<string, Doc<"projectGroups">>([...personal, ...team].map((group) => [group.id, group]));
-    const incomingIds = new Set(args.groups.map((group) => group.id));
+    const group = args.group;
+    if (group.teamId && (group.teamId !== membership?.teamId || !membership.permissions.editProjects)) {
+      throw new Error("You do not have permission to manage this Team Project Group");
+    }
 
-    for (const group of args.groups) {
-      if (group.teamId && (group.teamId !== membership?.teamId || !canManageTeamGroups)) {
-        throw new Error("You do not have permission to manage this Team Project Group");
-      }
-      const stored = existing.get(group.id);
-      if (stored) {
-        await ctx.db.patch(stored._id, group);
-      } else {
-        await ctx.db.insert("projectGroups", { ...group, userId });
-      }
+    const settings = await ctx.db.query("settings").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    if (!settings?.clients?.some((client) => client.id === group.clientId && !client.archived)) {
+      throw new Error("Project Group Client must belong to this Workspace");
     }
-    for (const group of existing.values()) {
-      if (incomingIds.has(group.id)) continue;
-      if (group.teamId && !canManageTeamGroups) throw new Error("You do not have permission to remove this Team Project Group");
-      await ctx.db.delete(group._id);
-    }
+
+    const stored = group.teamId
+      ? await ctx.db.query("projectGroups").withIndex("by_teamId_and_id", (q) => q.eq("teamId", group.teamId).eq("id", group.id)).unique()
+      : await ctx.db.query("projectGroups").withIndex("by_userId_and_id", (q) => q.eq("userId", userId).eq("id", group.id)).unique();
+    if (stored) await ctx.db.patch(stored._id, group);
+    else await ctx.db.insert("projectGroups", { ...group, userId });
     return null;
   },
 });

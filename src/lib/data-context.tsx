@@ -286,6 +286,7 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
     client: typeof value.client === "string" ? value.client : "",
     clientId: typeof value.clientId === "string" ? value.clientId : undefined,
     projectGroupId: typeof value.projectGroupId === "string" ? value.projectGroupId : undefined,
+    archived: value.archived === true,
     status: normalizeStoredProjectStatus(value.status),
     workType: stringSetting(value.workType, "Job / Salary"),
     startDate: stringSetting(value.startDate, iso(todayDate())),
@@ -293,6 +294,7 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
     earnings: typeof value.earnings === "number" && Number.isFinite(value.earnings) ? Math.max(0, value.earnings) : 0,
     paid: typeof value.paid === "boolean" ? value.paid : false,
     paidDate: typeof value.paidDate === "string" ? value.paidDate : "",
+    completedAt: typeof value.completedAt === "string" ? value.completedAt : undefined,
     notes: typeof value.notes === "string" ? value.notes : "",
     templateId: typeof value.templateId === "string" && value.templateId.trim()
       ? value.templateId.trim().slice(0, 80)
@@ -723,8 +725,6 @@ async function diagnoseConvexAuthToken(getToken: ClerkGetToken) {
 interface DataContextValue {
   items: WorkItem[];
   setItems: React.Dispatch<React.SetStateAction<WorkItem[]>>;
-  projectGroups: ProjectGroup[];
-  setProjectGroups: React.Dispatch<React.SetStateAction<ProjectGroup[]>>;
   settings: SettingsState;
   setSettings: React.Dispatch<React.SetStateAction<SettingsState>>;
   resourceLinks: ResourceLink[];
@@ -742,6 +742,14 @@ interface DataContextValue {
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
+
+type ProjectGroupsContextValue = {
+  groups: ProjectGroup[];
+  saveGroup: (group: ProjectGroup) => void;
+  setGroupArchived: (groupId: string, archived: boolean) => void;
+};
+
+const ProjectGroupsContext = createContext<ProjectGroupsContextValue | null>(null);
 
 export function DataProvider({ children, mode = "local", authEnabled = false }: { children: React.ReactNode; mode?: "local" | "cloud" | "sample"; authEnabled?: boolean }) {
   if (mode === "cloud") {
@@ -770,8 +778,6 @@ function SampleDataProvider({ children }: { children: React.ReactNode }) {
   const value: DataContextValue = {
     items: sampleStudioProjects,
     setItems: immutableItems,
-    projectGroups: [],
-    setProjectGroups: () => undefined,
     settings: sampleStudioSettings,
     setSettings: immutableSettings,
     resourceLinks: sampleStudioResources,
@@ -788,7 +794,7 @@ function SampleDataProvider({ children }: { children: React.ReactNode }) {
     setToast,
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return <ProjectGroupsContext.Provider value={{ groups: [], saveGroup: () => undefined, setGroupArchived: () => undefined }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
 }
 
 function LocalDataProvider({ children, authEnabled }: { children: React.ReactNode; authEnabled: boolean }) {
@@ -898,8 +904,6 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
   const value: DataContextValue = {
     items,
     setItems,
-    projectGroups,
-    setProjectGroups,
     settings,
     setSettings,
     resourceLinks,
@@ -916,7 +920,11 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     setToast,
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return <ProjectGroupsContext.Provider value={{
+    groups: projectGroups,
+    saveGroup: (group) => setProjectGroups((current) => current.some((item) => item.id === group.id) ? current.map((item) => item.id === group.id ? group : item) : [group, ...current]),
+    setGroupArchived: (groupId, archived) => setProjectGroups((current) => current.map((group) => group.id === groupId ? { ...group, archived } : group)),
+  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
 }
 
 function CloudDataProvider({ children }: { children: React.ReactNode }) {
@@ -942,7 +950,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const convexBatches = useQuery(api.salaryBatches.list, {});
   const convexResources = useQuery(api.resourceLinks.list, {});
   const replaceAllItems = useMutation(api.workItems.replaceAll);
-  const replaceAllProjectGroups = useMutation(api.projectGroups.replaceAll);
+  const upsertProjectGroup = useMutation(api.projectGroups.upsert);
   const deleteWorkItem = useMutation(api.workItems.deleteOne);
   const upsertSettings = useMutation(api.settings.upsert);
   const replaceAllBatches = useMutation(api.salaryBatches.replaceAll);
@@ -1037,7 +1045,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (loadedProjectGroups.length === 0 && localProjectGroups.length > 0) {
         try {
-          await replaceAllProjectGroups({ groups: localProjectGroups });
+          await Promise.all(localProjectGroups.map((group) => upsertProjectGroup({ group })));
           removeKey(PROJECT_GROUPS_STORAGE_KEY);
           nextProjectGroups = localProjectGroups;
         } catch {
@@ -1115,7 +1123,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     convexBatches,
     convexResources,
     replaceAllItems,
-    replaceAllProjectGroups,
+    upsertProjectGroup,
     replaceAllBatches,
     replaceAllResources,
     upsertSettings,
@@ -1334,7 +1342,9 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       setProjectGroupsState((previous) => {
         const next = normalizeProjectGroups(typeof updater === "function" ? updater(previous) : updater, settings.clients);
         if (isSignedIn && convexAuthenticated) {
-          replaceAllProjectGroups({ groups: next }).catch(() => {
+          const previousById = new Map(previous.map((group) => [group.id, group]));
+          const changed = next.filter((group) => JSON.stringify(previousById.get(group.id)) !== JSON.stringify(group));
+          Promise.all(changed.map((group) => upsertProjectGroup({ group }))).catch(() => {
             writeJson(PROJECT_GROUPS_STORAGE_KEY, next);
             setToast({ tone: "warning", message: "Cloud sync failed. Project Groups are saved locally for now." });
           });
@@ -1344,7 +1354,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [convexAuthenticated, isSignedIn, replaceAllProjectGroups, settings.clients],
+    [convexAuthenticated, isSignedIn, settings.clients, upsertProjectGroup],
   );
 
   const exportBackup = useCallback(() => createWorkspaceBackup({ projects: items, clients: settings.clients, projectGroups, resources: resourceLinks, salaryBatches, settings: { ...settings } }), [items, projectGroups, resourceLinks, salaryBatches, settings]);
@@ -1359,7 +1369,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     if (isSignedIn && convexAuthenticated) {
       await Promise.all([
         replaceAllItems({ items: nextItems }),
-        replaceAllProjectGroups({ groups: nextProjectGroups }),
+        ...nextProjectGroups.map((group) => upsertProjectGroup({ group })),
         upsertSettings(nextSettings),
         replaceAllResources({ resources: nextResources }),
         replaceAllBatches({ batches: nextBatches }),
@@ -1367,13 +1377,11 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     }
     setItemsState(nextItems); setSettingsState(nextSettings); setProjectGroupsState(nextProjectGroups); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
     return { projects: nextItems.length, clients: nextSettings.clients.length, projectGroups: nextProjectGroups.length, resources: nextResources.length, salaryBatches: nextBatches.length };
-  }, [convexAuthenticated, isSignedIn, items.length, projectGroups.length, replaceAllBatches, replaceAllItems, replaceAllProjectGroups, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertSettings]);
+  }, [convexAuthenticated, isSignedIn, items.length, projectGroups.length, replaceAllBatches, replaceAllItems, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertProjectGroup, upsertSettings]);
 
   const value: DataContextValue = {
     items,
     setItems,
-    projectGroups,
-    setProjectGroups,
     settings,
     setSettings,
     resourceLinks,
@@ -1390,11 +1398,21 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     setToast,
   };
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return <ProjectGroupsContext.Provider value={{
+    groups: projectGroups,
+    saveGroup: (group) => setProjectGroups((current) => current.some((item) => item.id === group.id) ? current.map((item) => item.id === group.id ? group : item) : [group, ...current]),
+    setGroupArchived: (groupId, archived) => setProjectGroups((current) => current.map((group) => group.id === groupId ? { ...group, archived } : group)),
+  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
 }
 
 export function useData(): DataContextValue {
   const ctx = useContext(DataContext);
   if (!ctx) throw new Error("useData must be used within a DataProvider");
+  return ctx;
+}
+
+export function useProjectGroups(): ProjectGroupsContextValue {
+  const ctx = useContext(ProjectGroupsContext);
+  if (!ctx) throw new Error("useProjectGroups must be used within a DataProvider");
   return ctx;
 }

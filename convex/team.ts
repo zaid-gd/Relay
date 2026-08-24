@@ -322,6 +322,7 @@ export const createWorkspace = mutation({
       name: workspaceName,
       inviteCode: await uniqueInviteCode(ctx),
       createdAt: now,
+      allowAllTeamProjects: false,
     });
     await ctx.db.insert("teamMembers", {
       teamId: workspaceId,
@@ -342,6 +343,22 @@ export const createWorkspace = mutation({
       message: `${actorName(identity)} created the team workspace.`,
     });
     return workspaceId;
+  },
+});
+
+export const updateWorkspaceProjectPolicy = mutation({
+  args: { allowAllTeamProjects: v.boolean() },
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.tokenIdentifier).eq("status", "active"))
+      .first();
+    if (!membership || !membership.permissions.manageTeam) throw new Error("Only a Workspace Owner can change Project visibility");
+    const workspace = await ctx.db.get(membership.teamId as Doc<"teamWorkspaces">["_id"]);
+    if (!workspace) throw new Error("Workspace not found");
+    await ctx.db.patch(workspace._id, { allowAllTeamProjects: args.allowAllTeamProjects });
+    return null;
   },
 });
 
