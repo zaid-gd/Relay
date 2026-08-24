@@ -35,6 +35,7 @@ const customProjectTemplateValidator = v.object({
   })),
   checklistItems: v.array(v.string()),
   custom: v.optional(v.boolean()),
+  archived: v.optional(v.boolean()),
   updatedAt: v.optional(v.string()),
 });
 
@@ -58,6 +59,7 @@ function normalizeCustomProjectTemplate(template: CustomProjectTemplate): Custom
       .slice(0, 12),
     checklistItems: template.checklistItems.map((item) => item.trim()).filter(Boolean).slice(0, 20),
     custom: template.custom ?? true,
+    archived: template.archived ?? false,
     updatedAt: typeof template.updatedAt === "string" ? template.updatedAt : new Date().toISOString(),
   };
 }

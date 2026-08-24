@@ -13,6 +13,7 @@ import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
 import { mergeClientRecords } from "@/lib/clients";
+import { validateWorkflowStages } from "@/lib/workflow-templates";
 import {
   APPROVAL_STATUS_LABELS,
   CLIENT_PORTAL_STAGE_VALUES,
@@ -963,6 +964,7 @@ export function TrackerApp({
     <TemplatesDesignPage
       onUseBlank={() => openBlankProject("personal")}
       onUseTemplate={(template) => openTemplateProject(template, "personal")}
+      canManageTemplates={!teamData || canManageTeamProjects}
     />
   ) : page === "reports" ? (
     <PrecisionReports
@@ -1673,7 +1675,7 @@ const emptyTemplateForm: TemplateFormState = {
   projectType: "",
   workType: "freelance",
   durationDays: 7,
-  workflowStagesText: "Brief\nEdit\nReview\nDelivery",
+  workflowStagesText: "Planned\nEditing\nClient Review\nRevisions\nApproved\nDelivered",
   deliverablesText: "Final master",
   checklistText: "Confirm brief\nCheck export settings",
 };
@@ -1723,17 +1725,21 @@ function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
 function TemplatesDesignPage({
   onUseBlank,
   onUseTemplate,
+  canManageTemplates,
 }: {
   onUseBlank: () => void;
   onUseTemplate: (template: ProjectTemplate) => void;
+  canManageTemplates: boolean;
 }) {
-  const { settings, setSettings } = useData();
+  const { items, settings, setSettings } = useData();
   const [templateForm, setTemplateForm] = useState<TemplateFormState>(emptyTemplateForm);
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [templateError, setTemplateError] = useState("");
   const customTemplates = settings.customProjectTemplates ?? [];
   const templates = useMemo(() => [...PROJECT_TEMPLATES, ...customTemplates], [customTemplates]);
 
   function openBuilder(template?: ProjectTemplate) {
+    setTemplateError("");
     setTemplateForm(template ? templateToForm(template) : { ...emptyTemplateForm, id: "" });
     setBuilderOpen(true);
   }
@@ -1741,8 +1747,23 @@ function TemplatesDesignPage({
   function saveTemplate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!templateForm.name.trim()) return;
+    const stageError = validateWorkflowStages(linesFromText(templateForm.workflowStagesText, 12));
+    if (stageError) {
+      setTemplateError(stageError);
+      return;
+    }
 
     const nextTemplate = customTemplateFromForm(templateForm);
+    const previousTemplate = customTemplates.find((template) => template.id === nextTemplate.id);
+    nextTemplate.archived = previousTemplate?.archived ?? false;
+    if (previousTemplate && items.some((item) => item.templateId === previousTemplate.id)) {
+      const nextStages = new Set(nextTemplate.workflowStages.map((stage) => stage.toLowerCase()));
+      const removedStage = previousTemplate.workflowStages.find((stage) => !nextStages.has(stage.toLowerCase()));
+      if (removedStage) {
+        setTemplateError(`Reassign Projects before removing the ${removedStage} stage.`);
+        return;
+      }
+    }
     setSettings((current) => {
       const currentTemplates = current.customProjectTemplates ?? [];
       const exists = currentTemplates.some((template) => template.id === nextTemplate.id);
@@ -1757,10 +1778,23 @@ function TemplatesDesignPage({
   }
 
   function deleteTemplate(templateId: string) {
+    if (items.some((item) => item.templateId === templateId)) {
+      setTemplateError("This template is in use. Reassign its Projects before deleting it.");
+      return;
+    }
     setSettings((current) => ({
       ...current,
       customProjectTemplates: (current.customProjectTemplates ?? []).filter((template) => template.id !== templateId),
     }));
+  }
+
+  function copyTemplate(template: ProjectTemplate) {
+    const copy = { ...template, id: `custom-copy-${Date.now().toString(36)}`, name: `${template.name} Copy`, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems], custom: true, updatedAt: new Date().toISOString() };
+    setSettings((current) => ({ ...current, customProjectTemplates: [copy, ...current.customProjectTemplates].slice(0, 24) }));
+  }
+
+  function archiveTemplate(template: SavedProjectTemplate) {
+    setSettings((current) => ({ ...current, customProjectTemplates: current.customProjectTemplates.map((item) => item.id === template.id ? { ...item, archived: !item.archived } : item) }));
   }
 
   return (
@@ -1771,7 +1805,7 @@ function TemplatesDesignPage({
         description="Start with a practical editing workflow, or save your own recurring setup for the next project."
         actions={
         <div className="flex flex-wrap justify-end gap-2">
-          <OwnedButton type="button" variant="outline" onClick={() => openBuilder()}>
+          <OwnedButton type="button" variant="outline" onClick={() => openBuilder()} disabled={!canManageTemplates}>
             <Plus aria-hidden="true" />
             Custom Template
           </OwnedButton>
@@ -1783,6 +1817,7 @@ function TemplatesDesignPage({
       }
       />
       <PageContent className="space-y-5">
+      {templateError && !builderOpen ? <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{templateError}</p> : null}
       <ContentSection
         title="Template library"
         metadata={<OwnedBadge variant="secondary">{templates.length} templates</OwnedBadge>}
@@ -1801,7 +1836,7 @@ function TemplatesDesignPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base font-semibold">{template.name}</h2>
                     <OwnedBadge variant="secondary" className="rounded-md text-[10px] uppercase tracking-wide">
-                      {template.custom ? "Custom" : "Built-in"}
+                      {template.archived ? "Archived" : template.custom ? "Custom" : "Built-in"}
                     </OwnedBadge>
                   </div>
                   <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">{template.description}</p>
@@ -1848,11 +1883,16 @@ function TemplatesDesignPage({
                 variant="link"
                 className="h-auto p-0"
                 onClick={() => onUseTemplate(template)}
+                disabled={template.archived}
               >
                   Use template
                 <Plus aria-hidden="true" />
               </OwnedButton>
-              {template.custom ? (
+              <OwnedButton type="button" size="sm" variant="ghost" aria-label={`Copy ${template.name} template`} onClick={() => copyTemplate(template)} disabled={!canManageTemplates}>
+                <Copy aria-hidden="true" />
+                Copy
+              </OwnedButton>
+              {template.custom && canManageTemplates ? (
                 <div className="flex items-center gap-1">
                   <OwnedButton
                     type="button"
@@ -1864,6 +1904,7 @@ function TemplatesDesignPage({
                     <Pencil aria-hidden="true" />
                     Edit
                   </OwnedButton>
+                  <OwnedButton type="button" size="sm" variant="ghost" onClick={() => archiveTemplate(template)}>{template.archived ? "Restore" : "Archive"}</OwnedButton>
                   <OwnedButton
                     type="button"
                     size="sm"
@@ -1970,6 +2011,7 @@ function TemplatesDesignPage({
               </FieldLayout>
             </div>
 
+            {templateError ? <p role="alert" className="text-sm text-destructive">{templateError}</p> : null}
             <OwnedDialogFooter>
               <OwnedButton type="button" variant="outline" onClick={() => setBuilderOpen(false)}>
                 Cancel

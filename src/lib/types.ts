@@ -97,6 +97,7 @@ export type SavedProjectTemplate = {
   }>;
   checklistItems: string[];
   custom?: boolean;
+  archived?: boolean;
   updatedAt?: string;
 };
 

@@ -328,6 +328,7 @@ export default defineSchema({
       })),
       checklistItems: v.array(v.string()),
       custom: v.optional(v.boolean()),
+      archived: v.optional(v.boolean()),
       updatedAt: v.optional(v.string()),
     }))),
     projectTags: v.optional(v.array(v.string())),

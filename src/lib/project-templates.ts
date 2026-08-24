@@ -35,6 +35,17 @@ const deliverable = (
 
 export const PROJECT_TEMPLATES: ProjectTemplate[] = [
   {
+    id: "relay-default-workflow",
+    name: "Relay Default Workflow",
+    description: "A clear production path from planning through delivery.",
+    projectType: "Video production",
+    workType: "freelance",
+    durationDays: 10,
+    workflowStages: ["Planned", "Editing", "Client Review", "Revisions", "Approved", "Delivered"],
+    deliverables: [deliverable("Final master")],
+    checklistItems: ["Confirm brief", "Check export settings", "Confirm client approval"],
+  },
+  {
     id: "youtube-video",
     name: "YouTube Video",
     description: "Long-form creator edit with review, packaging, and publishing handoff.",
