@@ -1,6 +1,7 @@
 type WorkspaceBackupData = {
   projects: unknown[];
   clients: unknown[];
+  projectGroups?: unknown[];
   resources: unknown[];
   salaryBatches: unknown[];
   settings: Record<string, unknown>;
@@ -17,7 +18,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function createWorkspaceBackup(data: WorkspaceBackupData) {
   const { integrationAccounts: _accounts, integrationConfigs: _configs, integrationLinks: _links, ...safeSettings } = data.settings;
-  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...data, settings: safeSettings }, null, 2);
+  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...data, projectGroups: data.projectGroups ?? [], settings: safeSettings }, null, 2);
 }
 
 export function parseWorkspaceBackup(source: string): WorkspaceBackup {
@@ -31,5 +32,5 @@ export function parseWorkspaceBackup(source: string): WorkspaceBackup {
   if (!Array.isArray(value.projects) || !Array.isArray(value.clients) || !Array.isArray(value.resources) || !Array.isArray(value.salaryBatches) || !isRecord(value.settings)) {
     throw new Error("The Relay backup is incomplete.");
   }
-  return value as WorkspaceBackup;
+  return { ...value, projectGroups: Array.isArray(value.projectGroups) ? value.projectGroups : [] } as WorkspaceBackup;
 }

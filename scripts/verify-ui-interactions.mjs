@@ -404,7 +404,7 @@ try {
     await page.getByRole("button", { name: "Show all tools" }).click();
     await page.getByRole("link", { name: "Clients" }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: "Create first project" }).click();
-    await page.getByRole("heading", { name: "Create Project" }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "New Project" }).waitFor({ state: "visible" });
   }, { seedWorkspace: false });
 
   await withPage({ width: 390, height: 844 }, async (page) => {
@@ -448,7 +448,7 @@ try {
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Good to see you, Jordan." }).waitFor();
     await page.getByRole("button", { name: "New project" }).click();
-    await page.getByRole("heading", { name: "Create Project" }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "New Project" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await page.getByTestId("mobile-project-row").first().click();
     await page.getByRole("dialog", { name: "Project details" }).waitFor({ state: "visible" });

@@ -60,11 +60,11 @@ test("dismisses the project launcher with Escape and restores focus", async ({ p
   await chooseLocalMode(page);
   await openApp(page, "/projects");
 
-  const trigger = page.getByRole("button", { name: /New (?:Personal |Team )?Project/ }).first();
+  const trigger = page.getByRole("button", { name: /(?:Quick create|New)(?: Personal| Team)? project/i }).first();
   await trigger.focus();
   await trigger.click();
 
-  const dialog = page.getByRole("dialog", { name: "Create Project" });
+  const dialog = page.getByRole("dialog", { name: "New Project" });
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

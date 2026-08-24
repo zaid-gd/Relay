@@ -29,6 +29,7 @@ export default defineSchema({
     title: v.string(),
     client: v.optional(v.string()),
     clientId: v.optional(v.string()),
+    projectGroupId: v.optional(v.string()),
     status: storedProjectStatusValidator,
     workType: v.string(),
     startDate: v.string(),
@@ -60,6 +61,20 @@ export default defineSchema({
   })
     .index("by_userId_and_teamId", ["userId", "teamId"])
     .index("by_workItemId", ["id"])
+    .index("by_teamId", ["teamId"])
+    .index("by_teamId_and_id", ["teamId", "id"]),
+
+  projectGroups: defineTable({
+    userId: v.string(),
+    id: v.string(),
+    teamId: v.optional(v.string()),
+    clientId: v.string(),
+    name: v.string(),
+    notes: v.string(),
+    archived: v.boolean(),
+    createdAt: v.string(),
+  })
+    .index("by_userId_and_teamId", ["userId", "teamId"])
     .index("by_teamId", ["teamId"])
     .index("by_teamId_and_id", ["teamId", "id"]),
 

@@ -79,6 +79,7 @@ type PrecisionProjectsProps = {
   canCreateTeamProjects: boolean;
   canEditProjects: boolean;
   canDeleteProject: (project: WorkItem) => boolean;
+  onManageProjectGroups: (scope: WorkspaceScope) => void;
 };
 
 const columnHelper = createColumnHelper<WorkItem>();
@@ -342,6 +343,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
         }
         secondary={
         <>
+        <Button variant="outline" className="h-9" onClick={() => props.onManageProjectGroups(scope)}>Project Groups</Button>
         <div className="relative inline-flex w-fit rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
           <button
             type="button"

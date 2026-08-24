@@ -12,6 +12,7 @@ import type * as clientPortals from "../clientPortals.js";
 import type * as domainValidators from "../domainValidators.js";
 import type * as projectActivity from "../projectActivity.js";
 import type * as projectFiles from "../projectFiles.js";
+import type * as projectGroups from "../projectGroups.js";
 import type * as publicProfiles from "../publicProfiles.js";
 import type * as r2 from "../r2.js";
 import type * as resourceLinks from "../resourceLinks.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   domainValidators: typeof domainValidators;
   projectActivity: typeof projectActivity;
   projectFiles: typeof projectFiles;
+  projectGroups: typeof projectGroups;
   publicProfiles: typeof publicProfiles;
   r2: typeof r2;
   resourceLinks: typeof resourceLinks;

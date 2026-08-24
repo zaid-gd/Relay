@@ -9,9 +9,13 @@ import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
+import { validateNewProjectInput, type NewProjectInput } from "@/features/projects/project-domain";
+import { NewProjectDialog } from "@/components/new-project-dialog";
+import { ProjectGroupsDialog } from "@/components/project-groups-dialog";
 import { mergeClientRecords } from "@/lib/clients";
 import { validateWorkflowStages } from "@/lib/workflow-templates";
 import {
@@ -193,7 +197,7 @@ const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
 const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;const successColor = `var(--app-success, ${cutlab.color.success})`;
 const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
 
-type PageKey = "dashboard" | "projects" | "clients" | "timeline" | "calendar" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
+type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
 type ProjectKind = string;
 type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
 type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_desc" | "earnings_asc";type TeamMember = {
@@ -202,6 +206,11 @@ type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_de
   role: StoredTeamRole;
   email: string;
 };
+type ProjectWorkspaceView = "overview" | "outputs" | "review" | "files" | "activity";
+
+function projectWorkspaceView(value: string | null): ProjectWorkspaceView {
+  return value === "outputs" || value === "review" || value === "files" || value === "activity" ? value : "overview";
+}
 type WorkspaceMemberOption = {
   userId: string;
   name: string;
@@ -420,14 +429,20 @@ const emptyForm = (): WorkItem => ({
 
 export function TrackerApp({
   page,
+  projectId,
+  projectView,
   experienceMode = "workspace",
 }: {
   page: PageKey;
+  projectId?: string;
+  projectView?: string;
   experienceMode?: "workspace" | "sample";
 }) {
   const {
     items,
     setItems,
+    projectGroups,
+    setProjectGroups,
     settings,
     setSettings,
     resourceLinks,
@@ -441,16 +456,21 @@ export function TrackerApp({
     reconcileSalaryBatches,
     updateSalaryBatchPayment,
   } = useData();
+  const router = useRouter();
+  const activeProjectView = projectWorkspaceView(projectView ?? null);
   const { openSignIn, openSignUp } = useOptionalAuth();
   const isSample = experienceMode === "sample";
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   const shouldLoadTeamPermissions = Boolean(isSignedIn && isConvexAuthenticated);
   const teamData = useQuery(api.team.getMyWorkspace, shouldLoadTeamPermissions ? {} : "skip");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [projectStartOpen, setProjectStartOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectTemplateId, setNewProjectTemplateId] = useState("relay-default-workflow");
+  const [projectGroupsOpen, setProjectGroupsOpen] = useState(false);
+  const [projectGroupsScope, setProjectGroupsScope] = useState<"personal" | "team">("personal");
   const [projectStartScope, setProjectStartScope] = useState<"personal" | "team">("personal");
   const [editingId, setEditingId] = useState("");
-  const [detailProjectId, setDetailProjectId] = useState("");
+  const [detailProjectId, setDetailProjectId] = useState(projectId ?? "");
   const [deleteTarget, setDeleteTarget] = useState<WorkItem | null>(null);
   const [form, setForm] = useState<WorkItem>(emptyForm);
   const [formError, setFormError] = useState("");
@@ -475,6 +495,10 @@ export function TrackerApp({
       return [];
     }
   });
+
+  useEffect(() => {
+    if (projectId) setDetailProjectId(projectId);
+  }, [projectId]);
 
   useEffect(() => {
     applyRootThemeVariables(settings);
@@ -551,6 +575,10 @@ export function TrackerApp({
   );
   const clientOptions = useMemo(() => clientRecords.filter((client) => !client.archived).map((client) => client.name), [clientRecords]);
   const clientFilterOptions = useMemo(() => ["ALL", ...clientOptions], [clientOptions]);
+  const workflowTemplates = useMemo(
+    () => [...PROJECT_TEMPLATES, ...settings.customProjectTemplates],
+    [settings.customProjectTemplates],
+  );
 
   useEffect(() => {
     if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords)) return;
@@ -625,20 +653,14 @@ export function TrackerApp({
       projectLauncherTriggerRef.current = document.activeElement;
     }
     setProjectStartScope(scope);
-    setProjectStartOpen(true);
+    setNewProjectTemplateId("relay-default-workflow");
+    setNewProjectOpen(true);
   }
 
   function openBlankProject(scope: "personal" | "team" = projectStartScope) {
-    setEditingId("");
-    setForm({
-      ...emptyForm(),
-      teamId: scope === "team" ? currentTeamId : undefined,
-      assigneeUserIds: [],
-      notes: defaultProjectNotes(settings)
-    });
-    setFormError("");
-    setProjectStartOpen(false);
-    setDialogOpen(true);
+    setProjectStartScope(scope);
+    setNewProjectTemplateId("");
+    setNewProjectOpen(true);
   }
 
   function notify(message: string, tone: ToastState["tone"] = "success") {
@@ -687,27 +709,9 @@ export function TrackerApp({
       notify("Your team role cannot create projects in this workspace.", "warning");
       return;
     }
-    const freelanceTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("freelance"))
-      ?? settings.projectTags.find((tag) => !isSalaryWorkType(tag, settings))
-      ?? settings.projectTags[0]
-      ?? "Freelance";
-    const channelTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("channel"))
-      ?? freelanceTag;
-    setEditingId("");
-    setForm({
-      id: "",
-      ...applyProjectTemplate(template, {
-        profileId: profile.id,
-        startDate: iso(todayDate()),
-        dueDate: iso(addDays(todayDate(), template.durationDays)),
-        workType: template.workType === "channel" ? channelTag : freelanceTag,
-        baseNotes: defaultProjectNotes(settings),
-        teamId: scope === "team" ? currentTeamId : undefined,
-      }),
-    });
-    setFormError("");
-    setProjectStartOpen(false);
-    setDialogOpen(true);
+    setProjectStartScope(scope);
+    setNewProjectTemplateId(template.id);
+    setNewProjectOpen(true);
   }
 
   function openEditProject(item: WorkItem) {
@@ -724,7 +728,11 @@ export function TrackerApp({
 
   function openProjectDetails(item: WorkItem) {
     setDetailProjectId(item.id);
-    if (isSample) trackOnboardingEvent("sample_project_opened", { variant: "v2", entrySource: "sample_dashboard" });
+    if (isSample) {
+      trackOnboardingEvent("sample_project_opened", { variant: "v2", entrySource: "sample_dashboard" });
+      return;
+    }
+    router.push(`/projects/${encodeURIComponent(item.id)}`);
   }
 
   function canDeleteProject(project: WorkItem | null) {
@@ -811,6 +819,54 @@ export function TrackerApp({
     notify("Project deleted.", "warning");
   }
 
+  function createProject(input: NewProjectInput) {
+    const validation = validateNewProjectInput(input, {
+      clients: clientRecords,
+      projectGroups,
+      workflowTemplates,
+    });
+    if (!validation.ok) {
+      notify(validation.errors[0] ?? "Project details are invalid.", "warning");
+      return;
+    }
+    const value = validation.value;
+    const client = clientRecords.find((record) => record.id === value.clientId);
+    if (!client) return;
+    const template = workflowTemplates.find((record) => record.id === value.workflowTemplateId);
+    const freelanceTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("freelance"))
+      ?? settings.projectTags.find((tag) => !isSalaryWorkType(tag, settings))
+      ?? "Freelance";
+    const workType = value.financialType === "salary-plan" ? settings.salaryWorkType : freelanceTag;
+    const templateValues = template
+      ? applyProjectTemplate(template, {
+          profileId: profile.id,
+          startDate: iso(todayDate()),
+          dueDate: value.dueDate,
+          workType,
+          baseNotes: defaultProjectNotes(settings),
+          teamId: projectStartScope === "team" ? currentTeamId : undefined,
+        })
+      : { ...emptyForm(), workType, dueDate: value.dueDate, teamId: projectStartScope === "team" ? currentTeamId : undefined };
+    const payload: WorkItem = {
+      ...templateValues,
+      id: createId(),
+      title: value.name,
+      client: client.name,
+      clientId: client.id,
+      projectGroupId: value.projectGroupId,
+      ownerUserId: projectStartScope === "team" ? teamData?.currentMember.userId : undefined,
+      createdAt: new Date().toISOString(),
+    };
+    setItems((current) => [payload, ...current]);
+    const activity: DashboardActivity = { id: createId(), kind: "created", message: `${payload.title} was created`, projectId: payload.id, createdAt: new Date().toISOString() };
+    setDashboardActivity((current) => [activity, ...current].slice(0, 20));
+    logLocalProjectActivity({ projectId: payload.id, kind: "project_created", message: `${payload.title} was created.`, createdAt: payload.createdAt });
+    trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+    setNewProjectOpen(false);
+    notify("Project created.");
+    router.push(`/projects/${encodeURIComponent(payload.id)}`);
+  }
+
   function saveProject() {
     const canonicalClient = canonicalClientName(form.client || "", clientOptions);
     const clientRecord = clientRecords.find((client) => client.name.toLowerCase() === canonicalClient.toLowerCase())
@@ -868,6 +924,7 @@ export function TrackerApp({
     setEditingId("");
     setForm(emptyForm());
     notify(editingId ? "Project updated." : "Project created.");
+    if (!editingId) router.push(`/projects/${encodeURIComponent(payload.id)}`);
   }
 
   function handleAddClient(client: Omit<Client, "id" | "archived">) {
@@ -892,7 +949,27 @@ export function TrackerApp({
     notify(client.archived ? `Client "${client.name}" archived.` : `Client "${client.name}" updated.`);
   }
 
-  const pageContent = page === "dashboard" && personalProjects.length === 0 && !isSample ? (
+  const pageContent = page === "project" ? (
+    detailProject ? <ProjectWorkspace
+      project={detailProject}
+      projectGroup={projectGroups.find((group) => group.id === detailProject.projectGroupId)}
+      settings={settings}
+      view={activeProjectView}
+      canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
+      canDelete={canDeleteProject(detailProject)}
+      canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)}
+      canComment={!isSample && canCommentProjects}
+      teamMembers={activeTeamMembers}
+      localActivity={localProjectActivity.filter((event) => event.projectId === detailProject.id)}
+      onBack={() => router.push("/projects")}
+      onViewChange={(view) => router.replace(`/projects/${encodeURIComponent(detailProject.id)}?view=${view}`)}
+      onEdit={openEditProject}
+      onDelete={(project) => requestDeleteProject(project.id)}
+      onStatusChange={updateProjectStatus}
+      onChecklistChange={updateProjectChecklist}
+      onPaymentChange={updateProjectPayment}
+    /> : <PageEmptyState icon={<FolderKanban />} title="Project not found" description="This Project does not exist or you cannot access it." />
+  ) : page === "dashboard" && personalProjects.length === 0 && !isSample ? (
     <FirstRunChecklist mode={isSignedIn ? "account" : "local"} onCreateProject={() => openNewProject("personal")} />
   ) : page === "dashboard" ? (
       <PrecisionDashboard
@@ -947,6 +1024,10 @@ export function TrackerApp({
       canCreateTeamProjects={canCreateTeamProjects}
       canEditProjects={canEditProjects}
       canDeleteProject={canDeleteProject}
+      onManageProjectGroups={(scope) => {
+        setProjectGroupsScope(scope);
+        setProjectGroupsOpen(true);
+      }}
     />
   ) : page === "clients" ? (
     <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onViewProject={openProjectDetails} />
@@ -995,13 +1076,24 @@ export function TrackerApp({
 
   const projectDialog = (
     <>
-      <ProjectStartDialog
-        open={projectStartOpen}
-        scope={projectStartScope}
-        returnFocusRef={projectLauncherTriggerRef}
-        onClose={() => setProjectStartOpen(false)}
-        onBlank={() => openBlankProject(projectStartScope)}
-        onTemplate={(template) => openTemplateProject(template, projectStartScope)}
+      <NewProjectDialog
+        open={newProjectOpen}
+        clients={clientRecords}
+        projectGroups={projectGroups.filter((group) => group.teamId === (projectStartScope === "team" ? currentTeamId : undefined))}
+        workflowTemplates={workflowTemplates}
+        initialTemplateId={newProjectTemplateId}
+        onClose={() => setNewProjectOpen(false)}
+        onCreate={createProject}
+      />
+      <ProjectGroupsDialog
+        open={projectGroupsOpen}
+        teamId={projectGroupsScope === "team" ? currentTeamId : undefined}
+        clients={clientRecords}
+        groups={projectGroups}
+        projects={projectGroupsScope === "team" ? teamProjects : personalProjects}
+        currency={settings.currencyCode}
+        onClose={() => setProjectGroupsOpen(false)}
+        onChange={setProjectGroups}
       />
       <ProjectDialog
         open={dialogOpen}
@@ -1029,7 +1121,7 @@ export function TrackerApp({
       onConfirm={confirmDeleteProject}
     />
   );
-  const detailDialog = (
+  const detailDialog = page === "project" ? null : (
     <ProjectDetailDialog
       project={detailProject}
       settings={settings}
@@ -1039,7 +1131,9 @@ export function TrackerApp({
       canComment={!isSample && canCommentProjects}
       teamMembers={activeTeamMembers}
       localActivity={localProjectActivity.filter((event) => event.projectId === detailProject?.id)}
-      onClose={() => setDetailProjectId("")}
+      onClose={() => {
+        setDetailProjectId("");
+      }}
       onEdit={(project) => openEditProject(project)}
       onDelete={(project) => {
         setDetailProjectId("");
@@ -1081,7 +1175,7 @@ export function TrackerApp({
   return (
     <>
       <WorkspaceShell
-        page={page}
+        page={page === "project" ? "projects" : page}
         settings={settings}
         onNewProject={() => openNewProject("personal")}
         canCreateProject={canCreateProjects}
@@ -3362,7 +3456,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   async function restoreBackup(file: File) {
     try {
       const counts = await importBackup(await file.text());
-      notify(`Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`);
+      notify(`Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.projectGroups} Project Groups, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Backup import failed.", "warning");
     } finally {
@@ -4457,72 +4551,6 @@ function profileThumbColor(index: number) {
   );
 }
 
-function ProjectStartDialog({
-  open,
-  scope,
-  returnFocusRef,
-  onClose,
-  onBlank,
-  onTemplate,
-}: {
-  open: boolean;
-  scope: "personal" | "team";
-  returnFocusRef: RefObject<HTMLElement | null>;
-  onClose: () => void;
-  onBlank: () => void;
-  onTemplate: (template: ProjectTemplate) => void;
-}) {
-  const settings = useTrackerSettings();
-  const templates = useMemo(() => [...PROJECT_TEMPLATES, ...(settings.customProjectTemplates ?? [])], [settings.customProjectTemplates]);
-  return (
-    <OwnedDialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
-      <OwnedDialogContent
-        className="max-h-[min(90dvh,760px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-3xl"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          returnFocusRef.current?.focus();
-        }}
-      >
-        <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl">Create {scope === "team" ? "Team " : ""}Project</OwnedDialogTitle>
-          <OwnedDialogDescription>Start clean or prefill a workflow you can edit immediately.</OwnedDialogDescription>
-        </OwnedDialogHeader>
-        <OwnedButton
-          type="button"
-          variant="outline"
-          onClick={onBlank}
-          className="h-auto w-full justify-start px-4 py-3"
-        >
-          <Plus aria-hidden="true" />
-          Blank project
-        </OwnedButton>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {templates.map((template) => (
-            <OwnedButton
-              key={template.id}
-              type="button"
-              variant="outline"
-              onClick={() => onTemplate(template)}
-              className="h-auto min-h-24 items-start justify-start whitespace-normal p-4 text-left"
-            >
-              <span className="grid gap-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{template.name}</span>
-                  {template.custom ? <OwnedBadge variant="secondary">Custom</OwnedBadge> : null}
-                </span>
-                <span className="text-xs leading-relaxed text-muted-foreground">{template.description}</span>
-              </span>
-            </OwnedButton>
-          ))}
-        </div>
-        <OwnedDialogFooter>
-          <OwnedButton type="button" variant="ghost" onClick={onClose}>Cancel</OwnedButton>
-        </OwnedDialogFooter>
-      </OwnedDialogContent>
-    </OwnedDialog>
-  );
-}
-
 function TimecodeChip({ value }: { value?: string | null }) {
   if (!value) return null;
   return (
@@ -4700,6 +4728,89 @@ function checklistItemKey(item: string, index: number) {
 function normalizeChecklistCompleted(items: string[] = [], completed: Record<string, boolean> = {}) {
   const allowedKeys = new Set(items.map((item, index) => checklistItemKey(item, index)));
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
+}
+
+function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: {
+  project: WorkItem;
+  projectGroup?: import("@/lib/types").ProjectGroup;
+  settings: SettingsState;
+  view: ProjectWorkspaceView;
+  canEdit: boolean;
+  canDelete: boolean;
+  canUpdateStatus: boolean;
+  canComment: boolean;
+  teamMembers: WorkspaceMemberOption[];
+  localActivity: ProjectActivityEvent[];
+  onBack: () => void;
+  onViewChange: (view: ProjectWorkspaceView) => void;
+  onEdit: (project: WorkItem) => void;
+  onDelete: (project: WorkItem) => void;
+  onStatusChange: (project: WorkItem, status: ProjectStatus) => void;
+  onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void;
+  onPaymentChange: (project: WorkItem, paid: boolean) => void;
+}) {
+  const isClientBillable = !isSalaryWorkType(project.workType, settings) && isDoneStatus(project.status) && safeMoneyValue(project.earnings) > 0;
+  const amount = isSalaryWorkType(project.workType, settings) ? "Batch tracked" : money(project.earnings, settings.currencyCode);
+  const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
+  const lead = teamMembers.find((member) => member.userId === project.ownerUserId)?.name || settings.profileName || "You";
+  const checklistItems = project.checklistItems ?? [];
+  const checklistCompleted = normalizeChecklistCompleted(checklistItems, project.checklistCompleted);
+  const configuredLinks = integrationServices.map((service) => ({ service, link: project.integrationLinks?.[service.id] })).filter(({ link }) => hasIntegrationLink(link));
+  const views: Array<{ id: ProjectWorkspaceView; label: string }> = [
+    { id: "overview", label: "Overview" },
+    { id: "outputs", label: "Outputs and Versions" },
+    { id: "review", label: "Client Review" },
+    { id: "files", label: "Files and Links" },
+    { id: "activity", label: "Activity" },
+  ];
+
+  return (
+    <WorkspacePage family="master-detail" mode="fill">
+      <PageHeader
+        eyebrow={`${project.client || "No Client"}${projectGroup ? ` / ${projectGroup.name}` : ""}`}
+        title={project.title}
+        description={`Due ${formatDate(project.dueDate, settings.dateFormat)} · Lead ${lead} · ${assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "No assignees"}`}
+        actions={<><OwnedButton variant="ghost" onClick={onBack}>Back to Projects</OwnedButton>{canEdit ? <OwnedButton variant="outline" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}{canDelete ? <OwnedButton variant="ghost" className="text-destructive" onClick={() => onDelete(project)}>Delete</OwnedButton> : null}</>}
+      />
+      <PageContent mode="fill">
+        <PageToolbar
+          primary={<nav aria-label="Project workspace views" className="flex flex-wrap gap-1">{views.map((item) => <OwnedButton key={item.id} size="sm" variant={view === item.id ? "secondary" : "ghost"} aria-current={view === item.id ? "page" : undefined} onClick={() => onViewChange(item.id)}>{item.label}</OwnedButton>)}</nav>}
+          secondary={canUpdateStatus ? <ProjectSelect value={project.status} options={statusOptions} onChange={(status) => { if (status !== "Client Review") onStatusChange(project, status); }} compact /> : <ProjectStatusBadge status={project.status} />}
+        />
+
+        {view === "overview" ? <div className="grid gap-4 overflow-y-auto pb-5">
+          <MetricStrip columns={4}>
+            <MetricItem label="Stage" value={project.status} />
+            <MetricItem label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
+            <MetricItem label="Value" value={amount} />
+            <MetricItem label="Payment" value={isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"} />
+          </MetricStrip>
+          <ContentSection title="Workflow" description={`${projectProgress(project.status)}% complete`}><ProjectStageTracker status={project.status} /></ContentSection>
+          <ContentSection title="Project details" actions={canEdit ? <OwnedButton size="sm" variant="ghost" onClick={() => onEdit(project)}>Edit details</OwnedButton> : null}>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><ProjectMetadataRow label="Client" value={project.client || "Not assigned"} /><ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} /><ProjectMetadataRow label="Financial type" value={project.workType} /><ProjectMetadataRow label="Created" value={project.createdAt ? formatShortDateTime(project.createdAt) : "Not recorded"} /></dl>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{project.notes || "No internal notes."}</p>
+          </ContentSection>
+          <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
+        </div> : null}
+
+        {view === "outputs" ? <ContentSection title="Project Outputs and Media Versions" description="Template outputs become working output slots. Media Version records arrive in the next feature slice.">
+          <div className="divide-y divide-border">{(project.templateDeliverables ?? []).length ? project.templateDeliverables?.map((output, index) => <div key={`${output.title}-${index}`} className="flex items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{output.title}</p><p className="mt-1 text-xs text-muted-foreground">{output.category}</p></div><OwnedBadge variant="outline">No Media Version</OwnedBadge></div>) : <p className="py-8 text-center text-sm text-muted-foreground">No Project Outputs yet.</p>}</div>
+          {checklistItems.length ? <div className="mt-5 border-t pt-4"><h3 className="text-sm font-semibold">Setup checklist</h3><div className="mt-3 grid gap-2">{checklistItems.map((item, index) => { const key = checklistItemKey(item, index); const checked = Boolean(checklistCompleted[key]); return <label key={key} className="flex items-center gap-3 text-sm"><OwnedSwitch checked={checked} disabled={!canEdit} onCheckedChange={(next) => onChecklistChange(project, key, next)} /><span className={checked ? "text-muted-foreground line-through" : ""}>{item}</span></label>; })}</div></div> : null}
+        </ContentSection> : null}
+
+        {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ClientPortalManager project={project} canEdit={canEdit} /></div> : null}
+
+        {view === "files" ? <div className="grid gap-4 overflow-y-auto pb-5">
+          <ContentSection title="External links" metadata={<OwnedBadge variant="secondary">{configuredLinks.length}</OwnedBadge>}>
+            <div className="divide-y divide-border">{configuredLinks.length ? configuredLinks.map(({ service, link }) => link ? <a key={service.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 py-3 text-sm hover:underline"><span>{integrationDisplayText(link, service.name)}</span><ExternalLink className="size-4" /></a> : null) : <p className="py-6 text-center text-sm text-muted-foreground">No external links yet.</p>}</div>
+          </ContentSection>
+          <ProjectFileManager project={project} canEdit={canEdit} />
+        </div> : null}
+
+        {view === "activity" ? <ProjectActivityFeed project={project} localActivity={localActivity} /> : null}
+      </PageContent>
+    </WorkspacePage>
+  );
 }
 
 function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {

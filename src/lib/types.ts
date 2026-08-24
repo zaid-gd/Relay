@@ -50,6 +50,7 @@ export type WorkItem = {
   title: string;
   client?: string;
   clientId?: string;
+  projectGroupId?: string;
   status: StoredProjectStatus;
   workType: string;
   startDate: string;
@@ -80,6 +81,16 @@ export type Client = {
   phone: string;
   notes: string;
   archived: boolean;
+};
+
+export type ProjectGroup = {
+  id: string;
+  teamId?: string;
+  clientId: string;
+  name: string;
+  notes: string;
+  archived: boolean;
+  createdAt: string;
 };
 
 export type SavedProjectTemplate = {
