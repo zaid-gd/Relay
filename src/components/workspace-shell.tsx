@@ -418,26 +418,19 @@ function DesktopSidebar({
         >
           <motion.div
             initial={false}
-            animate={{
-              opacity: collapsed ? 0.88 : 1,
-              height: collapsed ? 26 : 48,
-              width: collapsed ? 26 : 127,
-            }}
+            animate={{ opacity: collapsed ? 0.88 : 1 }}
             transition={reduceMotion ? { duration: 0 } : shellTransition}
             className={cn(
-              "relative shrink-0 overflow-hidden",
+              "relative size-[26px] shrink-0 overflow-hidden",
               collapsed ? "mx-auto" : "mr-auto",
             )}
           >
             <img
-              src={collapsed ? "/brand/favicon.png" : "/brand/logo-mark.png"}
+              src="/brand/favicon.png"
               alt="Relay"
               width={160}
               height={160}
-              className={cn(
-                "brand-logo-light h-full w-full",
-                collapsed ? "object-contain" : "object-cover",
-              )}
+              className="brand-logo-light h-full w-full object-contain"
             />
             <img
               src="/brand/app-icon-dark.svg"
