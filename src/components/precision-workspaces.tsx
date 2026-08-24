@@ -730,7 +730,6 @@ export function PrecisionReports({
   return (
     <WorkspacePage family="data-index">
       <PageHeader
-        eyebrow="Performance"
         title="Reports"
         description="Earnings, delivery throughput, work mix, and salary batch payout state."
         actions={(
@@ -796,7 +795,7 @@ export function PrecisionReports({
           initial={reduceMotion ? false : { opacity: 0, y: 7 }}
           animate={{ opacity: 1, y: 0 }}
           transition={reduceMotion ? { duration: 0 } : { ...revealTransition, delay: 0.08 }}
-          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
+          className="rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div><h2 className="text-sm font-semibold">Delivery and earnings trend</h2><p className="mt-0.5 text-[10px] text-[var(--app-muted)]">Delivered value and salary batches grouped by month.</p></div>
@@ -862,7 +861,7 @@ export function PrecisionReports({
           initial={reduceMotion ? false : { opacity: 0, y: 7 }}
           animate={{ opacity: 1, y: 0 }}
           transition={reduceMotion ? { duration: 0 } : { ...revealTransition, delay: 0.12 }}
-          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
+          className="rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
         >
           <div><h2 className="text-sm font-semibold">Work mix</h2><p className="mt-0.5 text-[10px] text-[var(--app-muted)]">Distribution across project types.</p></div>
           <div className="mt-3 h-[190px]" role="img" aria-label={mixData.length ? `Work mix: ${mixData.map((item) => `${item.name}, ${item.value} projects`).join("; ")}` : "No work mix data available"}>
