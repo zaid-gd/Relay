@@ -17,9 +17,11 @@ const baseProps = {
   onEditProject: () => undefined,
   onArchiveProject: () => undefined,
   onDeleteProject: () => undefined,
+  onUpdateProjectStatus: () => undefined,
   canCreateProjects: true,
   canCreateTeamProjects: false,
   canEditProjects: true,
+  canUpdateProjectStatus: true,
   canDeleteProject: () => true,
   onManageProjectGroups: () => undefined,
 };

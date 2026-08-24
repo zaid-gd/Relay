@@ -14,6 +14,21 @@ export const storedProjectStatusValidator = v.union(
   v.literal("Client Review")
 );
 
+export const workflowStagePurposeValidator = v.union(
+  v.literal("planned"),
+  v.literal("editing"),
+  v.literal("client_review"),
+  v.literal("revisions"),
+  v.literal("approved"),
+  v.literal("delivered")
+);
+
+export const workflowStageValidator = v.object({
+  id: v.string(),
+  label: v.string(),
+  purpose: workflowStagePurposeValidator,
+});
+
 export const fileCategoryValidator = v.union(
   v.literal("Deliverable"),
   v.literal("Reference"),

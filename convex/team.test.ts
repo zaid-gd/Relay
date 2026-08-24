@@ -506,7 +506,7 @@ describe("team workspace permissions and synchronization", () => {
     });
     await owner.mutation(api.workItems.replaceAll, {
       deleteMissing: false,
-      items: [{ ...templated, id: "template-product-ad" }],
+      items: [{ ...templated, workflowStages: templated.workflowStages?.map((stage) => stage.label), id: "template-product-ad" }],
     });
 
     const created = (await owner.query(api.workItems.list, {})).find((item) => item.id === "template-product-ad");
@@ -515,7 +515,7 @@ describe("team workspace permissions and synchronization", () => {
       templateProjectType: "Commercial",
       title: "Product Ad",
       client: "",
-      workflowStages: template.workflowStages,
+      workflowStages: template.workflowStages.map((stage) => stage.label),
       templateDeliverables: template.deliverables,
       checklistItems: template.checklistItems,
     });

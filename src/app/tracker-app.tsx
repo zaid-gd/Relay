@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import { AnimatePresence, motion } from "motion/react";
 import { UserProfile } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useData, useProjectGroups } from "@/lib/data-context";
+import { useData, useProjectGroups, useProjectWorkflow } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -17,7 +17,7 @@ import { useProjectController, useProjectCreationController } from "@/features/p
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { ProjectGroupsDialog } from "@/components/project-groups-dialog";
 import { mergeClientRecords } from "@/lib/clients";
-import { validateWorkflowStages } from "@/lib/workflow-templates";
+import { validateWorkflowStages, workflowStagesFromLabels } from "@/lib/workflow-templates";
 import {
   APPROVAL_STATUS_LABELS,
   CLIENT_PORTAL_STAGE_VALUES,
@@ -450,9 +450,9 @@ export function TrackerApp({
     isAuthLoaded,
     toast,
     setToast,
-    reconcileSalaryBatches,
     updateSalaryBatchPayment,
   } = useData();
+  const workflow = useProjectWorkflow();
   const { groups: projectGroups, saveGroup: saveProjectGroup, setGroupArchived } = useProjectGroups();
   const router = useRouter();
   const [activeProjectView, setActiveProjectView] = useState<ProjectWorkspaceView>(() => projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
@@ -540,10 +540,6 @@ export function TrackerApp({
   const projects = useMemo(() => items.filter((item) => (item.profileId || DEFAULT_PROFILE_ID) === profile.id), [items]);
   const personalProjects = useMemo(() => projects.filter((item) => !item.teamId), [projects]);
 
-  useEffect(() => {
-    reconcileSalaryBatches(projects);
-  }, [projects, reconcileSalaryBatches]);
-
   const activeTeamMembers = useMemo(() => teamData?.members.filter((member) => member.status === "active") ?? [], [teamData]);
   const teamDataLoading = Boolean(isSignedIn && (isConvexAuthLoading || (isConvexAuthenticated && teamData === undefined)));
   const teamSyncUnavailable = Boolean(isSignedIn && !isConvexAuthLoading && !isConvexAuthenticated);
@@ -624,8 +620,11 @@ export function TrackerApp({
     const unpaid = personalProjects.filter((item) => isProjectUnpaid(item)).length;
     const active = personalProjects.filter((item) => !isDoneStatus(item.status)).length;
     const salaryBatchSize = normalizedSalaryBatchSize(settings.salaryBatchSize);
-    const salaryEdits = personalProjects.filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status)).length;
-    const salaryBatches = Math.floor(salaryEdits / salaryBatchSize);
+    const deliveredSalaryProjects = personalProjects.filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status));
+    const settledProjectIds = new Set(salaryBatches.flatMap((batch) => batch.projectIds ?? []));
+    const legacySettledCount = salaryBatches.filter((batch) => !batch.projectIds).length * salaryBatchSize;
+    const unsettledSalaryProjects = deliveredSalaryProjects.filter((project) => !settledProjectIds.has(project.id)).slice(legacySettledCount);
+    const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) => isDoneStatus(item.status));
     const avgTurnaroundDays = delivered.length
       ? Math.round(delivered.reduce((total, item) => total + daysBetween(item.startDate, item.dueDate), 0) / delivered.length)
@@ -634,13 +633,13 @@ export function TrackerApp({
       total: personalProjects.length,
       active,
       unpaid,
-      earned: earned + salaryBatches * normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      earned: earned + salaryBatches.reduce((total, batch) => total + (batch.amount ?? normalizedSalaryBatchAmount(settings.salaryBatchAmount)), 0),
       salaryEdits,
-      salaryBatchProgress: salaryEdits % salaryBatchSize,
+      salaryBatchProgress: unsettledSalaryProjects.length % salaryBatchSize,
       delivered: delivered.length,
       avgTurnaroundDays
     };
-  }, [isProjectPaid, isProjectUnpaid, personalProjects, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
+  }, [isProjectPaid, isProjectUnpaid, personalProjects, salaryBatches, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
 
   function openNewProject(scope: "personal" | "team" = "personal") {
     if (scope === "team" && !canCreateTeamProjects) {
@@ -756,6 +755,10 @@ export function TrackerApp({
     setProjects: setItems,
     canEditTeamProjects: canEditProjects,
     canUpdateTeamStatus: canUpdateProjectStatus,
+    salaryWorkType: settings.salaryWorkType,
+    currencyCode: settings.currencyCode,
+    workflow,
+    confirmDelivery: (message) => window.confirm(message),
     notify,
     onStatusChanged: (project, previousStatus) => {
       const status = project.status;
@@ -1018,9 +1021,11 @@ export function TrackerApp({
       onEditProject={openEditProject}
       onDeleteProject={requestDeleteProject}
       onArchiveProject={archiveProject}
+      onUpdateProjectStatus={updateProjectStatus}
       canCreateProjects={canCreateProjects}
       canCreateTeamProjects={canCreateTeamProjects}
       canEditProjects={canEditProjects}
+      canUpdateProjectStatus={canUpdateProjectStatus || canEditProjects}
       canDeleteProject={canDeleteProject}
       onManageProjectGroups={(scope) => {
         setProjectGroupsScope(scope);
@@ -1783,7 +1788,7 @@ function templateToForm(template: ProjectTemplate): TemplateFormState {
     projectType: template.projectType,
     workType: template.workType,
     durationDays: template.durationDays,
-    workflowStagesText: template.workflowStages.join("\n"),
+    workflowStagesText: template.workflowStages.map((stage) => stage.label).join("\n"),
     deliverablesText: template.deliverables.map((item) => item.title).join("\n"),
     checklistText: template.checklistItems.join("\n"),
   };
@@ -1793,7 +1798,7 @@ function linesFromText(value: string, limit: number) {
   return value.split(/\r?\n|,/).map((line) => line.trim()).filter(Boolean).slice(0, limit);
 }
 
-function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
+function customTemplateFromForm(form: TemplateFormState, existing?: SavedProjectTemplate): SavedProjectTemplate {
   const name = form.name.trim().slice(0, 80) || "Custom template";
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "template";
   const id = form.id || `custom-${slug}-${Date.now().toString(36)}`;
@@ -1805,7 +1810,7 @@ function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
     projectType: form.projectType.trim().slice(0, 80) || "Custom project",
     workType: form.workType,
     durationDays: Math.max(1, Math.min(120, Math.floor(Number(form.durationDays) || 7))),
-    workflowStages: linesFromText(form.workflowStagesText, 12),
+    workflowStages: workflowStagesFromLabels(linesFromText(form.workflowStagesText, 12), existing?.workflowStages),
     deliverables: (deliverableTitles.length ? deliverableTitles : ["Final master"]).map((title) => ({
       title: title.slice(0, 120),
       category: "Deliverable" as FileCategory,
@@ -1842,20 +1847,21 @@ function TemplatesDesignPage({
   function saveTemplate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!templateForm.name.trim()) return;
-    const stageError = validateWorkflowStages(linesFromText(templateForm.workflowStagesText, 12));
+    const previousTemplate = customTemplates.find((template) => template.id === templateForm.id);
+    const nextStages = workflowStagesFromLabels(linesFromText(templateForm.workflowStagesText, 12), previousTemplate?.workflowStages);
+    const stageError = validateWorkflowStages(nextStages);
     if (stageError) {
       setTemplateError(stageError);
       return;
     }
 
-    const nextTemplate = customTemplateFromForm(templateForm);
-    const previousTemplate = customTemplates.find((template) => template.id === nextTemplate.id);
+    const nextTemplate = customTemplateFromForm(templateForm, previousTemplate);
     nextTemplate.archived = previousTemplate?.archived ?? false;
     if (previousTemplate && items.some((item) => item.templateId === previousTemplate.id)) {
-      const nextStages = new Set(nextTemplate.workflowStages.map((stage) => stage.toLowerCase()));
-      const removedStage = previousTemplate.workflowStages.find((stage) => !nextStages.has(stage.toLowerCase()));
+      const nextStageIds = new Set(nextTemplate.workflowStages.map((stage) => stage.id));
+      const removedStage = previousTemplate.workflowStages.find((stage) => !nextStageIds.has(stage.id));
       if (removedStage) {
-        setTemplateError(`Reassign Projects before removing the ${removedStage} stage.`);
+        setTemplateError(`Reassign Projects before removing the ${removedStage.label} stage.`);
         return;
       }
     }
@@ -1884,7 +1890,7 @@ function TemplatesDesignPage({
   }
 
   function copyTemplate(template: ProjectTemplate) {
-    const copy = { ...template, id: `custom-copy-${Date.now().toString(36)}`, name: `${template.name} Copy`, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems], custom: true, updatedAt: new Date().toISOString() };
+    const copy = { ...template, id: `custom-copy-${Date.now().toString(36)}`, name: `${template.name} Copy`, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems], custom: true, updatedAt: new Date().toISOString() };
     setSettings((current) => ({ ...current, customProjectTemplates: [copy, ...current.customProjectTemplates].slice(0, 24) }));
   }
 
@@ -1958,9 +1964,9 @@ function TemplatesDesignPage({
                   <span className="font-mono text-[10px] text-[var(--app-muted)]">{template.workflowStages.length} stages</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label={`${template.name} workflow stages`} role="list">
-                  {(template.workflowStages.length ? template.workflowStages : ["Add stages after creating the project"]).slice(0, 4).map((stage, index) => (
-                    <span key={`${template.id}-${stage}-${index}`} className="inline-flex items-center gap-1.5">
-                      <span role="listitem" className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground">{stage}</span>
+                  {(template.workflowStages.length ? template.workflowStages : [{ id: "empty", label: "Add stages after creating the project", purpose: "planned" as const }]).slice(0, 4).map((stage, index) => (
+                    <span key={`${template.id}-${stage.id}-${index}`} className="inline-flex items-center gap-1.5">
+                      <span role="listitem" className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground">{stage.label}</span>
                       {index < Math.min(template.workflowStages.length, 4) - 1 ? <span aria-hidden="true" className="text-[var(--app-muted)]">→</span> : null}
                     </span>
                   ))}
@@ -3441,7 +3447,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   }
 
   function resetSettings() {
-    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
+    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
     notify("Settings reset to defaults.", "warning");
   }
 
@@ -6538,10 +6544,10 @@ function TemplateSetupEditor({
         </FieldLayout>
         <FieldLayout label="Workflow stages" description="One stage per line.">
           <OwnedTextarea
-          value={(form.workflowStages ?? []).join("\n")}
+          value={(form.workflowStages ?? []).map((stage) => stage.label).join("\n")}
           onChange={(event) => setForm({
             ...form,
-            workflowStages: event.target.value.split("\n").slice(0, 12),
+            workflowStages: workflowStagesFromLabels(event.target.value.split("\n").slice(0, 12), form.workflowStages),
           })}
           density="comfortable"
           />

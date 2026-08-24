@@ -16,9 +16,58 @@ import {
   storedProjectStatusValidator,
   storedTeamRoleValidator,
   teamActivityKindValidator,
+  workflowStageValidator,
 } from "./domainValidators";
 
 export default defineSchema({
+  projects: defineTable({
+    ownerUserId: v.string(),
+    id: v.string(),
+    teamId: v.optional(v.string()),
+    assigneeUserIds: v.array(v.string()),
+    profileId: v.string(),
+    title: v.string(),
+    clientId: v.string(),
+    projectGroupId: v.optional(v.string()),
+    archived: v.boolean(),
+    status: storedProjectStatusValidator,
+    workflowStageId: v.string(),
+    workflowStages: v.array(workflowStageValidator),
+    workType: v.string(),
+    startDate: v.string(),
+    dueDate: v.string(),
+    earnings: v.number(),
+    paid: v.boolean(),
+    paidDate: v.optional(v.string()),
+    completedAt: v.optional(v.string()),
+    notes: v.string(),
+    templateId: v.optional(v.string()),
+    templateProjectType: v.optional(v.string()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_ownerUserId_and_teamId", ["ownerUserId", "teamId"])
+    .index("by_ownerUserId_and_id", ["ownerUserId", "id"])
+    .index("by_projectId", ["id"])
+    .index("by_teamId", ["teamId"])
+    .index("by_teamId_and_id", ["teamId", "id"]),
+
+  projectSalaryBatches: defineTable({
+    ownerUserId: v.string(),
+    id: v.string(),
+    number: v.number(),
+    workType: v.string(),
+    requiredProjectCount: v.number(),
+    amount: v.number(),
+    projectIds: v.array(v.string()),
+    completedAt: v.string(),
+    paid: v.boolean(),
+    paidAt: v.optional(v.string()),
+  })
+    .index("by_ownerUserId", ["ownerUserId"])
+    .index("by_ownerUserId_and_id", ["ownerUserId", "id"])
+    .index("by_ownerUserId_and_workType", ["ownerUserId", "workType"]),
+
   workItems: defineTable({
     userId: v.string(),
     id: v.string(),
@@ -339,7 +388,7 @@ export default defineSchema({
       projectType: v.string(),
       workType: v.union(v.literal("channel"), v.literal("freelance")),
       durationDays: v.number(),
-      workflowStages: v.array(v.string()),
+      workflowStages: v.array(v.union(v.string(), workflowStageValidator)),
       deliverables: v.array(v.object({
         title: v.string(),
         category: fileCategoryValidator,

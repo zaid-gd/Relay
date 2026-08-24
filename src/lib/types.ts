@@ -14,6 +14,22 @@ export type WorkTypeConfig = {
   earningsMode: EarningsMode;
 };
 
+export const WORKFLOW_STAGE_PURPOSE_VALUES = [
+  "planned",
+  "editing",
+  "client_review",
+  "revisions",
+  "approved",
+  "delivered",
+] as const;
+export type WorkflowStagePurpose = (typeof WORKFLOW_STAGE_PURPOSE_VALUES)[number];
+
+export type WorkflowStage = {
+  id: string;
+  label: string;
+  purpose: WorkflowStagePurpose;
+};
+
 export type ProfileConfig = {
   id: string;
   name: string;
@@ -53,6 +69,9 @@ export type WorkItem = {
   projectGroupId?: string;
   archived?: boolean;
   status: StoredProjectStatus;
+  workflowStageId?: string;
+  /** Legacy persisted label; new projects use workflowStageId. */
+  workflowStage?: string;
   workType: string;
   startDate: string;
   dueDate: string;
@@ -64,7 +83,7 @@ export type WorkItem = {
   integrationLinks?: IntegrationLinks;
   templateId?: string;
   templateProjectType?: string;
-  workflowStages?: string[];
+  workflowStages?: WorkflowStage[];
   templateDeliverables?: Array<{
     title: string;
     category: FileCategory;
@@ -102,7 +121,7 @@ export type SavedProjectTemplate = {
   projectType: string;
   workType: "channel" | "freelance";
   durationDays: number;
-  workflowStages: string[];
+  workflowStages: WorkflowStage[];
   deliverables: Array<{
     title: string;
     category: FileCategory;
@@ -134,6 +153,9 @@ export type SalaryBatch = {
   amount?: number;
   paid?: boolean;
   paidDate?: string;
+  projectIds?: string[];
+  requiredProjectCount?: number;
+  workType?: string;
 };
 
 export type SalaryState = {

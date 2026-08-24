@@ -1,6 +1,13 @@
 import type { Client, WorkItem } from "../../lib/types";
 import type { StoredProjectStatus, StoredTeamRole } from "../../lib/domain-values";
 
+export {
+  getProjectStageMenuChoices,
+  groupProjectsByStage,
+  type ProjectStageGroup,
+  type ProjectStageMenuChoice,
+} from "./project-domain";
+
 export type ProjectTableView = "table" | "board";
 export type ProjectTableSort = "name" | "due" | "stage" | "payment" | "salary";
 export type ProjectTableDirection = "asc" | "desc";

@@ -4,6 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { StoredTeamRole } from "@/lib/domain-values";
 import type { Client, WorkItem } from "@/lib/types";
 import { DEFAULT_PROJECT_TABLE_STATE, filterProjectTableProjects, getProjectPaymentState, parseProjectTableSearch, serializeProjectTableSearch, shouldShowProjectAssignees, sortProjectTableProjects, type ProjectTableState } from "./project-table-domain";
+import { getProjectStageMenuChoices, getProjectWorkflowStage, getProjectWorkflowStages, groupProjectsByStage } from "./project-domain";
 
 type ProjectTableControllerOptions = {
   scope: "personal" | "team";
@@ -15,6 +16,7 @@ type ProjectTableControllerOptions = {
   currentUserRole?: StoredTeamRole;
   allowAllTeamProjects: boolean;
   activeTeamMemberCount: number;
+  canUpdateProjectStatus: boolean;
 };
 
 export function useProjectTableController(options: ProjectTableControllerOptions) {
@@ -76,10 +78,18 @@ export function useProjectTableController(options: ProjectTableControllerOptions
     isUpdating: deferredState !== state,
     source,
     projects,
+    board: groupProjectsByStage(projects),
     summary,
     hasFilters: Boolean(state.query || state.clientId || state.assigneeUserId) || state.stage !== "all" || state.payment !== "all" || state.salary !== "all" || state.archive !== "active",
     showAssignees: shouldShowProjectAssignees({ isTeamWorkspace: options.scope === "team", activeMemberCount: options.activeTeamMemberCount }),
     getPaymentState: (project: WorkItem) => getProjectPaymentState(project, rules),
     isSalaryProject: rules.isSalaryProject,
+    canMoveProject: (project: WorkItem, stageId: string) => (!project.teamId || options.canUpdateProjectStatus)
+      && getProjectWorkflowStage(project).id !== stageId
+      && getProjectWorkflowStages(project).some((stage) => stage.id === stageId),
+    getStageChoices: (project: WorkItem) => getProjectStageMenuChoices(project).map((choice) => ({
+      ...choice,
+      disabled: choice.disabled || (Boolean(project.teamId) && !options.canUpdateProjectStatus),
+    })),
   };
 }

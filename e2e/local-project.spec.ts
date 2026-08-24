@@ -272,3 +272,75 @@ test("operates the Projects table by keyboard", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/projects\/keyboard-b(?:\?|$)/);
 });
+
+test("moves a Project on the board with the stage menu and pointer drag", async ({ page }) => {
+  await chooseLocalMode(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("video-editing-work-tracker:v1", JSON.stringify([{
+      id: "workflow-project",
+      profileId: "video-editor",
+      title: "Workflow Project",
+      client: "E2E Client",
+      clientId: "client-e2e",
+      status: "Planned",
+      workflowStageId: "planned",
+      workflowStages: [
+        { id: "planned", label: "Planned", purpose: "planned" },
+        { id: "editing", label: "Editing", purpose: "editing" },
+        { id: "client-review", label: "Client Review", purpose: "client_review" },
+        { id: "delivered", label: "Delivered", purpose: "delivered" },
+      ],
+      workType: "Freelance",
+      startDate: "2026-08-01",
+      dueDate: "2026-08-20",
+      earnings: 500,
+      notes: "",
+    }]));
+    window.localStorage.setItem("video-editing-work-tracker:settings:v1", JSON.stringify({
+      currencyCode: "USD",
+      salaryWorkType: "Job / Salary",
+      clients: [{ id: "client-e2e", name: "E2E Client", company: "", contactName: "", email: "", phone: "", notes: "", archived: false }],
+    }));
+  });
+  await openApp(page, "/projects?view=board");
+
+  await expect(page.getByRole("region", { name: "Editing projects" })).toBeVisible();
+  const stageMenu = page.getByRole("button", { name: "Change stage for Workflow Project" });
+  await stageMenu.focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: /Editing/ }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.workflowStageId)).toBe("editing");
+
+  const card = page.getByRole("button", { name: /Workflow Project/ }).first();
+  const target = page.getByRole("region", { name: "Client Review projects" });
+  const cardBox = await card.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!cardBox || !targetBox) throw new Error("Board drag targets are not visible");
+  await page.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 80, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.workflowStageId)).toBe("client-review");
+
+  await card.focus();
+  await page.keyboard.press("Space");
+  for (let step = 0; step < 10; step += 1) await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Space");
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.workflowStageId)).toBe("editing");
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("records $500 as earned");
+    await dialog.accept();
+  });
+  await stageMenu.click();
+  await page.getByRole("menuitem", { name: /Delivered/ }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0])).toMatchObject({
+    status: "Delivered",
+    workflowStageId: "delivered",
+  });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.completedAt)).toBeTruthy();
+
+  await stageMenu.click();
+  await page.getByRole("menuitem", { name: /Editing/ }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]")[0]?.completedAt)).toBeUndefined();
+});

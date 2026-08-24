@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Client, SavedProjectTemplate, WorkItem } from "@/lib/types";
+import type { Client, SavedProjectTemplate, WorkItem, WorkflowStage } from "@/lib/types";
 import {
   deriveProjectGroupSummary,
+  getProjectDeliveryConfirmation,
+  getProjectStageMenuChoices,
+  groupProjectsByStage,
+  moveProjectToStage,
   normalizeProjectGroup,
   normalizeProjectGroups,
   projectStatusUpdate,
@@ -21,7 +25,10 @@ const template: SavedProjectTemplate = {
   projectType: "video",
   workType: "freelance",
   durationDays: 7,
-  workflowStages: ["Planned", "Delivered"],
+  workflowStages: [
+    { id: "planned", label: "Planned", purpose: "planned" },
+    { id: "delivered", label: "Delivered", purpose: "delivered" },
+  ],
   deliverables: [],
   checklistItems: [],
 };
@@ -125,10 +132,64 @@ describe("new Project input", () => {
 });
 
 describe("Project delivery", () => {
-  it("records the first delivery time and keeps it across later status changes", () => {
+  it("records the delivery time, then clears current delivery state when reopened", () => {
     const source = project({ status: "In Progress" });
     const delivered = projectStatusUpdate(source, "Delivered", "2026-08-24T12:00:00.000Z");
     expect(delivered).toEqual({ status: "Delivered", completedAt: "2026-08-24T12:00:00.000Z" });
-    expect(projectStatusUpdate({ ...source, ...delivered }, "Revision", "2026-08-25T12:00:00.000Z")).toEqual({ status: "Revision", completedAt: delivered.completedAt });
+    expect(projectStatusUpdate({ ...source, ...delivered }, "Revision", "2026-08-25T12:00:00.000Z")).toEqual({ status: "Revision", completedAt: undefined });
+    expect(moveProjectToStage({ ...source, ...delivered }, "Revision", "2026-08-25T12:00:00.000Z")).toMatchObject({ status: "Revision", completedAt: undefined });
+  });
+
+  it("does not replace an existing delivery time on a repeated Delivered update", () => {
+    expect(projectStatusUpdate(project({ status: "Delivered", completedAt: "2026-08-24T12:00:00.000Z" }), "Delivered", "2026-08-25T12:00:00.000Z")).toEqual({ status: "Delivered", completedAt: "2026-08-24T12:00:00.000Z" });
+  });
+
+  it("requires confirmation and exposes the delivery effect before first delivery", () => {
+    expect(getProjectDeliveryConfirmation(project({ id: "launch", title: "Launch Film", status: "Review" }), "Delivered", { kind: "earnings", amount: 400 })).toEqual({
+      required: true,
+      title: "Mark Launch Film as Delivered?",
+      detail: "Relay will record the delivery time.",
+      effect: { kind: "earnings", amount: 400 },
+    });
+    expect(getProjectDeliveryConfirmation(project({ status: "Delivered" }), "Delivered")).toEqual({ required: false });
+  });
+});
+
+describe("Project workflow board", () => {
+  it("groups projects in copied stage order and keeps empty stages", () => {
+    const projects = [
+      project({ id: "one", status: "Review", workflowStages: [
+        { id: "planned", label: "Planned", purpose: "planned" },
+        { id: "review", label: "Review", purpose: "client_review" },
+        { id: "delivered", label: "Delivered", purpose: "delivered" },
+      ] }),
+      project({ id: "two", status: "Delivered", workflowStages: [
+        { id: "planned", label: "Planned", purpose: "planned" },
+        { id: "review", label: "Review", purpose: "client_review" },
+        { id: "delivered", label: "Delivered", purpose: "delivered" },
+      ] }),
+    ];
+    const stages: WorkflowStage[] = [
+      { id: "planned", label: "Planned", purpose: "planned" },
+      { id: "review", label: "Review", purpose: "client_review" },
+      { id: "delivered", label: "Delivered", purpose: "delivered" },
+    ];
+    expect(groupProjectsByStage(projects, stages).map(({ stage, projects: items }) => [stage.id, items.map(({ id }) => id)])).toEqual([
+      ["planned", []],
+      ["review", ["one"]],
+      ["delivered", ["two"]],
+    ]);
+  });
+
+  it("offers an accessible normal move menu with the current stage disabled", () => {
+    expect(getProjectStageMenuChoices({ title: "Launch Film", status: "Review" }, [
+      { id: "planned", label: "Planned", purpose: "planned" },
+      { id: "review", label: "Review", purpose: "client_review" },
+      { id: "delivered", label: "Delivered", purpose: "delivered" },
+    ])).toEqual([
+      { stage: { id: "planned", label: "Planned", purpose: "planned" }, label: "Planned", current: false, disabled: false, ariaLabel: "Move Launch Film to Planned" },
+      { stage: { id: "review", label: "Review", purpose: "client_review" }, label: "Review", current: true, disabled: true, ariaLabel: "Launch Film, current stage Review" },
+      { stage: { id: "delivered", label: "Delivered", purpose: "delivered" }, label: "Delivered", current: false, disabled: false, ariaLabel: "Move Launch Film to Delivered" },
+    ]);
   });
 });

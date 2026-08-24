@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvex, useConvexAuth, useMutation, useQuery } from "convex/react";
+import { makeFunctionReference } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { WorkItem, SettingsState, SalaryBatch, SalaryState, TeamMember, IntegrationConfig, ResourceLink, SavedProjectTemplate, ProjectGroup } from "./types";
@@ -10,6 +11,9 @@ import { normalizeIntegrationLinks } from "./integrations";
 import { normalizeClientRecords } from "./clients";
 import { createWorkspaceBackup, parseWorkspaceBackup } from "./workspace-backup";
 import { normalizeProjectGroups } from "@/features/projects/project-domain";
+import { getWorkflowStageStatus, moveProjectToStage, resolveProjectWorkflowStage } from "@/features/projects/project-domain";
+import type { ProjectWorkflowPort, ProjectStageTransitionResult } from "@/features/projects/project-workflow-port";
+import { DEFAULT_WORKFLOW_STAGES, normalizeWorkflowStages } from "./workflow-templates";
 import { sampleStudioProjects, sampleStudioResources, sampleStudioSettings } from "./sample-studio";
 import {
   FILE_CATEGORY_VALUES,
@@ -20,6 +24,7 @@ import {
   type FileCategory,
   type FileStatus,
   type SettingsTeamRole,
+  type StoredProjectStatus,
   type StoredTeamRole,
 } from "./domain-values";
 
@@ -28,6 +33,19 @@ const SALARY_STORAGE_KEY = "video-editing-work-tracker:salary-batches:v1";
 const SETTINGS_STORAGE_KEY = "video-editing-work-tracker:settings:v1";
 const RESOURCES_STORAGE_KEY = "video-editing-work-tracker:resources:v1";
 const PROJECT_GROUPS_STORAGE_KEY = "relay:project-groups:v1";
+
+const projectsApi = {
+  list: makeFunctionReference<"query", Record<string, never>, unknown[]>("projects:list"),
+  listSalaryBatches: makeFunctionReference<"query", Record<string, never>, unknown[]>("projects:listSalaryBatches"),
+  create: makeFunctionReference<"mutation", { project: ReturnType<typeof cloudProjectInput> }, string>("projects:create"),
+  update: makeFunctionReference<"mutation", { projectId: string; changes: ReturnType<typeof cloudProjectChanges> }, null>("projects:update"),
+  setArchived: makeFunctionReference<"mutation", { projectId: string; archived: boolean }, null>("projects:setArchived"),
+  remove: makeFunctionReference<"mutation", { projectId: string }, null>("projects:remove"),
+  setSalaryBatchPaid: makeFunctionReference<"mutation", { batchId: string; paid: boolean }, null>("projects:setSalaryBatchPaid"),
+  importSalaryBatches: makeFunctionReference<"mutation", { batches: ReturnType<typeof projectSalaryBatchInput>[] }, null>("projects:importSalaryBatches"),
+  previewStage: makeFunctionReference<"query", { projectId: string; stageId: string }, ProjectStageTransitionResult>("projects:previewStage"),
+  transitionStage: makeFunctionReference<"mutation", { projectId: string; stageId: string }, ProjectStageTransitionResult>("projects:transitionStage"),
+};
 const defaultProjectTags = ["Job / Salary", "Freelance", "Personal Channel"];
 const defaultSalaryWorkType = "Job / Salary";
 const defaultSalaryBatchSize = 20;
@@ -295,6 +313,8 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
     paid: typeof value.paid === "boolean" ? value.paid : false,
     paidDate: typeof value.paidDate === "string" ? value.paidDate : "",
     completedAt: typeof value.completedAt === "string" ? value.completedAt : undefined,
+    workflowStageId: typeof value.workflowStageId === "string" ? value.workflowStageId : undefined,
+    workflowStage: typeof value.workflowStage === "string" ? value.workflowStage : undefined,
     notes: typeof value.notes === "string" ? value.notes : "",
     templateId: typeof value.templateId === "string" && value.templateId.trim()
       ? value.templateId.trim().slice(0, 80)
@@ -303,7 +323,7 @@ function normalizeStoredItem(value: unknown): WorkItem | null {
       ? value.templateProjectType.trim().slice(0, 80)
       : undefined,
     workflowStages: Array.isArray(value.workflowStages)
-      ? value.workflowStages.flatMap((stage): string[] => typeof stage === "string" && stage.trim() ? [stage.trim()] : []).slice(0, 12)
+      ? normalizeWorkflowStages(value.workflowStages).slice(0, 12)
       : undefined,
     templateDeliverables: Array.isArray(value.templateDeliverables)
       ? value.templateDeliverables.flatMap((deliverable): NonNullable<WorkItem["templateDeliverables"]> => {
@@ -340,6 +360,9 @@ function normalizeSalaryState(value: unknown): SalaryState {
         amount: typeof batch.amount === "number" && Number.isFinite(batch.amount) ? Math.max(0, batch.amount) : undefined,
         paid: typeof batch.paid === "boolean" ? batch.paid : false,
         paidDate: typeof batch.paidDate === "string" ? batch.paidDate : "",
+        projectIds: Array.isArray(batch.projectIds) ? batch.projectIds.flatMap((id): string[] => typeof id === "string" ? [id] : []) : undefined,
+        requiredProjectCount: typeof batch.requiredProjectCount === "number" ? Math.max(1, Math.floor(batch.requiredProjectCount)) : undefined,
+        workType: typeof batch.workType === "string" ? batch.workType : undefined,
       }];
     }),
   };
@@ -391,9 +414,7 @@ function normalizeCustomProjectTemplates(value: unknown): SavedProjectTemplate[]
       projectType: typeof template.projectType === "string" && template.projectType.trim() ? template.projectType.trim().slice(0, 80) : "Custom project",
       workType: template.workType === "channel" ? "channel" : "freelance",
       durationDays: Math.max(1, Math.min(120, Math.floor(Number(template.durationDays) || 7))),
-      workflowStages: Array.isArray(template.workflowStages)
-        ? template.workflowStages.flatMap((stage): string[] => typeof stage === "string" && stage.trim() ? [stage.trim().slice(0, 40)] : []).slice(0, 12)
-        : [],
+      workflowStages: normalizeWorkflowStages(template.workflowStages).slice(0, 12),
       deliverables,
       checklistItems: Array.isArray(template.checklistItems)
         ? template.checklistItems.flatMap((entry): string[] => typeof entry === "string" && entry.trim() ? [entry.trim().slice(0, 120)] : []).slice(0, 20)
@@ -463,7 +484,7 @@ function normalizeRolePermissions(value: unknown, legacyEditorPerms?: unknown): 
   return result;
 }
 
-function mergeSettings(stored: Partial<SettingsState>): SettingsState {
+function mergeSettings(stored: unknown): SettingsState {
   const r = isPlainRecord(stored) ? stored : {};
   const projectTags = stringListSetting(r.projectTags, defaultSettings.projectTags);
   const storedSalaryWorkType = typeof r.salaryWorkType === "string" ? r.salaryWorkType.trim() : "";
@@ -536,6 +557,58 @@ function readInitialItems(): WorkItem[] {
   return normalizeWorkItems(storedItems);
 }
 
+function normalizeProjectSalaryBatches(value: unknown): SalaryBatch[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((batch): SalaryBatch[] => {
+    if (!isPlainRecord(batch) || typeof batch.id !== "string" || typeof batch.number !== "number" || typeof batch.completedAt !== "string") return [];
+    return [{
+      id: batch.id,
+      number: batch.number,
+      completedDate: batch.completedAt.slice(0, 10),
+      archived: false,
+      archivedDate: "",
+      amount: typeof batch.amount === "number" ? batch.amount : 0,
+      paid: batch.paid === true,
+      paidDate: typeof batch.paidAt === "string" ? batch.paidAt : "",
+      projectIds: Array.isArray(batch.projectIds) ? batch.projectIds.flatMap((id): string[] => typeof id === "string" ? [id] : []) : [],
+      requiredProjectCount: typeof batch.requiredProjectCount === "number" ? batch.requiredProjectCount : undefined,
+      workType: typeof batch.workType === "string" ? batch.workType : undefined,
+    }];
+  });
+}
+
+function mergeSalaryBatches(...groups: SalaryBatch[][]) {
+  return [...new Map(groups.flat().map((batch) => [batch.id, batch])).values()];
+}
+
+function projectSalaryBatchInput(batch: SalaryBatch) {
+  if (!batch.projectIds?.length || !batch.requiredProjectCount || !batch.workType) throw new Error("Salary Batch snapshot is incomplete");
+  return {
+    id: batch.id,
+    number: batch.number,
+    workType: batch.workType,
+    requiredProjectCount: batch.requiredProjectCount,
+    amount: batch.amount ?? 0,
+    projectIds: batch.projectIds,
+    completedAt: `${batch.completedDate}T00:00:00.000Z`,
+    paid: batch.paid ?? false,
+    paidAt: batch.paidDate || undefined,
+  };
+}
+
+function legacySalaryBatchInput(batch: SalaryBatch) {
+  return {
+    id: batch.id,
+    number: batch.number,
+    completedDate: batch.completedDate,
+    archived: batch.archived,
+    archivedDate: batch.archivedDate,
+    amount: batch.amount,
+    paid: batch.paid,
+    paidDate: batch.paidDate,
+  };
+}
+
 function readInitialProjectGroups(clients: readonly import("./types").Client[]): ProjectGroup[] {
   if (typeof window === "undefined") return [];
   return normalizeProjectGroups(readJson<unknown>(PROJECT_GROUPS_STORAGE_KEY, []), clients);
@@ -603,6 +676,30 @@ function normalizedSalaryBatchSize(value: unknown) {
 function normalizedSalaryBatchAmount(value: unknown) {
   const amount = typeof value === "number" ? value : Number(value);
   return Number.isFinite(amount) ? Math.max(0, amount) : defaultSalaryBatchAmount;
+}
+
+function localDeliveryEffect(project: WorkItem, items: WorkItem[], batches: SalaryBatch[], settings: SettingsState) {
+  if (project.teamId || project.workType !== settings.salaryWorkType) {
+    return { result: { kind: "client" as const, earned: project.earnings }, projectIds: [] };
+  }
+  const requiredProjectCount = normalizedSalaryBatchSize(settings.salaryBatchSize);
+  const settledIds = new Set(batches.flatMap((batch) => batch.projectIds ?? []));
+  const legacySettledCount = batches.filter((batch) => !batch.projectIds).length * requiredProjectCount;
+  const contributors = items
+    .filter((item) => !item.teamId && item.workType === settings.salaryWorkType && (item.id === project.id || isDoneStatus(item.status)) && !settledIds.has(item.id))
+    .sort((left, right) => (left.completedAt ?? left.createdAt ?? "").localeCompare(right.completedAt ?? right.createdAt ?? ""))
+    .slice(legacySettledCount, legacySettledCount + requiredProjectCount);
+  const batchCreated = contributors.length === requiredProjectCount;
+  return {
+    result: {
+      kind: "salary" as const,
+      progress: batchCreated ? 0 : contributors.length,
+      requiredProjectCount,
+      amount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      batchCreated,
+    },
+    projectIds: contributors.map((item) => item.id),
+  };
 }
 
 function todayDate() {
@@ -742,6 +839,7 @@ interface DataContextValue {
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
+const ProjectWorkflowContext = createContext<ProjectWorkflowPort | null>(null);
 
 type ProjectGroupsContextValue = {
   groups: ProjectGroup[];
@@ -794,7 +892,7 @@ function SampleDataProvider({ children }: { children: React.ReactNode }) {
     setToast,
   };
 
-  return <ProjectGroupsContext.Provider value={{ groups: [], saveGroup: () => undefined, setGroupArchived: () => undefined }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
+  return <ProjectWorkflowContext.Provider value={{ previewStage: async () => ({ kind: "none" }), transitionStage: async () => ({ kind: "none" }) }}><ProjectGroupsContext.Provider value={{ groups: [], saveGroup: () => undefined, setGroupArchived: () => undefined }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider></ProjectWorkflowContext.Provider>;
 }
 
 function LocalDataProvider({ children, authEnabled }: { children: React.ReactNode; authEnabled: boolean }) {
@@ -880,6 +978,59 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     });
   }, []);
 
+  const previewProjectStage = useCallback(async (input: { projectId: string; stageId: string }): Promise<ProjectStageTransitionResult> => {
+    const project = items.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Project not found");
+    return getWorkflowStageStatus(project, input.stageId) === "Delivered"
+      ? localDeliveryEffect(project, items, salaryBatches, settings).result
+      : { kind: "none" };
+  }, [items, salaryBatches, settings]);
+
+  const transitionProjectStage = useCallback(async (input: { projectId: string; stageId: string }): Promise<ProjectStageTransitionResult> => {
+    const project = items.find((item) => item.id === input.projectId);
+    if (!project) throw new Error("Project not found");
+    const stageId = resolveProjectWorkflowStage(project, input.stageId);
+    const status = getWorkflowStageStatus(project, stageId);
+    const changedAt = new Date().toISOString();
+    const completedAt = status === "Delivered"
+      ? project.status === "Delivered" ? project.completedAt ?? changedAt : changedAt
+      : undefined;
+    const nextItems = items.map((item) => item.id === input.projectId
+      ? moveProjectToStage(item, stageId, changedAt)
+      : item);
+    let nextBatches = salaryBatches;
+    let result: ProjectStageTransitionResult = { kind: "none", completedAt };
+    if (status === "Delivered") {
+      const effect = localDeliveryEffect(project, nextItems, salaryBatches, settings);
+      if (effect.result.kind === "client") {
+        result = { ...effect.result, completedAt };
+      } else {
+        if (effect.result.batchCreated) {
+          const number = salaryBatches.reduce((highest, batch) => Math.max(highest, batch.number), 0) + 1;
+          nextBatches = [...salaryBatches, {
+            id: `batch-${number}`,
+            number,
+            completedDate: changedAt.slice(0, 10),
+            archived: false,
+            archivedDate: "",
+            amount: effect.result.amount,
+            paid: false,
+            paidDate: "",
+            projectIds: effect.projectIds,
+            requiredProjectCount: effect.result.requiredProjectCount,
+            workType: project.workType,
+          }];
+        }
+        result = { ...effect.result, completedAt };
+      }
+    }
+    setItemsState(nextItems);
+    setSalaryBatches(nextBatches);
+    writeJson(STORAGE_KEY, nextItems);
+    if (nextBatches !== salaryBatches) writeJson(SALARY_STORAGE_KEY, { batches: nextBatches });
+    return result;
+  }, [items, salaryBatches, settings]);
+
   const setProjectGroups = useCallback((updater: React.SetStateAction<ProjectGroup[]>) => {
     setProjectGroupsState((previous) => {
       const next = normalizeProjectGroups(typeof updater === "function" ? updater(previous) : updater, settings.clients);
@@ -920,14 +1071,15 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     setToast,
   };
 
-  return <ProjectGroupsContext.Provider value={{
+  return <ProjectWorkflowContext.Provider value={{ previewStage: previewProjectStage, transitionStage: transitionProjectStage }}><ProjectGroupsContext.Provider value={{
     groups: projectGroups,
     saveGroup: (group) => setProjectGroups((current) => current.some((item) => item.id === group.id) ? current.map((item) => item.id === group.id ? group : item) : [group, ...current]),
     setGroupArchived: (groupId, archived) => setProjectGroups((current) => current.map((group) => group.id === groupId ? { ...group, archived } : group)),
-  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
+  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider></ProjectWorkflowContext.Provider>;
 }
 
 function CloudDataProvider({ children }: { children: React.ReactNode }) {
+  const convex = useConvex();
   const { isSignedIn, user, isLoaded: clerkLoaded } = useUser();
   const { getToken } = useAuth();
   const { isLoading: convexAuthLoading, isAuthenticated: convexAuthenticated } = useConvexAuth();
@@ -944,16 +1096,22 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const previousAuthMode = useRef(authMode);
 
   // Always call hooks — Convex handles unauthenticated state gracefully
-  const convexItems = useQuery(api.workItems.list, {});
+  const convexItems = useQuery(projectsApi.list, {});
   const convexProjectGroups = useQuery(api.projectGroups.list, {});
   const convexSettings = useQuery(api.settings.get, {});
   const convexBatches = useQuery(api.salaryBatches.list, {});
+  const convexProjectBatches = useQuery(projectsApi.listSalaryBatches, {});
   const convexResources = useQuery(api.resourceLinks.list, {});
-  const replaceAllItems = useMutation(api.workItems.replaceAll);
+  const createProject = useMutation(projectsApi.create);
+  const updateProject = useMutation(projectsApi.update);
+  const setProjectArchived = useMutation(projectsApi.setArchived);
   const upsertProjectGroup = useMutation(api.projectGroups.upsert);
-  const deleteWorkItem = useMutation(api.workItems.deleteOne);
+  const deleteProject = useMutation(projectsApi.remove);
   const upsertSettings = useMutation(api.settings.upsert);
   const replaceAllBatches = useMutation(api.salaryBatches.replaceAll);
+  const setProjectSalaryBatchPaid = useMutation(projectsApi.setSalaryBatchPaid);
+  const importProjectSalaryBatches = useMutation(projectsApi.importSalaryBatches);
+  const transitionCloudProjectStage = useMutation(projectsApi.transitionStage);
   const replaceAllResources = useMutation(api.resourceLinks.replaceAll);
 
   useEffect(() => {
@@ -1005,14 +1163,14 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexBatches === undefined || convexResources === undefined) return;
+    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexResources === undefined) return;
     if (cloudInitialized) return;
 
     const loadedItems = normalizeWorkItems(convexItems);
     const loadedSettings = convexSettings;
     const normalizedLoadedSettings = loadedSettings ? mergeSettings(loadedSettings) : readInitialSettings();
     const loadedProjectGroups = normalizeProjectGroups(convexProjectGroups, normalizedLoadedSettings.clients);
-    const loadedBatches = normalizeSalaryState({ batches: convexBatches }).batches;
+    const loadedBatches = mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches));
     const loadedResources = normalizeResourceLinks(convexResources);
     let cancelled = false;
     const token = initializationToken.current + 1;
@@ -1032,14 +1190,14 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       let nextResources: ResourceLink[] = mergeResourceLinks(loadedResources, localResources);
       let syncFailed = false;
 
-      if (loadedItems.length === 0 && localItems.length > 0) {
+      if (!loadedSettings && Object.keys(localSettings).length > 0) {
         try {
-          await replaceAllItems({ items: localItems });
-          removeKey(STORAGE_KEY);
-          nextItems = localItems;
+          await upsertSettings(mergedLocalSettings);
+          removeKey(SETTINGS_STORAGE_KEY);
+          nextSettings = mergedLocalSettings;
         } catch {
           syncFailed = true;
-          nextItems = localItems;
+          nextSettings = mergedLocalSettings;
         }
       }
 
@@ -1054,9 +1212,25 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      if (loadedItems.length === 0 && localItems.length > 0) {
+        try {
+          await Promise.all(localItems.map((project) => createProject({ project: cloudProjectInput(project, mergedLocalSettings.clients) })));
+          removeKey(STORAGE_KEY);
+          nextItems = localItems;
+        } catch {
+          syncFailed = true;
+          nextItems = localItems;
+        }
+      }
+
       if (loadedBatches.length === 0 && localBatches.batches.length > 0) {
         try {
-          await replaceAllBatches({ batches: localBatches.batches });
+          const projectBatches = localBatches.batches.filter((batch) => batch.projectIds);
+          const legacyBatches = localBatches.batches.filter((batch) => !batch.projectIds);
+          await Promise.all([
+            ...(projectBatches.length ? [importProjectSalaryBatches({ batches: projectBatches.map(projectSalaryBatchInput) })] : []),
+            ...(legacyBatches.length ? [replaceAllBatches({ batches: legacyBatches.map(legacySalaryBatchInput) })] : []),
+          ]);
           removeKey(SALARY_STORAGE_KEY);
           nextBatches = localBatches.batches;
         } catch {
@@ -1072,17 +1246,6 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         } catch {
           syncFailed = true;
           nextResources = mergeResourceLinks(localResources, loadedResources);
-        }
-      }
-
-      if (!loadedSettings && Object.keys(localSettings).length > 0) {
-        try {
-          await upsertSettings(mergedLocalSettings);
-          removeKey(SETTINGS_STORAGE_KEY);
-          nextSettings = mergedLocalSettings;
-        } catch {
-          syncFailed = true;
-          nextSettings = mergedLocalSettings;
         }
       }
 
@@ -1121,10 +1284,12 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     convexProjectGroups,
     convexSettings,
     convexBatches,
+    convexProjectBatches,
     convexResources,
-    replaceAllItems,
+    createProject,
     upsertProjectGroup,
     replaceAllBatches,
+    importProjectSalaryBatches,
     replaceAllResources,
     upsertSettings,
   ]);
@@ -1132,12 +1297,12 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   // Keep signed-in workspaces live after the initial cloud load. Team project
   // changes from other members arrive through Convex subscriptions here.
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexBatches === undefined) return;
+    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexBatches === undefined || convexProjectBatches === undefined) return;
     setItemsState(normalizeWorkItems(convexItems));
     setProjectGroupsState(normalizeProjectGroups(convexProjectGroups, settings.clients));
     setResourceLinksState(normalizeResourceLinks(convexResources));
-    setSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches);
-  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexBatches, convexItems, convexProjectGroups, convexResources, isSignedIn, settings.clients]);
+    setSalaryBatches(mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches)));
+  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexBatches, convexItems, convexProjectBatches, convexProjectGroups, convexResources, isSignedIn, settings.clients]);
 
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn || !user || !ready) return;
@@ -1193,13 +1358,24 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         if (isSignedIn && convexAuthenticated) {
           const previousById = new Map(prev.map((item) => [item.id, item]));
           const nextIds = new Set(next.map((item) => item.id));
-          const changedItems = next.filter((item) => JSON.stringify(previousById.get(item.id)) !== JSON.stringify(item));
+          const newItems = next.filter((item) => !previousById.has(item.id));
+          const changedItems = next.filter((item) => previousById.has(item.id) && JSON.stringify(previousById.get(item.id)) !== JSON.stringify(item));
           const removedIds = [
             ...new Set(prev.filter((item) => !nextIds.has(item.id)).map((item) => item.id)),
           ];
           const writes = [
-            ...(changedItems.length ? [replaceAllItems({ items: changedItems, deleteMissing: false })] : []),
-            ...removedIds.map((projectId) => deleteWorkItem({ projectId })),
+            ...newItems.map((project) => createProject({ project: cloudProjectInput(project, settings.clients) })),
+            ...changedItems.flatMap((project) => {
+              const previous = previousById.get(project.id);
+              if (!previous) return [];
+              return [
+                updateProject({ projectId: project.id, changes: cloudProjectChanges(project) }),
+                ...(previous.archived !== project.archived
+                  ? [setProjectArchived({ projectId: project.id, archived: project.archived ?? false })]
+                  : []),
+              ];
+            }),
+            ...removedIds.map((projectId) => deleteProject({ projectId })),
           ];
           Promise.allSettled(writes).then((results) => {
             const failure = results.find(
@@ -1227,7 +1403,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [convexAuthenticated, deleteWorkItem, isSignedIn, replaceAllItems],
+    [convexAuthenticated, createProject, deleteProject, isSignedIn, setProjectArchived, settings.clients, updateProject],
   );
 
   // Unified settings setter
@@ -1315,13 +1491,17 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const updateSalaryBatchPayment = useCallback(
     (batchId: string, paid: boolean) => {
       setSalaryBatches((prev) => {
+        const target = prev.find((batch) => batch.id === batchId);
         const next = normalizeSalaryState({
           batches: prev.map((batch) => batch.id === batchId
             ? { ...batch, paid, paidDate: paid ? iso(todayDate()) : "" }
             : batch),
         }).batches;
         if (isSignedIn && convexAuthenticated) {
-          replaceAllBatches({ batches: next }).catch(() => {
+          const write = target?.projectIds
+            ? setProjectSalaryBatchPaid({ batchId, paid })
+            : replaceAllBatches({ batches: next.filter((batch) => !batch.projectIds).map(legacySalaryBatchInput) });
+          write.catch(() => {
             writeJson(SALARY_STORAGE_KEY, { batches: next });
             setToast({
               tone: "warning",
@@ -1334,7 +1514,16 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [convexAuthenticated, isSignedIn, replaceAllBatches],
+    [convexAuthenticated, isSignedIn, replaceAllBatches, setProjectSalaryBatchPaid],
+  );
+
+  const transitionProjectStage = useCallback(
+    (input: { projectId: string; stageId: string }) => transitionCloudProjectStage(input),
+    [transitionCloudProjectStage],
+  );
+  const previewProjectStage = useCallback(
+    (input: { projectId: string; stageId: string }) => convex.query(projectsApi.previewStage, input),
+    [convex],
   );
 
   const setProjectGroups = useCallback(
@@ -1367,17 +1556,20 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     const nextResources = normalizeResourceLinks(backup.resources);
     const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
     if (isSignedIn && convexAuthenticated) {
+      await upsertSettings(nextSettings);
+      await Promise.all(nextProjectGroups.map((group) => upsertProjectGroup({ group })));
+      await Promise.all(nextItems.map((project) => createProject({ project: cloudProjectInput(project, nextSettings.clients) })));
+      const projectBatches = nextBatches.filter((batch) => batch.projectIds);
+      const legacyBatches = nextBatches.filter((batch) => !batch.projectIds);
       await Promise.all([
-        replaceAllItems({ items: nextItems }),
-        ...nextProjectGroups.map((group) => upsertProjectGroup({ group })),
-        upsertSettings(nextSettings),
+        ...(projectBatches.length ? [importProjectSalaryBatches({ batches: projectBatches.map(projectSalaryBatchInput) })] : []),
         replaceAllResources({ resources: nextResources }),
-        replaceAllBatches({ batches: nextBatches }),
+        replaceAllBatches({ batches: legacyBatches.map(legacySalaryBatchInput) }),
       ]);
     }
     setItemsState(nextItems); setSettingsState(nextSettings); setProjectGroupsState(nextProjectGroups); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
     return { projects: nextItems.length, clients: nextSettings.clients.length, projectGroups: nextProjectGroups.length, resources: nextResources.length, salaryBatches: nextBatches.length };
-  }, [convexAuthenticated, isSignedIn, items.length, projectGroups.length, replaceAllBatches, replaceAllItems, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertProjectGroup, upsertSettings]);
+  }, [convexAuthenticated, createProject, importProjectSalaryBatches, isSignedIn, items.length, projectGroups.length, replaceAllBatches, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertProjectGroup, upsertSettings]);
 
   const value: DataContextValue = {
     items,
@@ -1398,16 +1590,62 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     setToast,
   };
 
-  return <ProjectGroupsContext.Provider value={{
+  return <ProjectWorkflowContext.Provider value={{ previewStage: previewProjectStage, transitionStage: transitionProjectStage }}><ProjectGroupsContext.Provider value={{
     groups: projectGroups,
     saveGroup: (group) => setProjectGroups((current) => current.some((item) => item.id === group.id) ? current.map((item) => item.id === group.id ? group : item) : [group, ...current]),
     setGroupArchived: (groupId, archived) => setProjectGroups((current) => current.map((group) => group.id === groupId ? { ...group, archived } : group)),
-  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider>;
+  }}><DataContext.Provider value={value}>{children}</DataContext.Provider></ProjectGroupsContext.Provider></ProjectWorkflowContext.Provider>;
 }
 
 export function useData(): DataContextValue {
   const ctx = useContext(DataContext);
   if (!ctx) throw new Error("useData must be used within a DataProvider");
+  return ctx;
+}
+
+function cloudProjectInput(item: WorkItem, clients: readonly import("./types").Client[]) {
+  const clientId = item.clientId ?? clients.find((client) => client.name === item.client)?.id;
+  if (!clientId) throw new Error(`${item.title} needs a saved Client before it can sync.`);
+  const workflowStages = item.workflowStages?.length
+    ? item.workflowStages
+    : DEFAULT_WORKFLOW_STAGES.map((stage) => ({ ...stage }));
+  return {
+    id: item.id,
+    teamId: item.teamId,
+    assigneeUserIds: item.assigneeUserIds ?? [],
+    profileId: item.profileId,
+    title: item.title,
+    clientId,
+    projectGroupId: item.projectGroupId,
+    workflowStages,
+    workType: item.workType,
+    startDate: item.startDate,
+    dueDate: item.dueDate,
+    earnings: item.earnings,
+    notes: item.notes,
+    templateId: item.templateId,
+    templateProjectType: item.templateProjectType,
+  };
+}
+
+function cloudProjectChanges(item: WorkItem) {
+  return {
+    title: item.title,
+    clientId: item.clientId,
+    projectGroupId: item.projectGroupId ?? null,
+    assigneeUserIds: item.assigneeUserIds ?? [],
+    workType: item.workType,
+    startDate: item.startDate,
+    dueDate: item.dueDate,
+    earnings: item.earnings,
+    paid: item.paid ?? false,
+    notes: item.notes,
+  };
+}
+
+export function useProjectWorkflow(): ProjectWorkflowPort {
+  const ctx = useContext(ProjectWorkflowContext);
+  if (!ctx) throw new Error("useProjectWorkflow must be used within a DataProvider");
   return ctx;
 }
 

@@ -1,4 +1,5 @@
 import type { ResourceLink, SettingsState, WorkItem } from "./types";
+import { workflowStagesFromLabels } from "./workflow-templates";
 
 export const sampleStudioVersion = 1;
 
@@ -56,7 +57,7 @@ export const sampleStudioProjects: WorkItem[] = [
     dueDate: "2026-07-24",
     earnings: 1800,
     notes: "Picture lock is due next. Sound mix and final captions follow after approval.",
-    workflowStages: ["Assembly", "Fine cut", "Client Review", "Delivery"],
+    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
     checklistItems: ["Organize selects", "Complete fine cut", "Send review link", "Export masters"],
     checklistCompleted: { "Organize selects": true, "Complete fine cut": true },
   },
@@ -72,7 +73,7 @@ export const sampleStudioProjects: WorkItem[] = [
     dueDate: "2026-07-23",
     earnings: 950,
     notes: "Review link sent. Client requested a tighter opening and one lower-third correction.",
-    workflowStages: ["Assembly", "Fine cut", "Client Review", "Delivery"],
+    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
     checklistItems: ["Build first cut", "Internal review", "Send client review", "Address notes"],
     checklistCompleted: { "Build first cut": true, "Internal review": true, "Send client review": true },
   },

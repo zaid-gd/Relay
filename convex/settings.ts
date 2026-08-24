@@ -1,6 +1,6 @@
 import { type Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { fileCategoryValidator, fileStatusValidator, settingsTeamRoleValidator, storedTeamRoleValidator } from "./domainValidators";
+import { fileCategoryValidator, fileStatusValidator, settingsTeamRoleValidator, storedTeamRoleValidator, workflowStageValidator } from "./domainValidators";
 
 const teamMemberSchema = v.object({
   id: v.string(),
@@ -27,7 +27,7 @@ const customProjectTemplateValidator = v.object({
   projectType: v.string(),
   workType: v.union(v.literal("channel"), v.literal("freelance")),
   durationDays: v.number(),
-  workflowStages: v.array(v.string()),
+  workflowStages: v.array(v.union(v.string(), workflowStageValidator)),
   deliverables: v.array(v.object({
     title: v.string(),
     category: fileCategoryValidator,
@@ -42,6 +42,16 @@ const customProjectTemplateValidator = v.object({
 type CustomProjectTemplate = Infer<typeof customProjectTemplateValidator>;
 
 function normalizeCustomProjectTemplate(template: CustomProjectTemplate): CustomProjectTemplate {
+  const workflowStages: CustomProjectTemplate["workflowStages"] = [];
+  for (const stage of template.workflowStages) {
+    if (typeof stage === "string") {
+      if (stage.trim()) workflowStages.push(stage.trim());
+      continue;
+    }
+    const id = stage.id.trim().slice(0, 80);
+    const label = stage.label.trim().slice(0, 80);
+    if (id && label) workflowStages.push({ ...stage, id, label });
+  }
   return {
     id: template.id.trim().slice(0, 80),
     name: template.name.trim().slice(0, 120),
@@ -49,7 +59,7 @@ function normalizeCustomProjectTemplate(template: CustomProjectTemplate): Custom
     projectType: template.projectType.trim().slice(0, 80),
     workType: template.workType,
     durationDays: Math.max(1, Math.min(365, template.durationDays)),
-    workflowStages: template.workflowStages.map((stage) => stage.trim()).filter(Boolean).slice(0, 12),
+    workflowStages: workflowStages.slice(0, 12),
     deliverables: template.deliverables
       .map((deliverable) => ({
         ...deliverable,

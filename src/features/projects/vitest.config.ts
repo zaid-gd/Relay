@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/features/projects/**/*.test.ts", "src/components/precision-projects.test.tsx"],
+    include: ["src/features/projects/**/*.test.ts", "src/components/precision-projects.test.tsx", "src/lib/workflow-templates.test.ts"],
   },
   resolve: {
     alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) },

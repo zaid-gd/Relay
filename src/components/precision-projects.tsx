@@ -23,12 +23,23 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type Announcements,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
   AnimatePresence,
   motion,
   MotionConfig,
 } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import type { SettingsState, WorkItem } from "@/lib/types";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { SettingsState, WorkItem, WorkflowStage } from "@/lib/types";
 import type { StoredTeamRole } from "@/lib/domain-values";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { projectStatusTone } from "@/lib/project-status-style";
@@ -38,6 +49,7 @@ import {
   parseProjectTableSearch,
 } from "@/features/projects/project-table-domain";
 import { useProjectTableController } from "@/features/projects/project-table-controller";
+import type { ProjectStageMenuChoice } from "@/features/projects/project-domain";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,9 +97,11 @@ type PrecisionProjectsProps = {
   onEditProject: (item: WorkItem) => void;
   onArchiveProject: (item: WorkItem) => void;
   onDeleteProject: (id: string) => void;
+  onUpdateProjectStatus: (project: WorkItem, status: string) => void;
   canCreateProjects: boolean;
   canCreateTeamProjects: boolean;
   canEditProjects: boolean;
+  canUpdateProjectStatus: boolean;
   canDeleteProject: (project: WorkItem) => boolean;
   onManageProjectGroups: (scope: WorkspaceScope) => void;
 };
@@ -181,13 +195,90 @@ function ProjectVideoThumbnail({
   );
 }
 
+function ProjectBoardCard({
+  project,
+  selected,
+  disabled,
+  stageChoices,
+  onSelect,
+  onOpen,
+  onUpdateProjectStatus,
+}: {
+  project: WorkItem;
+  selected: boolean;
+  disabled: boolean;
+  stageChoices: ProjectStageMenuChoice[];
+  onSelect: () => void;
+  onOpen: () => void;
+  onUpdateProjectStatus: PrecisionProjectsProps["onUpdateProjectStatus"];
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: project.id, disabled });
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined }}
+      className={cn("relative flex items-start gap-1 px-3 py-3", selected && "bg-[var(--app-active)]", isDragging && "z-20 opacity-60")}
+    >
+      <button
+        type="button"
+        className={cn("min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", !disabled && "cursor-grab active:cursor-grabbing")}
+        onClick={onSelect}
+        onDoubleClick={onOpen}
+        {...listeners}
+        {...attributes}
+      >
+        <span className="block truncate text-xs font-semibold">{project.title}</span>
+        <span className="mt-1 block truncate text-[11px] text-[var(--app-muted)]">{project.client || "No client"} · {formatDate(project.dueDate)}</span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label={`Change stage for ${project.title}`}>
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {stageChoices.map((choice) => (
+            <DropdownMenuItem
+              key={choice.stage.id}
+              aria-label={choice.ariaLabel}
+              disabled={choice.disabled}
+              onSelect={() => onUpdateProjectStatus(project, choice.stage.id)}
+            >
+              {choice.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </article>
+  );
+}
+
+function ProjectBoardColumn({ stage, projects, children }: { stage: WorkflowStage; projects: number; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `stage:${stage.id}` });
+  return (
+    <section
+      ref={setNodeRef}
+      className={cn("min-w-[210px] border-r border-[var(--app-border)] last:border-r-0", isOver && "bg-[var(--app-hover)]")}
+      aria-label={`${stage.label} projects`}
+    >
+      <h3 className="sticky top-0 z-10 flex h-9 items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-soft-panel)] px-3 text-[10px] font-semibold uppercase text-[var(--app-subtle)]"><span>{stage.label}</span><span>{projects}</span></h3>
+      <div className="min-h-24 divide-y divide-[var(--app-border)]">{children}</div>
+    </section>
+  );
+}
+
 export function PrecisionProjects(props: PrecisionProjectsProps) {
   const [scope, setScope] = useState<WorkspaceScope>("personal");
   const [selectedId, setSelectedId] = useState("");
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const reduceMotion = useHydratedReducedMotion();
   const hasTeam = Boolean(props.teamName);
-  const { state: tableState, deferredState: deferredTableState, setState: setTableState, isUpdating, source, projects, summary, hasFilters, showAssignees, getPaymentState, isSalaryProject } = useProjectTableController({
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const { state: tableState, deferredState: deferredTableState, setState: setTableState, isUpdating, source, projects, board, summary, hasFilters, showAssignees, getPaymentState, isSalaryProject, canMoveProject, getStageChoices } = useProjectTableController({
     scope,
     personalProjects: props.personalProjects,
     teamProjects: props.teamProjects,
@@ -197,6 +288,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
     currentUserRole: props.currentUserRole,
     allowAllTeamProjects: props.allowAllTeamProjects ?? false,
     activeTeamMemberCount: props.teamMembers.length,
+    canUpdateProjectStatus: props.canUpdateProjectStatus,
   });
   const springTransition = reduceMotion
     ? { duration: 0 }
@@ -216,6 +308,35 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
   }, [projects, selectedId]);
 
   const selected = source.find((project) => project.id === selectedId) ?? projects[0] ?? null;
+  const projectName = (id: string | number) => projects.find((project) => project.id === String(id))?.title ?? "Project";
+  const dropStage = (id: string | number | undefined) => {
+    const value = String(id ?? "");
+    return value.startsWith("stage:") ? value.slice(6) : undefined;
+  };
+  const validMove = (projectId: string | number, stage: string | undefined) => {
+    const project = projects.find((candidate) => candidate.id === String(projectId));
+    return Boolean(project && stage && canMoveProject(project, stage));
+  };
+  const stageLabel = (stageId: string | undefined) => board.find(({ stage }) => stage.id === stageId)?.stage.label ?? stageId;
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${projectName(active.id)}.`,
+    onDragOver: ({ active, over }) => {
+      const stage = dropStage(over?.id);
+      return stage ? `${projectName(active.id)} is over ${stageLabel(stage)}.` : undefined;
+    },
+    onDragEnd: ({ active, over }) => {
+      const stage = dropStage(over?.id);
+      return validMove(active.id, stage) ? `Requested move for ${projectName(active.id)} to ${stageLabel(stage)}.` : `${projectName(active.id)} was not moved.`;
+    },
+    onDragCancel: ({ active }) => `Moving ${projectName(active.id)} was cancelled.`,
+  };
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    const project = projects.find((candidate) => candidate.id === String(active.id));
+    const stage = dropStage(over?.id);
+    if (project && stage && canMoveProject(project, stage)) {
+      props.onUpdateProjectStatus(project, stage);
+    }
+  };
 
   const columns = useMemo(() => [
     columnHelper.accessor("title", {
@@ -455,30 +576,28 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           ) : props.loading ? (
             <div aria-label="Loading projects"><ProjectTableSkeleton reduceMotion /></div>
           ) : projects.length ? tableState.view === "board" ? (
-            <div className="grid min-h-0 flex-1 auto-cols-[minmax(210px,1fr)] grid-flow-col overflow-x-auto border-t border-[var(--app-border)]" aria-label="Project board">
-              {["Planned", "In Progress", "Review", "Revision", "Delivered", "Cancelled"].map((stage) => {
-                const stageProjects = projects.filter((project) => project.status === stage || (stage === "Review" && project.status === "Client Review"));
-                return (
-                  <section key={stage} className="min-w-[210px] border-r border-[var(--app-border)] last:border-r-0" aria-label={`${stage} projects`}>
-                    <h3 className="sticky top-0 z-10 flex h-9 items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-soft-panel)] px-3 text-[10px] font-semibold uppercase text-[var(--app-subtle)]"><span>{stage}</span><span>{stageProjects.length}</span></h3>
-                    <div className="divide-y divide-[var(--app-border)]">
+            <DndContext sensors={sensors} accessibility={{ announcements }} onDragEnd={handleDragEnd}>
+              <div className="grid min-h-0 flex-1 auto-cols-[minmax(210px,1fr)] grid-flow-col overflow-x-auto border-t border-[var(--app-border)]" aria-label="Project board">
+                {board.map(({ stage, projects: stageProjects }) => {
+                  return (
+                    <ProjectBoardColumn key={stage.id} stage={stage} projects={stageProjects.length}>
                       {stageProjects.map((project) => (
-                        <button
+                        <ProjectBoardCard
                           key={project.id}
-                          type="button"
-                          className={cn("block w-full px-3 py-3 text-left outline-none hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--app-accent)]", selected?.id === project.id && "bg-[var(--app-active)]")}
-                          onClick={() => setSelectedId(project.id)}
-                          onDoubleClick={() => props.onViewProject(project)}
-                        >
-                          <span className="block truncate text-xs font-semibold">{project.title}</span>
-                          <span className="mt-1 block truncate text-[11px] text-[var(--app-muted)]">{project.client || "No client"} · {formatDate(project.dueDate)}</span>
-                        </button>
+                          project={project}
+                          selected={selected?.id === project.id}
+                          disabled={!props.canUpdateProjectStatus && Boolean(project.teamId)}
+                          stageChoices={getStageChoices(project)}
+                          onSelect={() => setSelectedId(project.id)}
+                          onOpen={() => props.onViewProject(project)}
+                          onUpdateProjectStatus={props.onUpdateProjectStatus}
+                        />
                       ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+                    </ProjectBoardColumn>
+                  );
+                })}
+              </div>
+            </DndContext>
           ) : (
             <>
             <div className="divide-y divide-[var(--app-border)] lg:hidden" aria-label="Project cards">
