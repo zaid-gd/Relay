@@ -10,7 +10,7 @@ export function LegalPage({ title, updatedAt, intro, sections }: LegalPageProps)
     <main className={styles.page} id="main-content">
       <div className={styles.shell}>
         <header className={styles.header}>
-          <Link className={styles.brand} href="/" aria-label="Frame Desk home">
+          <Link className={styles.brand} href="/" aria-label="Relay home">
             <span className={styles.mark} aria-hidden="true">F</span>
             <span>FRAME DESK</span>
           </Link>
@@ -40,8 +40,8 @@ export function LegalPage({ title, updatedAt, intro, sections }: LegalPageProps)
         </article>
 
         <footer className={styles.footer}>
-          <span>© {new Date().getFullYear()} Frame Desk</span>
-          <Link href="/">Back to Frame Desk</Link>
+          <span>© {new Date().getFullYear()} Relay</span>
+          <Link href="/">Back to Relay</Link>
         </footer>
       </div>
     </main>

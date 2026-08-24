@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = {
-  title: "Accessibility | Frame Desk",
-  description: "Frame Desk's accessibility goals, supported features, known limitations, and feedback contact.",
+  title: "Accessibility | Relay",
+  description: "Relay's accessibility goals, supported features, known limitations, and feedback contact.",
   alternates: {
     canonical: "/accessibility"
   }
@@ -14,7 +14,7 @@ export default function AccessibilityRoute() {
     <LegalPage
       title="Accessibility Statement"
       updatedAt="July 22, 2026"
-      intro="Frame Desk is working toward an inclusive editing workspace that can be used with a keyboard, assistive technology, zoom, and reduced motion settings."
+      intro="Relay is working toward an inclusive editing workspace that can be used with a keyboard, assistive technology, zoom, and reduced motion settings."
       sections={[
         {
           title: "Our Target",
@@ -30,7 +30,7 @@ export default function AccessibilityRoute() {
         },
         {
           title: "Accessibility Feedback",
-          body: <p>If a barrier prevents you from using Frame Desk, email <a href="mailto:Cutlab.Studios@gmail.com">Cutlab.Studios@gmail.com</a> with the page, browser, assistive technology, and problem you encountered.</p>
+          body: <p>If a barrier prevents you from using Relay, email <a href="mailto:Cutlab.Studios@gmail.com">Cutlab.Studios@gmail.com</a> with the page, browser, assistive technology, and problem you encountered.</p>
         }
       ]}
     />

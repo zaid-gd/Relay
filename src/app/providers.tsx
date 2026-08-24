@@ -41,8 +41,8 @@ const clerkAppearance = {
 const clerkLocalization = {
   signIn: {
     start: {
-      title: "Sign in to Frame Desk",
-      titleCombined: "Sign in to Frame Desk",
+      title: "Sign in to Relay",
+      titleCombined: "Sign in to Relay",
     },
   },
 };

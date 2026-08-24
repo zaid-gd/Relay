@@ -3,8 +3,8 @@ import { TrackerApp } from "../tracker-app";
 import { DataProvider } from "@/lib/data-context";
 
 export const metadata: Metadata = {
-  title: "Sample Studio | Frame Desk",
-  description: "Explore a populated, read-only Frame Desk production workspace.",
+  title: "Sample Studio | Relay",
+  description: "Explore a populated, read-only Relay production workspace.",
   robots: { index: false, follow: false },
 };
 

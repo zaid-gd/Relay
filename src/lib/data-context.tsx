@@ -37,7 +37,7 @@ const teamRoleOptions: StoredTeamRole[] = [
   ...LEGACY_TEAM_ROLE_VALUES,
 ];
 const LEGACY_DEMO_SETTINGS = {
-  studioName: "Frame Desk",
+  studioName: "Relay",
   profileName: "Jordan Lee",
   profileUsername: "jordanlee",
   profileTitle: "Video Editor & Storyteller",

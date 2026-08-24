@@ -33,10 +33,10 @@
   --surface-panel-raised: #ffffff;
   --surface-sunken: #f1f5f9;
   --surface-overlay: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-disabled: #94a3b8;
+  --text-primary: #000000;
+  --text-secondary: #3f3f46;
+  --text-muted: #52525b;
+  --text-disabled: #a1a1aa;
   --status-info: #2563eb;
   --status-info-bg: #eff6ff;
   --status-success: #15803d;
@@ -45,8 +45,8 @@
   --status-warning-bg: #fffbeb;
   --status-danger: #b91c1c;
   --status-danger-bg: #fef2f2;
-  --focus-ring: #0f766e;
-  --selected-bg: rgba(20, 184, 166, 0.14);
+  --focus-ring: #18181b;
+  --selected-bg: rgb(24 24 27 / 0.08);
   --disabled-bg: #f1f5f9;
   --overlay-scrim: rgba(15, 23, 42, 0.58);
   --brand-google-drive: #4285f4;
@@ -73,10 +73,10 @@
   --media-package-5: #e7e9ec;
   --space-unit: 4px;
   --density-control-height: 40px;
-  --radius: 0.5rem;
-  --radius-control: 0.5rem;
-  --radius-panel: 0.75rem;
-  --shadow-panel: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
+  --radius: 0.375rem;
+  --radius-control: 0.375rem;
+  --radius-panel: 0.375rem;
+  --shadow-panel: none;
   --shadow-overlay: 0 18px 50px rgb(15 23 42 / 0.16);
   --sidebar: var(--app-sidebar);
   --sidebar-foreground: var(--app-ink);
@@ -87,9 +87,9 @@
   --sidebar-border: var(--app-border);
   --sidebar-ring: var(--app-accent);
 
-  --app-accent: #14b8a6;
-  --app-accent-foreground: #042f2e;
-  --app-highlight: #0f766e;
+  --app-accent: #18181b;
+  --app-accent-foreground: #ffffff;
+  --app-highlight: #18181b;
   --app-canvas: var(--surface-canvas);
   --app-panel: var(--surface-panel);
   --app-sidebar: var(--surface-sunken);
@@ -123,25 +123,27 @@
 }
 
 .dark {
-  --app-highlight: #2dd4bf;
-  --app-hover: rgba(148, 163, 184, 0.08);
-  --app-border: #2a3340;
-  --app-strong-border: #3b4756;
+  --app-accent: #ffffff;
+  --app-accent-foreground: #000000;
+  --app-highlight: #ffffff;
+  --app-hover: rgb(255 255 255 / 0.06);
+  --app-border: #27272a;
+  --app-strong-border: #3f3f46;
   --app-thumb-icon: rgba(241, 245, 249, 0.38);
   --media-package-1: #17263a;
   --media-package-2: #29251f;
   --media-package-3: #172a21;
   --media-package-4: #252039;
   --media-package-5: #252b33;
-  --surface-canvas: #0b0f14;
-  --surface-panel: #11161d;
-  --surface-panel-raised: #141b23;
-  --surface-sunken: #0f141a;
-  --surface-overlay: #1a212b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-disabled: #64748b;
+  --surface-canvas: #000000;
+  --surface-panel: #121212;
+  --surface-panel-raised: #171717;
+  --surface-sunken: #0a0a0a;
+  --surface-overlay: #181818;
+  --text-primary: #ffffff;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --text-disabled: #71717a;
   --status-info: #60a5fa;
   --status-info-bg: rgb(37 99 235 / 0.16);
   --status-success: #4ade80;
@@ -150,18 +152,18 @@
   --status-warning-bg: rgb(251 191 36 / 0.14);
   --status-danger: #f87171;
   --status-danger-bg: rgb(239 68 68 / 0.14);
-  --focus-ring: #5eead4;
-  --selected-bg: rgb(20 184 166 / 0.18);
+  --focus-ring: #ffffff;
+  --selected-bg: rgb(255 255 255 / 0.1);
   --disabled-bg: #1a212b;
   --overlay-scrim: rgb(0 0 0 / 0.68);
-  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.2), 0 10px 30px rgb(0 0 0 / 0.16);
+  --shadow-panel: none;
   --shadow-overlay: 0 20px 56px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
-  --font-display: "Space Grotesk", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -445,25 +447,25 @@ button:not(:disabled):active,
   }
 }
 
-.cutlab-density-compact {
-  --workspace-row-height: 48px;
+.relay-density-compact {
+  --workspace-row-height: 34px;
   --workspace-section-gap: 16px;
   --density-control-height: 32px;
 }
 
-.cutlab-density-comfortable {
-  --workspace-row-height: 58px;
-  --workspace-section-gap: 24px;
-  --density-control-height: 48px;
+.relay-density-balanced {
+  --workspace-row-height: 40px;
+  --workspace-section-gap: 20px;
+  --density-control-height: 36px;
 }
 
-.cutlab-density-compact [data-slot="button"],
-.cutlab-density-compact [data-slot="input"],
-.cutlab-density-compact [data-slot="select-trigger"] { min-height: 32px; }
+.relay-density-compact [data-slot="button"],
+.relay-density-compact [data-slot="input"],
+.relay-density-compact [data-slot="select-trigger"] { min-height: 32px; }
 
-.cutlab-density-comfortable [data-slot="button"],
-.cutlab-density-comfortable [data-slot="input"],
-.cutlab-density-comfortable [data-slot="select-trigger"] { min-height: 48px; }
+.relay-density-balanced [data-slot="button"],
+.relay-density-balanced [data-slot="input"],
+.relay-density-balanced [data-slot="select-trigger"] { min-height: 36px; }
 
 * {
   scrollbar-color: var(--app-strong-border) transparent;
@@ -514,12 +516,12 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-space-grotesk), "Space Grotesk", "Geist", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   font-weight: 600;
 }
 
 .font-display {
-  font-family: var(--font-space-grotesk), "Space Grotesk", "Geist", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist-sans), "Space Grotesk", "Geist", ui-sans-serif, system-ui, sans-serif;
 }
 
 .metric-value,

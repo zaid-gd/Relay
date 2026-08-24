@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const failures = [];
 
@@ -43,6 +44,15 @@ requireText("docs/adr/0003-use-relay-name-pending-clearance.md", [
   "formal name clearance",
 ]);
 
+requireText("src/app/globals.css", [
+  "--surface-canvas: #000000",
+  "--text-primary: #ffffff",
+  "--app-accent: #ffffff",
+  "--radius-control: 0.375rem",
+  ".relay-density-balanced",
+  "@media (prefers-reduced-motion: reduce)",
+]);
+
 for (const path of [
   "src/middleware.ts",
   "src/lib/access-wall.ts",
@@ -50,6 +60,20 @@ for (const path of [
   "src/app/api/access/route.ts",
 ]) {
   if (existsSync(path)) failures.push(`${path} restores the removed global password gate.`);
+}
+
+for (const root of ["src", "convex", "e2e"]) {
+  for (const relativePath of readdirSync(root, { recursive: true })) {
+    if (!/\.(?:[cm]?[jt]sx?|css)$/.test(relativePath)) continue;
+    const path = join(root, relativePath);
+    const content = readFileSync(path, "utf8");
+    if (content.includes("Frame Desk")) {
+      failures.push(`${path} still contains legacy Frame Desk product copy.`);
+    }
+    if (content.includes("var(--font-space-grotesk)")) {
+      failures.push(`${path} still uses the discarded display font.`);
+    }
+  }
 }
 
 if (failures.length) {

@@ -75,12 +75,12 @@ describe("Providers runtime configuration", () => {
         convexUrl="https://runtime-config.convex.cloud"
         clerkPublishableKey="pk_test_runtime_config"
       >
-        <main>Frame Desk</main>
+        <main>Relay</main>
       </Providers>,
     );
 
     expect(html).toContain('data-provider="clerk"');
-    expect(html).toContain('data-sign-in-title="Sign in to Frame Desk"');
+    expect(html).toContain('data-sign-in-title="Sign in to Relay"');
     expect(html).toContain('data-provider="convex-clerk"');
     expect(html).toContain('data-auth-enabled="true"');
     expect(html).toContain('data-data-mode="cloud"');
@@ -89,7 +89,7 @@ describe("Providers runtime configuration", () => {
   test("keeps account mode disabled when Convex runtime configuration is missing", () => {
     const html = renderToStaticMarkup(
       <Providers clerkPublishableKey="pk_test_runtime_config">
-        <main>Frame Desk</main>
+        <main>Relay</main>
       </Providers>,
     );
 

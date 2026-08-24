@@ -228,7 +228,7 @@ export function ClientPortalView({ token }: { token: string }) {
                 label={portal.status}
                 tone={portal.status === "Delivered" ? "success" : "warning"}
               />
-              <h1 className="mt-3 max-w-[760px] font-[family-name:var(--font-space-grotesk)] text-3xl font-bold leading-[1.04] tracking-tight md:text-[44px]">
+              <h1 className="mt-3 max-w-[760px] font-[family-name:var(--font-geist-sans)] text-3xl font-bold leading-[1.04] tracking-tight md:text-[44px]">
                 {portal.title}
               </h1>
               <p
@@ -590,7 +590,7 @@ function PortalState({
           <CutLabLockup subtitle="Client Portal" />
         </div>
         <div className="mb-4 flex justify-center">{children}</div>
-        <h1 className="font-[family-name:var(--font-space-grotesk)] text-[28px] font-bold">{title}</h1>
+        <h1 className="font-[family-name:var(--font-geist-sans)] text-[28px] font-bold">{title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-[var(--app-muted)]">{body}</p>
       </section>
     </main>

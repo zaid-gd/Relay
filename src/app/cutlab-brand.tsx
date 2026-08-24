@@ -26,7 +26,7 @@ export function CutLabMark({
     >
       <img
         src="/brand/favicon.png"
-        alt="Frame Desk"
+        alt="Relay"
         className="brand-logo-light absolute inset-0 block size-full object-contain"
       />
       <img
@@ -58,7 +58,7 @@ export function CutLabLockup({
     >
       <span
         className={cn(
-          "flex items-baseline gap-1.5 font-[family-name:var(--font-space-grotesk)] font-bold leading-none tracking-[-0.055em]",
+          "flex items-baseline gap-1.5 font-[family-name:var(--font-geist-sans)] font-bold leading-none tracking-[-0.055em]",
           compact ? "min-h-8 text-[26px]" : "min-h-10 text-[34px]",
         )}
       >

@@ -42,11 +42,11 @@ export function PublicProfilePage() {
     return (
       <PublicShell>
         <section className={cn(panelClass, "mt-6 p-5 md:p-8")}>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-[34px] font-bold">
+          <h1 className="font-[family-name:var(--font-geist-sans)] text-[34px] font-bold">
             Profile not found
           </h1>
           <p className="mt-2 text-sm text-[var(--app-muted)]">
-            This public Frame Desk profile has not been published or the link is incorrect.
+            This public Relay profile has not been published or the link is incorrect.
           </p>
         </section>
       </PublicShell>
@@ -62,7 +62,7 @@ export function PublicProfilePage() {
           <PublicAvatar name={profile.profileName} imageUrl={profile.profileImageUrl} />
           <div>
             <h1 className="text-[34px] font-bold leading-tight">
-              {profile.profileName || "Frame Desk Editor"}
+              {profile.profileName || "Relay Editor"}
             </h1>
             {profile.profileUsername ? (
               <p className="mt-1 text-sm font-bold text-[var(--app-highlight)]">
@@ -71,7 +71,7 @@ export function PublicProfilePage() {
             ) : null}
             <p className="mt-2 text-[15px]">{profile.profileTitle || "Video Editor"}</p>
             <p className="mt-4 max-w-[420px] text-sm text-[var(--app-muted)]">
-              {profile.profileBio || "Portfolio profile published from Frame Desk."}
+              {profile.profileBio || "Portfolio profile published from Relay."}
             </p>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[var(--app-muted)]">
               {profile.profileLocation ? (
@@ -97,7 +97,7 @@ export function PublicProfilePage() {
           <div>
             <h2 className="text-[28px] font-bold leading-tight">Portfolio timeline</h2>
             <p className="mt-2 max-w-[260px] text-[13px] text-[var(--app-muted)]">
-              Recent public delivery context shared from Frame Desk.
+              Recent public delivery context shared from Relay.
             </p>
             <p className="mt-4 text-xs text-[var(--app-muted)]">
               Updated {formatPublicDate(profile.updatedAt.slice(0, 10))}
@@ -143,7 +143,7 @@ export function PublicProfilePage() {
               />
               <p className="text-sm font-bold">No public projects shared yet</p>
               <p className="mt-1 text-xs text-[var(--app-muted)]">
-                The editor can publish updated public work from their Frame Desk profile.
+                The editor can publish updated public work from their Relay profile.
               </p>
             </div>
           )}

@@ -25,7 +25,7 @@ export function MetricStrip({
       data-slot="metric-strip"
       role={role ?? (props["aria-label"] || props["aria-labelledby"] ? "region" : undefined)}
       className={cn(
-        "grid min-w-0 gap-px overflow-hidden rounded-xl border border-border bg-border text-card-foreground shadow-sm shadow-black/[0.02]",
+        "grid min-w-0 gap-2 text-card-foreground",
         columnClasses[columns],
         className,
       )}
@@ -57,7 +57,7 @@ export function MetricItem({
     <div
       data-slot="metric-item"
       className={cn(
-        "min-w-0 bg-card p-4 transition-colors hover:bg-muted/30 sm:p-5",
+        "min-w-0 rounded-[6px] bg-card p-4 transition-colors hover:bg-muted/30",
         className,
       )}
       {...props}

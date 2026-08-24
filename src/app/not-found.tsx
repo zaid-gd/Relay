@@ -10,10 +10,10 @@ export default function NotFound() {
       <section className="w-full max-w-[560px] rounded-[var(--radius-panel)] border border-[var(--app-border)] bg-[var(--surface-panel)] p-6 text-[var(--text-primary)] shadow-[var(--shadow-panel)] md:p-8" aria-labelledby="not-found-heading">
         <div className="space-y-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--app-muted)]">Frame Desk</p>
-            <h1 id="not-found-heading" className="mt-2 font-[family-name:var(--font-space-grotesk)] text-[30px] font-bold leading-tight">Page not found</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--app-muted)]">Relay</p>
+            <h1 id="not-found-heading" className="mt-2 font-[family-name:var(--font-geist-sans)] text-[30px] font-bold leading-tight">Page not found</h1>
             <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              This Frame Desk route does not exist. Return to the dashboard to keep tracking work.
+              This Relay route does not exist. Return to the dashboard to keep tracking work.
             </p>
           </div>
           <Button asChild className="min-h-11 w-fit bg-[var(--app-highlight)] text-white hover:bg-[var(--app-accent)]">

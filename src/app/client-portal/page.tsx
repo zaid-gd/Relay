@@ -21,7 +21,7 @@ export default function ClientPortalLandingPage() {
           aria-hidden="true"
           className="mx-auto mb-4 w-[210px] max-w-[70%]"
         />
-        <h1 className="font-[family-name:var(--font-space-grotesk)] text-[28px] font-bold md:text-4xl">
+        <h1 className="font-[family-name:var(--font-geist-sans)] text-[28px] font-bold md:text-4xl">
           A project link is required
         </h1>
         <p className="mx-auto mt-2 max-w-[500px] text-sm leading-relaxed text-muted-foreground">
@@ -35,7 +35,7 @@ export default function ClientPortalLandingPage() {
         >
           <Link href="/">
             <ArrowLeft aria-hidden="true" />
-            Back to Frame Desk
+            Back to Relay
           </Link>
         </Button>
       </section>

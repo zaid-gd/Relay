@@ -54,7 +54,7 @@ import {
   isValidIntegrationUrl,
   normalizeIntegrationLink
 } from "@/lib/integrations";
-import { cutlab, cutlabThemeVariables } from "./design-system";
+import { cutlab } from "./design-system";
 import { CutLabLockup } from "./cutlab-brand";
 import { emptyStateAssetFor, emptyStateAssets } from "./brand-assets";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -1094,7 +1094,7 @@ function AccountSettingsPage() {
       <PageHeader
         eyebrow="Workspace / Account"
         title="Account Settings"
-        description="Manage your private login details separately from your public Frame Desk profile."
+        description="Manage your private login details separately from your public Relay profile."
         actions={
           <PageToolbar
             primary={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
@@ -1270,7 +1270,7 @@ function WelcomeChoiceDialog({
           <OwnedDialogHeader>
             <OwnedDialogTitle className="text-[28px] leading-tight">Choose how to start</OwnedDialogTitle>
             <OwnedDialogDescription>
-              Use Frame Desk locally on this device, or create an account to sync supported workspace data.
+              Use Relay locally on this device, or create an account to sync supported workspace data.
             </OwnedDialogDescription>
           </OwnedDialogHeader>
           <div className="grid gap-2">
@@ -1293,7 +1293,7 @@ function WelcomeChoiceDialog({
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">See how a real project moves through Frame Desk</OwnedDialogTitle>
+          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">See how a real project moves through Relay</OwnedDialogTitle>
           <OwnedDialogDescription>
             Explore a populated production workflow first. Choose where your own workspace lives only when you are ready.
           </OwnedDialogDescription>
@@ -2003,7 +2003,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const addProjectComment = useMutation(api.team.addProjectComment);
   const markNotificationRead = useMutation(api.team.markNotificationRead);
   const markAllNotificationsRead = useMutation(api.team.markAllNotificationsRead);
-  const [workspaceName, setWorkspaceName] = useState(settings.studioName || "Frame Desk Team");
+  const [workspaceName, setWorkspaceName] = useState(settings.studioName || "Relay Team");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "Editor" });
   const [commentBody, setCommentBody] = useState("");
@@ -2873,7 +2873,7 @@ function IntegrationsDesignPage({
 
         <ContentSection
           title="Cloudflare R2 Storage"
-          description="Upcoming. Large-file storage through Cloudflare R2 is being prepared for a future release. Project uploads currently use Frame Desk's Convex Storage."
+          description="Upcoming. Large-file storage through Cloudflare R2 is being prepared for a future release. Project uploads currently use Relay's Convex Storage."
           metadata={<Cloud aria-hidden="true" className="size-4 text-muted-foreground" />}
           actions={<OwnedBadge variant="secondary">Upcoming</OwnedBadge>}
           bodyMode="flush"
@@ -2981,7 +2981,7 @@ function IntegrationsDesignPage({
                     placeholder="#project-updates"
                   />
                 </FieldLayout>
-                <FieldLayout label="Webhook URL" description="Optional. Stored locally and never called by Frame Desk.">
+                <FieldLayout label="Webhook URL" description="Optional. Stored locally and never called by Relay.">
                   <OwnedInput
                     type="url"
                     value={integrationDialog.config.webhookUrl}
@@ -3177,7 +3177,7 @@ function IntegrationLinkManager({
               {editing ? `${hasIntegrationLink(links?.[editing.serviceId]) ? "Edit" : "Add"} ${integrationServices.find((service) => service.id === editing.serviceId)?.name} Link` : "Integration Link"}
             </OwnedDialogTitle>
             <OwnedDialogDescription>
-              Store a direct link and optional context. Frame Desk will not authenticate, browse files, sync data, or call this service.
+              Store a direct link and optional context. Relay will not authenticate, browse files, sync data, or call this service.
             </OwnedDialogDescription>
           </OwnedDialogHeader>
           <form
@@ -3574,7 +3574,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
           </div>
           ) : null}
           {activeSection === "appearance" ? (
-          <SettingsPanel id="appearance" title="Appearance" subtitle="Customize how Frame Desk looks and feels for your tracker.">
+          <SettingsPanel id="appearance" title="Appearance" subtitle="Customize how Relay looks and feels for your tracker.">
             <div className="grid items-end gap-5 md:grid-cols-3">
               <SegmentedSetting label="Theme" options={["Light", "Dark", "System"]} active={settings.theme} onChange={(value) => setSettings({ ...settings, theme: value })} />
               <div>
@@ -4890,7 +4890,7 @@ function ProjectActivityFeed({ project, localActivity }: { project: WorkItem; lo
             last={index === events.length - 1}
           />
         )) : (
-          <ActivityFeedItem actor="Frame Desk" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
+          <ActivityFeedItem actor="Relay" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
         )}
       </div>
     </aside>
@@ -5470,7 +5470,7 @@ function providerLabel(provider: string) {
   if (provider === "google_drive") return "Google Drive";
   if (provider === "dropbox") return "Dropbox";
   if (provider === "frame_io") return "Frame.io";
-  if (provider === "convex") return "Frame Desk Upload";
+  if (provider === "convex") return "Relay Upload";
   if (provider === "r2") return "Cloudflare R2";
   return "External Link";
 }
@@ -6688,24 +6688,18 @@ function getTypeConfig(label: string, settings: SettingsState) {
 
 function applyRootThemeVariables(settings: SettingsState) {
   if (typeof document === "undefined") return;
-  const { vars, isDark } = themeVariables(settings);
+  const isDark = themeIsDark(settings);
   const root = document.documentElement;
-  Object.entries(vars).forEach(([key, value]) => root.style.setProperty(key, value));
   root.style.colorScheme = isDark ? "dark" : "light";
   root.dataset.theme = isDark ? "dark" : "light";
   root.classList.toggle("dark", isDark);
-  root.classList.toggle("cutlab-density-compact", settings.density === "Compact");
-  root.classList.toggle("cutlab-density-comfortable", settings.density !== "Compact");
+  root.classList.toggle("relay-density-compact", settings.density === "Compact");
+  root.classList.toggle("relay-density-balanced", settings.density !== "Compact");
 }
 
-function themeVariables(settings: SettingsState) {
+function themeIsDark(settings: SettingsState) {
   const prefersDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  const isDark = settings.theme === "Dark" || (settings.theme === "System" && prefersDark);
-
-  return {
-    isDark,
-    vars: cutlabThemeVariables(settings.accentColor || defaultAccent)
-  };
+  return settings.theme === "Dark" || (settings.theme === "System" && prefersDark);
 }
 
 function defaultProjectNotes(settings: SettingsState) {

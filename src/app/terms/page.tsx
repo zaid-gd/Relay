@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Frame Desk",
-  description: "The terms that apply when using Frame Desk.",
+  title: "Terms of Service | Relay",
+  description: "The terms that apply when using Relay.",
   alternates: {
     canonical: "/terms"
   }
@@ -14,30 +14,30 @@ export default function TermsRoute() {
     <LegalPage
       title="Terms of Service"
       updatedAt="June 1, 2026"
-      intro="These Terms of Service govern your access to and use of Frame Desk, a local-first work tracker for video editors with optional account-backed sync."
+      intro="These Terms of Service govern your access to and use of Relay, a local-first work tracker for video editors with optional account-backed sync."
       sections={[
         {
           title: "Acceptance",
           body: (
-            <p>By accessing or using Frame Desk, you agree to these Terms and the Privacy Policy. If you use the service for a business, studio, team, or client workflow, you represent that you have authority to accept these Terms for that organization or workflow.</p>
+            <p>By accessing or using Relay, you agree to these Terms and the Privacy Policy. If you use the service for a business, studio, team, or client workflow, you represent that you have authority to accept these Terms for that organization or workflow.</p>
           )
         },
         {
           title: "Eligibility",
           body: (
-            <p>You must be able to form a binding agreement to use Frame Desk. The service is not intended for children under 13, or under 16 where that higher age applies. If you are using the service under the age of majority in your location, you must have permission from a parent or legal guardian.</p>
+            <p>You must be able to form a binding agreement to use Relay. The service is not intended for children under 13, or under 16 where that higher age applies. If you are using the service under the age of majority in your location, you must have permission from a parent or legal guardian.</p>
           )
         },
         {
           title: "Accounts And Security",
           body: (
-            <p>Frame Desk can be used locally without an account. Account-backed features may require Clerk authentication and Convex sync. You are responsible for keeping your sign-in method secure, maintaining accurate account information, and notifying us if you believe your account or workspace has been accessed without permission.</p>
+            <p>Relay can be used locally without an account. Account-backed features may require Clerk authentication and Convex sync. You are responsible for keeping your sign-in method secure, maintaining accurate account information, and notifying us if you believe your account or workspace has been accessed without permission.</p>
           )
         },
         {
           title: "Your Workspace Data",
           body: (
-            <p>You keep ownership of the project, client, profile, team, notes, earnings, workflow, and configuration information you enter into Frame Desk. You grant us the limited right to host, store, process, display, and transmit that information only as needed to provide, secure, maintain, and improve the service.</p>
+            <p>You keep ownership of the project, client, profile, team, notes, earnings, workflow, and configuration information you enter into Relay. You grant us the limited right to host, store, process, display, and transmit that information only as needed to provide, secure, maintain, and improve the service.</p>
           )
         },
         {
@@ -49,7 +49,7 @@ export default function TermsRoute() {
         {
           title: "Acceptable Use",
           body: (
-            <p>You may not misuse the service, attempt to bypass security, interfere with app infrastructure, reverse engineer restricted portions of the service, upload malicious code, violate another person's rights, store unlawful content, or use Frame Desk to support illegal, abusive, or deceptive activity.</p>
+            <p>You may not misuse the service, attempt to bypass security, interfere with app infrastructure, reverse engineer restricted portions of the service, upload malicious code, violate another person's rights, store unlawful content, or use Relay to support illegal, abusive, or deceptive activity.</p>
           )
         },
         {
@@ -61,13 +61,13 @@ export default function TermsRoute() {
         {
           title: "Integrations And Third-Party Services",
           body: (
-            <p>Frame Desk may include configuration fields or flows for third-party tools such as Google Drive, Dropbox, Slack, Frame.io, Clerk, and Convex. Third-party services are governed by their own terms and policies. We are not responsible for third-party services, outages, permissions, data handling, or changes.</p>
+            <p>Relay may include configuration fields or flows for third-party tools such as Google Drive, Dropbox, Slack, Frame.io, Clerk, and Convex. Third-party services are governed by their own terms and policies. We are not responsible for third-party services, outages, permissions, data handling, or changes.</p>
           )
         },
         {
           title: "No Professional Advice",
           body: (
-            <p>Frame Desk may show earnings, salary batch progress, delivery status, and reports, but those outputs are for workflow tracking only. The service does not provide legal, tax, accounting, payroll, employment, or financial advice.</p>
+            <p>Relay may show earnings, salary batch progress, delivery status, and reports, but those outputs are for workflow tracking only. The service does not provide legal, tax, accounting, payroll, employment, or financial advice.</p>
           )
         },
         {
@@ -79,7 +79,7 @@ export default function TermsRoute() {
         {
           title: "Intellectual Property",
           body: (
-            <p>Frame Desk, including its design, code, branding, documentation, and product structure, is owned by Frame Desk or its licensors. These Terms do not grant you ownership of the service or permission to copy, resell, or create a competing service from protected parts of Frame Desk.</p>
+            <p>Relay, including its design, code, branding, documentation, and product structure, is owned by Relay or its licensors. These Terms do not grant you ownership of the service or permission to copy, resell, or create a competing service from protected parts of Relay.</p>
           )
         },
         {
@@ -91,19 +91,19 @@ export default function TermsRoute() {
         {
           title: "Limitation Of Liability",
           body: (
-            <p>To the fullest extent permitted by law, Frame Desk will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for lost profits, lost revenue, lost data, business interruption, or replacement services. Our total liability for claims related to the service will not exceed the amount you paid to use Frame Desk in the three months before the claim, or USD 100 if you paid nothing.</p>
+            <p>To the fullest extent permitted by law, Relay will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for lost profits, lost revenue, lost data, business interruption, or replacement services. Our total liability for claims related to the service will not exceed the amount you paid to use Relay in the three months before the claim, or USD 100 if you paid nothing.</p>
           )
         },
         {
           title: "Termination",
           body: (
-            <p>You may stop using Frame Desk at any time. We may suspend or terminate access if you violate these Terms, create risk for the service or other users, or if we are required to do so by law. Sections that by their nature should survive termination will continue to apply.</p>
+            <p>You may stop using Relay at any time. We may suspend or terminate access if you violate these Terms, create risk for the service or other users, or if we are required to do so by law. Sections that by their nature should survive termination will continue to apply.</p>
           )
         },
         {
           title: "Governing Rules And Contact",
           body: (
-            <p>These Terms are governed by the laws applicable where Frame Desk is operated, without limiting mandatory consumer protections that apply in your location. For reports, support requests, or questions about these Terms, contact Frame Desk at Cutlab.Studios@gmail.com.</p>
+            <p>These Terms are governed by the laws applicable where Relay is operated, without limiting mandatory consumer protections that apply in your location. For reports, support requests, or questions about these Terms, contact Relay at Cutlab.Studios@gmail.com.</p>
           )
         }
       ]}

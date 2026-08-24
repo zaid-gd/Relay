@@ -16,7 +16,7 @@ export function FirstRunChecklist({ mode, onCreateProject }: { mode: "local" | "
       <div className="rounded-[10px] border border-[var(--app-strong-border)] bg-[var(--app-panel)] p-5 shadow-[var(--app-shadow-1)] sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--app-highlight)]">Your first production</p>
         <h1 id="first-run-title" className="mt-2 max-w-2xl text-2xl font-semibold tracking-[-0.025em] sm:text-3xl">Turn one active edit into a clear production plan</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--app-muted)]">Create a real project first. Frame Desk will reveal the full dashboard once there is useful work to organize.</p>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--app-muted)]">Create a real project first. Relay will reveal the full dashboard once there is useful work to organize.</p>
         <Button className="mt-6 min-h-12 bg-[var(--app-accent)] px-5 text-white hover:bg-[var(--app-highlight)]" onClick={onCreateProject}>Create first project</Button>
 
         <ol className="mt-8 grid gap-3 lg:grid-cols-3">

@@ -97,7 +97,7 @@ export const sampleStudioResources: ResourceLink[] = [
     url: "/client-portal",
     category: "Review",
     projectId: "sample-founder-story",
-    notes: "Clients open a private editor-provided link and do not need a Frame Desk account.",
+    notes: "Clients open a private editor-provided link and do not need a Relay account.",
     createdAt: "2026-07-21T09:00:00.000Z",
     updatedAt: "2026-07-21T09:00:00.000Z",
   },
