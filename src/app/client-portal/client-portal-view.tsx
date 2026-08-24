@@ -13,6 +13,8 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  Download,
+  FileText,
   LockKeyhole,
   LoaderCircle,
   ShieldCheck,
@@ -39,6 +41,16 @@ type PublicOutput = {
   reviewState?: string;
   dueDate?: string;
   currentVersion?: PublicVersion;
+};
+type PublicFile = {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  downloadable: boolean;
+  fileName: string;
+  mimeType: string;
+  updatedAt?: string;
 };
 type PublicPortal = {
   title: string;
@@ -70,6 +82,11 @@ const publicCommentsRef = makeFunctionReference<
   { token: string; pin?: string },
   unknown
 >("mediaVersionComments:listForPortal");
+const publicFilesRef = makeFunctionReference<
+  "query",
+  { token: string; pin?: string },
+  unknown
+>("projectFiles:listForPortal");
 const addPublicCommentRef = makeFunctionReference<
   "mutation",
   { token: string; pin?: string; outputId: string; mediaVersionId: string; authorName: string; body: string },
@@ -112,6 +129,35 @@ function safeUrl(value: unknown) {
   } catch {
     return undefined;
   }
+}
+
+function readPublicFiles(value: unknown): PublicFile[] {
+  if (!isRecord(value) || !Array.isArray(value.files)) return [];
+  return value.files.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const title = text(item.title);
+    const fileName = text(item.fileName);
+    const url = safeUrl(item.url);
+    if (!title || !fileName || !url) return [];
+    return [{
+      id: text(item.id) ?? fileName,
+      title,
+      description: text(item.description),
+      url,
+      downloadable: item.downloadable === true,
+      fileName,
+      mimeType: text(item.mimeType) ?? "application/octet-stream",
+      updatedAt: text(item.updatedAt),
+    }];
+  });
+}
+
+function fileKind(mimeType: string) {
+  const mime = mimeType.toLowerCase();
+  if (mime === "text/plain" || mime === "text/markdown" || mime === "text/x-markdown") return "Text";
+  if (mime === "application/pdf") return "PDF";
+  if (mime.startsWith("image/")) return "Image";
+  return "File";
 }
 
 export function readPublicPortalAccess(value: unknown): PublicAccess {
@@ -299,6 +345,12 @@ export function ClientPortalView({ token }: { token: string }) {
       ? { token, ...(pin ? { pin } : {}) }
       : "skip",
   );
+  const publicFilesResult = useQuery(
+    publicFilesRef,
+    access.kind === "active"
+      ? { token, ...(pin ? { pin } : {}) }
+      : "skip",
+  );
   const addPublicComment = useMutation(addPublicCommentRef);
   const reopenPublicComment = useMutation(reopenPublicCommentRef);
   const [displayName, setDisplayName] = useState("");
@@ -306,6 +358,7 @@ export function ClientPortalView({ token }: { token: string }) {
   const [busyCommentId, setBusyCommentId] = useState("");
 
   const publicComments = parseMediaVersionComments(publicCommentsResult);
+  const publicFiles = readPublicFiles(publicFilesResult);
 
   useEffect(() => {
     try {
@@ -464,6 +517,8 @@ export function ClientPortalView({ token }: { token: string }) {
       portal={access.portal}
       comments={publicComments}
       commentsLoading={publicCommentsResult === undefined}
+      files={publicFiles}
+      filesLoading={publicFilesResult === undefined}
       displayName={displayName}
       onDisplayNameChange={changeDisplayName}
       onClearDisplayName={clearDisplayName}
@@ -534,6 +589,8 @@ function ActivePortal({
   portal,
   comments,
   commentsLoading,
+  files,
+  filesLoading,
   displayName,
   onDisplayNameChange,
   onClearDisplayName,
@@ -545,6 +602,8 @@ function ActivePortal({
   portal: PublicPortal;
   comments: readonly MediaVersionComment[];
   commentsLoading: boolean;
+  files: readonly PublicFile[];
+  filesLoading: boolean;
   displayName: string;
   onDisplayNameChange: (value: string) => void;
   onClearDisplayName: () => void;
@@ -701,6 +760,7 @@ function ActivePortal({
             </div>
           )}
         </section>
+        <PublicFilesSection files={files} loading={filesLoading} />
         {portal.notes ? (
           <section
             aria-labelledby="notes-title"
@@ -719,6 +779,73 @@ function ActivePortal({
         </footer>
       </div>
     </main>
+  );
+}
+
+function PublicFilesSection({
+  files,
+  loading,
+}: {
+  files: readonly PublicFile[];
+  loading: boolean;
+}) {
+  return (
+    <section aria-labelledby="files-title" className="border-t border-border py-10">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 id="files-title" className="text-lg font-semibold">Files</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Files your editor has chosen to share.
+          </p>
+        </div>
+        <Badge variant="outline">{loading ? "…" : files.length}</Badge>
+      </div>
+      {loading ? (
+        <p className="mt-6 text-sm text-muted-foreground">Loading shared files…</p>
+      ) : files.length ? (
+        <div className="mt-6 divide-y divide-border border-y border-border">
+          {files.map((file) => (
+            <article key={file.id} className="grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="flex min-w-0 gap-3">
+                <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold">{file.title}</h3>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {fileKind(file.mimeType)} · {file.fileName}
+                  </p>
+                  {file.description ? (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{file.description}</p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Open <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+                {file.downloadable ? (
+                  <a
+                    href={file.url}
+                    download={file.fileName}
+                    className="inline-flex items-center gap-2 text-sm font-medium underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Download <Download className="size-4" aria-hidden="true" />
+                  </a>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          No files have been shared yet.
+        </p>
+      )}
+    </section>
   );
 }
 

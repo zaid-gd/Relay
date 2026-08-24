@@ -23,7 +23,6 @@ import {
   CLIENT_PORTAL_STAGE_VALUES,
   DELIVERABLE_STATUS_VALUES,
   FILE_CATEGORY_VALUES,
-  FILE_PROVIDER_VALUES,
   FILE_STATUS_VALUES,
   PROJECT_STATUS_VALUES,
   REVISION_STATUS_VALUES,
@@ -31,7 +30,6 @@ import {
   type ClientPortalStage,
   type DeliverableStatus,
   type FileCategory,
-  type FileProvider,
   type FileStatus,
   type ProjectStatus,
   type RevisionStatus,
@@ -281,9 +279,7 @@ const profile = getProfile(DEFAULT_PROFILE_ID);
 const statusOptions: ProjectStatus[] = [...PROJECT_STATUS_VALUES];
 // Upcoming capability: keep R2 disabled until the storage release is approved.
 const R2_STORAGE_ENABLED = false;
-const externalFileProviderOptions = FILE_PROVIDER_VALUES.filter(
-  (provider): provider is Exclude<FileProvider, "convex" | "r2"> => provider !== "convex" && provider !== "r2"
-);
+const MAX_SAFE_PROJECT_FILE_BYTES = 20 * 1024 * 1024;
 
 const teamRoleOptions = [...TEAM_ROLE_VALUES];
 const currencyOptions = ["USD", "EUR", "GBP", "INR", "AED", "SAR"];
@@ -5082,22 +5078,23 @@ function ProjectStatusBadge({ status }: { status: string }) {
 
 function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const [showArchived, setShowArchived] = useState(false);
   const fileData = useQuery(
     api.projectFiles.listForProject,
-    isConvexAuthenticated ? { projectId: project.id } : "skip"
+    isConvexAuthenticated ? { projectId: project.id, includeArchived: showArchived } : "skip"
   );
   const generateUploadUrl = useMutation(api.projectFiles.generateUploadUrl);
   const saveStorageVersion = useMutation(api.projectFiles.saveStorageVersion);
   const createR2UploadUrl = useAction(api.r2.createUploadUrl);
   const completeR2Upload = useAction(api.r2.completeUpload);
   const createR2DownloadUrl = useAction(api.r2.createDownloadUrl);
-  const saveExternalVersion = useMutation(api.projectFiles.saveExternalVersion);
   const updateFile = useMutation(api.projectFiles.updateFile);
+  const archiveFile = useMutation(api.projectFiles.archiveFile);
+  const restoreFile = useMutation(api.projectFiles.restoreFile);
   const removeFile = useMutation(api.projectFiles.removeFile);
   const [view, setView] = useState<"files" | "history">("files");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [source, setSource] = useState<"upload" | "external">("upload");
   const [targetFileId, setTargetFileId] = useState<Id<"projectFiles"> | undefined>();
   const [browserFile, setBrowserFile] = useState<File | null>(null);
   const [category, setCategory] = useState<FileCategory>("Deliverable");
@@ -5105,12 +5102,8 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<FileStatus>("draft");
   const [clientVisible, setClientVisible] = useState(false);
-  const [downloadable, setDownloadable] = useState(true);
+  const [downloadable, setDownloadable] = useState(false);
   const [notes, setNotes] = useState("");
-  const [provider, setProvider] = useState<Exclude<FileProvider, "convex">>("external");
-  const [externalUrl, setExternalUrl] = useState("");
-  const [externalId, setExternalId] = useState("");
-  const [externalSize, setExternalSize] = useState(0);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const useR2Storage = R2_STORAGE_ENABLED && process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
@@ -5126,22 +5119,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
     setDescription("");
     setStatus("draft");
     setClientVisible(false);
-    setDownloadable(true);
+    setDownloadable(false);
     setNotes("");
-    setProvider("external");
-    setExternalUrl("");
-    setExternalId("");
-    setExternalSize(0);
     setError("");
   }
 
-  function openNewFile(nextSource: "upload" | "external") {
+  function openNewFile() {
     resetForm();
-    setSource(nextSource);
     setDialogOpen(true);
   }
 
-  function openNewVersion(file: NonNullable<typeof fileData>["files"][number], nextSource: "upload" | "external") {
+  function openNewVersion(file: NonNullable<typeof fileData>["files"][number]) {
     resetForm();
     setTargetFileId(file._id);
     setCategory(file.category);
@@ -5150,7 +5138,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
     setStatus(file.status);
     setClientVisible(file.clientVisible);
     setDownloadable(file.downloadable);
-    setSource(nextSource);
     setDialogOpen(true);
   }
 
@@ -5174,10 +5161,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
         downloadable,
         notes,
       };
-      if (source === "upload") {
-        if (!browserFile) throw new Error("Choose a file to upload.");
-        const mimeType = browserFile.type || "application/octet-stream";
-        if (useR2Storage) {
+      if (!browserFile) throw new Error("Choose a file to upload.");
+      if (browserFile.size > MAX_SAFE_PROJECT_FILE_BYTES) throw new Error("Files must be 20 MB or smaller.");
+      if (fileData?.workspaceLimitBytes && fileData.retainedBytes + browserFile.size > fileData.workspaceLimitBytes) {
+        throw new Error("Workspace storage limit reached. Permanently delete archived files before uploading more.");
+      }
+      const mimeType = browserFile.type || "application/octet-stream";
+      if (useR2Storage) {
           const upload = await createR2UploadUrl({
             projectId: project.id,
             projectFileId: targetFileId,
@@ -5196,7 +5186,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             fileName: browserFile.name,
             mimeType,
           });
-        } else {
+      } else {
           const uploadUrl = await generateUploadUrl({ projectId: project.id });
           const response = await fetch(uploadUrl, {
             method: "POST",
@@ -5211,18 +5201,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             fileName: browserFile.name,
             mimeType,
           });
-        }
-      } else {
-        if (!externalUrl.trim()) throw new Error("Enter a file URL.");
-        await saveExternalVersion({
-          ...shared,
-          provider,
-          externalUrl,
-          externalId: externalId || undefined,
-          fileName: title.trim(),
-          mimeType: "application/octet-stream",
-          size: Math.max(0, externalSize),
-        });
       }
       setDialogOpen(false);
       resetForm();
@@ -5257,12 +5235,26 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   }
 
   async function deleteProjectFile(fileId: Id<"projectFiles">) {
+    if (!window.confirm("Permanently delete this file and every retained version? This frees its storage and cannot be undone.")) return;
     setBusy(`remove-${fileId}`);
     setError("");
     try {
       await removeFile({ fileId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not remove this file.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function changeArchiveState(fileId: Id<"projectFiles">, archived: boolean) {
+    setBusy(`archive-${fileId}`);
+    setError("");
+    try {
+      if (archived) await restoreFile({ fileId });
+      else await archiveFile({ fileId });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update this file.");
     } finally {
       setBusy("");
     }
@@ -5289,14 +5281,11 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               <OwnedBadge variant="secondary">{files.length} files</OwnedBadge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Deliverables, references, assets, uploads, and every saved version in one project model.</p>
+            {fileData?.workspaceLimitBytes ? <p className="mt-1 text-xs text-muted-foreground">{formatFileSize(fileData.retainedBytes)} retained of {formatFileSize(fileData.workspaceLimitBytes)}. Archived files still count.</p> : null}
           </div>
           {canEdit && isConvexAuthenticated ? (
             <div className="flex flex-wrap gap-2">
-              <OwnedButton type="button" variant="outline" onClick={() => openNewFile("external")}>
-                <ExternalLink aria-hidden="true" />
-                Add Link
-              </OwnedButton>
-              <OwnedButton type="button" onClick={() => openNewFile("upload")}>
+              <OwnedButton type="button" onClick={openNewFile}>
                 <Upload aria-hidden="true" />
                 Upload File
               </OwnedButton>
@@ -5352,6 +5341,9 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                   {item}
                 </OwnedButton>
               ))}
+              <OwnedButton type="button" size="sm" variant={showArchived ? "secondary" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived((current) => !current)}>
+                {showArchived ? "Hide archived" : "Show archived"}
+              </OwnedButton>
             </div>
             {filteredFiles.length ? (
               <OwnedAccordion type="multiple" className="grid gap-2">
@@ -5371,6 +5363,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="truncate font-semibold">{file.title}</span>
                               <OwnedBadge variant="secondary">{file.category}</OwnedBadge>
+                              {file.archived ? <OwnedBadge variant="outline">Archived</OwnedBadge> : null}
                               {file.clientVisible ? (
                                 <OwnedBadge variant={file.status === "draft" ? "outline" : "default"}>
                                   {file.status === "draft" ? "Share when sent" : "Client visible"}
@@ -5429,13 +5422,9 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                         </div>
                         {canEdit ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file, "upload")}>
+                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file)}>
                               <Upload aria-hidden="true" />
                               Upload Version
-                            </OwnedButton>
-                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file, "external")}>
-                              <ExternalLink aria-hidden="true" />
-                              Link Version
                             </OwnedButton>
                             {file.category === "Deliverable" ? (
                               <>
@@ -5457,16 +5446,12 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                                 </label>
                               </>
                             ) : null}
-                            <OwnedButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive sm:ml-auto"
-                              onClick={() => deleteProjectFile(file._id)}
-                              disabled={busy === `remove-${file._id}`}
-                            >
-                              Remove File
+                            <OwnedButton type="button" variant="ghost" size="sm" className="sm:ml-auto" onClick={() => void changeArchiveState(file._id, file.archived)} disabled={busy === `archive-${file._id}`}>
+                              {file.archived ? "Restore" : "Archive"}
                             </OwnedButton>
+                            {file.archived ? <OwnedButton type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => void deleteProjectFile(file._id)} disabled={busy === `remove-${file._id}`}>
+                              Delete permanently
+                            </OwnedButton> : null}
                           </div>
                         ) : null}
                       </OwnedAccordionContent>
@@ -5512,27 +5497,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             <OwnedDialogDescription>Add an uploaded file or external file link while preserving its version history.</OwnedDialogDescription>
           </OwnedDialogHeader>
 
-          <div className="flex border-b" role="tablist" aria-label="File source">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === "upload"}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${source === "upload" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              onClick={() => setSource("upload")}
-            >
-              Upload
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === "external"}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${source === "external" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              onClick={() => setSource("external")}
-            >
-              External Link
-            </button>
-          </div>
-
           <div className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               {!targetFileId ? (
@@ -5557,36 +5521,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               </FieldLayout>
             ) : null}
 
-            {source === "upload" ? (
-              <OwnedButton asChild variant="outline" className="justify-start">
-                <label>
-                  <Upload aria-hidden="true" />
-                  {browserFile ? browserFile.name : "Choose file"}
-                  <input className="sr-only" type="file" onChange={(event) => setBrowserFile(event.target.files?.[0] ?? null)} />
-                </label>
-              </OwnedButton>
-            ) : (
-              <>
-                <ProjectSelect
-                  label="Provider"
-                  value={provider}
-                  options={externalFileProviderOptions}
-                  labels={{ external: "External URL", google_drive: "Google Drive", dropbox: "Dropbox", frame_io: "Frame.io" }}
-                  onChange={setProvider}
-                />
-                <FieldLayout label="File URL" required>
-                  <OwnedInput value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} placeholder="https://..." />
-                </FieldLayout>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FieldLayout label="Provider file ID" description="Optional. Reserved for future API synchronization.">
-                    <OwnedInput value={externalId} onChange={(event) => setExternalId(event.target.value)} />
-                  </FieldLayout>
-                  <FieldLayout label="File size (bytes)">
-                    <OwnedInput type="number" min={0} value={externalSize} onChange={(event) => setExternalSize(Math.max(0, Number(event.target.value) || 0))} />
-                  </FieldLayout>
-                </div>
-              </>
-            )}
+            <OwnedButton asChild variant="outline" className="justify-start">
+              <label>
+                <Upload aria-hidden="true" />
+                {browserFile ? browserFile.name : "Choose file"}
+                <input className="sr-only" type="file" accept=".pdf,.txt,.md,.markdown,.jpg,.jpeg,.png,.webp" onChange={(event) => setBrowserFile(event.target.files?.[0] ?? null)} />
+              </label>
+            </OwnedButton>
             <FieldLayout label="Version notes">
               <OwnedTextarea value={notes} onChange={(event) => setNotes(event.target.value)} density="compact" />
             </FieldLayout>
@@ -5622,7 +5563,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
 }
 
 function formatFileSize(bytes: number) {
-  if (!bytes) return "Size unavailable";
+  if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

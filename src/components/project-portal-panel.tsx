@@ -144,7 +144,7 @@ export function ProjectPortalPanel({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
         <div>
           <h2 id="project-portal-title" className="text-base font-semibold">Client Portal</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Choose the Project details and current Outputs shared through one private link.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Share current Outputs and approved Project Files through one private link.</p>
         </div>
         {data.portal ? (
           <Badge variant="outline">{data.portal.status === "open" ? "Open" : data.portal.status === "draft" ? "Draft" : "Closed"}</Badge>

@@ -273,6 +273,7 @@ export default defineSchema({
 
   projectFiles: defineTable({
     projectId: v.string(),
+    projectOutputId: v.optional(v.id("projectOutputs")),
     ownerUserId: v.string(),
     teamId: v.optional(v.string()),
     category: fileCategoryValidator,
@@ -281,6 +282,7 @@ export default defineSchema({
     status: storedFileStatusValidator,
     clientVisible: v.boolean(),
     downloadable: v.boolean(),
+    archived: v.optional(v.boolean()),
     createdByUserId: v.string(),
     createdByName: v.string(),
     createdAt: v.string(),
