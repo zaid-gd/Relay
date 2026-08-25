@@ -5006,7 +5006,7 @@ function SubscriptionPage() {
               <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
             </div>
           ) : isSignedIn ? (
-            <div className="p-4 md:p-6"><ClerkPricingPlans /></div>
+            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6"><ClerkPricingPlans /></div>
           ) : (
             <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
               <h2 className="text-xl font-semibold text-foreground">Account required</h2>

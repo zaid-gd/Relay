@@ -46,6 +46,17 @@ const pricingAppearance = {
     colorBackground: "var(--app-panel)",
     colorForeground: "var(--app-ink)",
     colorMutedForeground: "var(--app-muted)",
+    spacing: "1.125rem",
+  },
+  elements: {
+    pricingTable: "items-stretch",
+    pricingTableCard: "min-h-[32rem] h-full",
+    pricingTableCardHeader: "min-h-40",
+    pricingTableCardBody: "flex-1",
+    pricingTableCardFeatures: "mt-5 border-t border-[var(--app-border)] pt-5",
+    pricingTableCardFeaturesList: "gap-0",
+    pricingTableCardFeaturesListItem: "min-h-11 border-b border-[var(--app-border)] py-3 last:border-b-0",
+    pricingTableCardFooter: "mt-auto",
   },
 };
 
@@ -54,6 +65,8 @@ export function ClerkPricingPlans() {
     <div className="w-full">
       <PricingTable
         for="user"
+        collapseFeatures={false}
+        ctaPosition="bottom"
         newSubscriptionRedirectUrl="/subscription"
         appearance={pricingAppearance}
       />
