@@ -1,4 +1,4 @@
-import { createClerkClient } from "@clerk/backend";
+import { createClerkClient } from "@clerk/nextjs/server";
 import { clerkSetup } from "@clerk/testing/playwright";
 import { cloudE2EAvailable, loadE2EEnvironment } from "./env";
 
@@ -11,8 +11,13 @@ export default async function globalSetup() {
   });
 
   const email = process.env.E2E_CLERK_USER_EMAIL!;
-  const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  const existing = await clerkClient.users.getUserList({ emailAddress: [email], limit: 1 });
+  const clerkClient = createClerkClient({
+    secretKey: process.env.CLERK_SECRET_KEY!,
+  });
+  const existing = await clerkClient.users.getUserList({
+    emailAddress: [email],
+    limit: 1,
+  });
   if (existing.data.length) return;
 
   try {
@@ -25,9 +30,12 @@ export default async function globalSetup() {
       skipLegalChecks: true,
     });
   } catch (error) {
-    const details = error && typeof error === "object" && "errors" in error
-      ? JSON.stringify(error.errors, null, 2)
-      : String(error);
-    throw new Error(`Could not create the Clerk E2E user:\n${details}`, { cause: error });
+    const details =
+      error && typeof error === "object" && "errors" in error
+        ? JSON.stringify(error.errors, null, 2)
+        : String(error);
+    throw new Error(`Could not create the Clerk E2E user:\n${details}`, {
+      cause: error,
+    });
   }
 }
