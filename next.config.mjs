@@ -9,14 +9,14 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
+  "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://accounts.relay-dev.cc.cd https://challenges.cloudflare.com https://*.protect.clerk.com",
   "img-src 'self' data: blob: https:",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com`,
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://clerk.relay-dev.cc.cd https://challenges.cloudflare.com https://*.protect.clerk.com https://static.cloudflareinsights.com`,
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.clerk.accounts.dev https://*.clerk.com https://clerk-telemetry.com",
+  "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.clerk.accounts.dev https://*.clerk.com https://clerk.relay-dev.cc.cd https://*.protect.clerk.com:* https://clerk-telemetry.com https://cloudflareinsights.com",
   "worker-src 'self' blob:",
-  "upgrade-insecure-requests"
+  "upgrade-insecure-requests",
 ].join("; ");
 
 const nextConfig = {
@@ -24,10 +24,10 @@ const nextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   compress: true,
   images: {
-    formats: ["image/avif", "image/webp"]
+    formats: ["image/avif", "image/webp"],
   },
   turbopack: {
-    root
+    root,
   },
   async headers() {
     return [
@@ -36,28 +36,28 @@ const nextConfig = {
         headers: [
           {
             key: "X-Content-Type-Options",
-            value: "nosniff"
+            value: "nosniff",
           },
           {
             key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin"
+            value: "strict-origin-when-cross-origin",
           },
           {
             key: "X-Frame-Options",
-            value: "DENY"
+            value: "DENY",
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()"
+            value: "camera=(), microphone=(), geolocation=()",
           },
           {
             key: "Content-Security-Policy",
-            value: contentSecurityPolicy
-          }
-        ]
-      }
+            value: contentSecurityPolicy,
+          },
+        ],
+      },
     ];
-  }
+  },
 };
 
 export default nextConfig;
