@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { UserProfile } from "@clerk/nextjs";
+import { UserProfile, useAuth } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { useData, useProjectGroups, useProjectWorkflow } from "@/lib/data-context";
@@ -5404,6 +5404,7 @@ function ProjectStatusBadge({ status }: { status: string }) {
 }
 
 function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
+  const { has } = useAuth();
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   const [showArchived, setShowArchived] = useState(false);
   const fileData = useQuery(
@@ -5434,6 +5435,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const useR2Storage = R2_STORAGE_ENABLED && process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
+  const canUploadFiles = has({ plan: "creator" }) || has({ plan: "studio" });
 
   useEffect(() => {
     if (!fileData) return;
@@ -5617,13 +5619,15 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             <p className="mt-1 text-xs text-muted-foreground">Deliverables, references, assets, uploads, and every saved version in one project model.</p>
             {fileData?.workspaceLimitBytes ? <p className="mt-1 text-xs text-muted-foreground">{formatFileSize(fileData.retainedBytes)} retained of {formatFileSize(fileData.workspaceLimitBytes)}. Archived files still count.</p> : null}
           </div>
-          {canEdit && isConvexAuthenticated ? (
+          {canEdit && isConvexAuthenticated && canUploadFiles ? (
             <div className="flex flex-wrap gap-2">
               <OwnedButton type="button" onClick={openNewFile}>
                 <Upload aria-hidden="true" />
                 Upload File
               </OwnedButton>
             </div>
+          ) : canEdit && isConvexAuthenticated ? (
+            <OwnedButton asChild variant="outline"><Link href="/subscription">Upgrade to upload files</Link></OwnedButton>
           ) : null}
         </div>
 
@@ -5754,7 +5758,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                             </div>
                           ))}
                         </div>
-                        {canEdit ? (
+                        {canEdit && canUploadFiles ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file)}>
                               <Upload aria-hidden="true" />
