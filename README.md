@@ -1,196 +1,124 @@
-<p align="center">
-  <img src="public/brand/logo/cutlab-studio.png" alt="CutLab Studio" width="360" />
-</p>
+# Relay
 
-<p align="center">
-  <strong>A production command center for video editors and small creative teams.</strong>
-</p>
+**A video-workflow workspace for freelance video editors and small post-production teams.**
 
-<p align="center">
-  Track edits, client deadlines, file versions, revision requests, salary batches, and team handoffs without turning your editing workflow into generic task-manager noise.
-</p>
-
-<p align="center">
-  <img src="https://github.com/zaid-gd/Cutlab-Studio/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  <img src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs" alt="Next.js 16" />
-  <img src="https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white" alt="React 19" />
-  <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/Convex-realtime%20backend-ee342f" alt="Convex" />
-  <img src="https://img.shields.io/badge/Clerk-authentication-6c47ff" alt="Clerk" />
-</p>
+[![CI](https://github.com/zaid-gd/Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/zaid-gd/Relay/actions/workflows/ci.yml)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)
+![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
+![TypeScript 5.9](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white)
+![Convex](https://img.shields.io/badge/Convex-realtime%20backend-ee342f)
+![Clerk](https://img.shields.io/badge/Clerk-authentication-6c47ff)
 
 ---
 
-![CutLab Studio command-center dashboard](assets/readme/command-center.png)
+## What Relay Does
 
-## Why CutLab Exists
+Freelance editors juggle clients, deadlines, revisions, deliverables, and pay across tools that treat video work like generic task tracking. Relay gives that work one home.
 
-Most project tools treat video editing like generic task tracking. CutLab is narrower on purpose: projects have clients, due dates, deliverables, review rounds, assets, references, salary batches, and final exports.
+In Relay you manage one Workspace containing your Clients, Projects, workflow stages, deliverables, review feedback, files, earnings, and salary contracts. Every screen answers the questions an editor actually asks: what is due soon, what is waiting on a client, what has been delivered, and what has been paid.
 
-CutLab Studio is built around that real production rhythm.
+## How Work Is Organized
 
-## Product At A Glance
+Relay uses a small set of clear ideas:
 
-- **Production command center** with compact metrics, workflow charts, deadlines,
-  activity, collected earnings, and salary-batch progress.
-- **Project operations** with personal and team workspaces, templates, statuses,
-  priorities, assignments, due dates, notes, progress, and payout tracking.
-- **Client delivery** with client records, secure no-account portals, approved
-  downloads, delivery history, and timecoded revision requests.
-- **Versioned media library** for deliverables, references, assets, external
-  provider links, client visibility, and immutable upload history.
-- **Team collaboration** with invitations, roles, assignments, mentions,
-  comments, notifications, chat, and a shared activity trail.
-- **Reports and payouts** with salary batches, editor totals, date filters,
-  paid-state tracking, work-mix charts, and CSV export.
-- **Editor identity** with public profiles, selected delivered work, turnaround
-  details, portfolio metrics, and separate organization context.
-- **Resilient cloud data** through Clerk-authenticated Convex sync with a local
-  fallback that can recover when cloud authentication becomes available.
+| Concept               | Meaning                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Workspace**         | Your studio. Starts solo and becomes a Team workspace when you invite people. Uses one currency.                |
+| **Client**            | A durable record with contact details, project history, and archive state. Not free text on a project.          |
+| **Project Group**     | An optional group of projects tied to one client, such as a retainer or campaign.                               |
+| **Project**           | One tracked video job. The unit for delivery, earnings, and salary progress.                                    |
+| **Project Output**    | One promised result inside a project: main video, short cut, thumbnail, captions, document.                     |
+| **Media Version**     | One revision of an output. New versions become current; older versions and their comments stay in team history. |
+| **Workflow Template** | Reusable stages copied into each new project. Labels are editable; each stage keeps a fixed reporting purpose.  |
+| **Client Portal**     | A public, token-scoped link to one project where clients view current outputs and leave comments.               |
+| **Salary Plan**       | A contract that counts delivered projects toward a full batch payment.                                          |
+| **Salary Batch**      | The recorded full payment created when a plan's required projects reach Delivered.                              |
 
-## Latest Product Changes
+The default workflow is **Planned → Editing → Client Review → Revisions → Approved → Delivered**. You can rename and reorder stages to match your process. Moving a project to Delivered asks for confirmation, records the real completion time, and updates earnings and salary progress.
 
-CutLab now uses a production-operations interface rather than a card-heavy
-dashboard. The redesign is shared across Dashboard, Projects, Clients, Library,
-Reports, Team, and Settings.
+## Ways To Start
 
-- Rebuilt the shell with grouped navigation, a compact account menu, clearer
-  workspace identity, responsive behavior, and consistent light and dark modes.
-- Replaced disconnected statistic cards with continuous metric rails, structured
-  tables, split workspaces, status chips, and compact operational modules.
-- Added real workflow and work-mix visualizations with MUI X Charts.
-- Reworked Projects into a focused production index with personal and team views.
-- Rebuilt Clients and Library as master-detail workspaces that keep context visible.
-- Expanded Reports with salary batch reconciliation, editor payouts, collected
-  earnings, period filtering, exports, and visual work distribution.
-- Consolidated Settings into an indexed control surface for project rules,
-  workflow stages, notifications, permissions, integrations, appearance, and
-  regional preferences.
-- Improved accessibility for labeled controls and colon-delimited timecode entry.
-- Hardened Convex domain values with shared constants, strict validators where
-  safe, and legacy normalization so existing records remain readable.
-- Improved cloud initialization so a temporary auth failure can render local
-  data without preventing a later successful Convex sync.
-- Strengthened client-portal ordering, file-version status normalization,
-  permission checks, verification scripts, and automated coverage.
+- **Local Mode** — work without an account. Records stay in your browser. Export and import JSON backups at any time.
+- **Sample Workspace** — explore a read-only example before saving anything.
+- **Cloud Account** — sign in to sync across devices, share with a small team, publish client portals, and store files.
 
-## Visual Product Tour
+Local work can be imported once into a new empty cloud account. Existing cloud workspaces never accept an automatic merge.
 
-The panels below are art-directed product visuals based on implemented CutLab
-workflows. They present the feature story clearly for GitHub; exact interface
-details may vary from the running build.
+## Key Features
 
-### See The Whole Production Picture
+### Projects And Delivery
 
-![CutLab Studio command center with project pipeline, deadlines, salary batches, revenue, and activity](assets/readme/command-center.png)
+- A focused projects index plus a board grouped by stage. Switch between them; Relay remembers your choice.
+- Filters and sorting reflected in the URL so views can be shared.
+- Each project gets its own page with Overview, Outputs and Versions, Client Review, Files and Links, and Activity.
+- Templates prefill stages, starter outputs, relative deadlines, and portal defaults without rewriting live work later.
 
-The dashboard brings active work, deadlines, feedback, workflow stages, salary
-edit progress, earnings, and recent activity into one operational view.
+### Client Review
 
-### Start With An Editing Workflow
+- Publish a portal link scoped to exactly one project. Protect it with a PIN, set an expiry, close it, or regenerate the link if it leaks.
+- Clients see only the current version of each output, chosen public dates, and shared files. Internal notes, assignees, money, and salary data stay private by design.
+- Clients add their display name and comment on the version they reviewed. Editors resolve threads; clients can reopen them.
+- YouTube and Vimeo links stream from those providers. Other URLs stay ordinary links.
 
-![CutLab Studio editing templates for common video production workflows](assets/readme/editing-templates.png)
+### Money And Salary
 
-Eight built-in templates cover YouTube, reels, corporate events, product ads,
-weddings, social campaigns, podcasts, and client retainers. Custom templates can
-also be saved for recurring workflows. Each template prefills stages,
-deliverables, checklists, work type, and expected duration.
+- Client projects carry one agreed amount with a Paid or Unpaid state.
+- Salary Plans track repeat contract work: deliver N projects, receive one batch payment. Completed batches snapshot their terms and contributing projects so history stays stable.
+- Reports use three words consistently: **Earned** is delivered value, **Collected** is delivered and paid value, **Outstanding** is delivered and unpaid value.
 
-### Keep Every Deliverable And Version Traceable
+### Team
 
-![CutLab Studio project files and immutable video version history](assets/readme/file-versions.png)
+- Invite up to two members on the free plan as Owners, Editors, or Viewers.
+- Finance access for editors starts disabled. Solo salary plans remain owner-only.
+- Removed members keep their project history; open assignments become unassigned for deliberate reassignment.
 
-Deliverables, references, and assets share one versioned file model with upload
-history, provider metadata, client visibility, download controls, and approval
-states from Draft through Final Delivered.
+### Files
 
-### Deliver Through A Secure Client Portal
+- Upload PDF, plain text, Markdown, JPEG, PNG, and WebP documents up to 20 MB each, 200 MB per workspace in private beta.
+- Files stay private behind short-lived signed links. Sharing to a portal and allowing downloads are explicit choices.
+- A workspace-wide index helps you find files; all management happens on the owning project's page.
 
-![CutLab Studio secure portal controls and no-account client delivery experience](assets/readme/client-portal.png)
+### Dashboard And Reports
 
-Editors can publish, disable, expire, regenerate, or password-protect a portal.
-Clients see approved files, progress, delivery events, downloads, and timecoded
-revision requests without receiving access to internal project data.
+- A dashboard led by work needing attention, then active projects by stage, due-soon work, salary progress, and recent activity.
+- Work reports for completions, turnaround, and stage delays. Money reports for earned, collected, and outstanding totals. Salary reports for plan progress and batches.
+- Period filters with prior-period comparison, plus a read-only calendar with a subscribeable feed.
 
-### Collaborate Without Mixing Personal And Team Work
+## Tech Stack
 
-![CutLab Studio team workspace with roles, assignments, notifications, comments, and chat](assets/readme/team-collaboration.png)
+| Layer         | Choice                                               |
+| ------------- | ---------------------------------------------------- |
+| App framework | Next.js App Router                                   |
+| Interface     | React 19, owned Radix-based primitives, Tailwind CSS |
+| Language      | TypeScript                                           |
+| Auth          | Clerk                                                |
+| Backend       | Convex reactive subscriptions                        |
+| Tables        | TanStack Table                                       |
+| Board         | dnd-kit with a keyboard-accessible stage menu        |
+| Tests         | Vitest, convex-test, Playwright                      |
+| Hosting       | OpenNext on Cloudflare Workers                       |
 
-Owners, Editors, and Reviewers work through server-enforced permissions,
-assignments, mentions, timecoded comments, notifications, team chat, and a
-shared activity trail while personal projects remain private.
+## Development
 
-### Track Editing Payouts Without Becoming Accounting Software
+Requires Node.js 22+.
 
-![CutLab Studio reports, salary batch ledger, editor payouts, and cloud sync health](assets/readme/reports-payouts.png)
+```bash
+npm install
+npm run dev
+```
 
-Reports connect delivered projects to salary batches, paid and outstanding
-payouts, editor totals, date periods, and CSV exports. Cloud sync health and
-local fallback status keep the operating state visible.
+Useful commands:
 
-### Publish A Professional Editor Profile
-
-![CutLab Studio public editor profile and profile visibility controls](assets/readme/public-profile.png)
-
-Editors can share a public profile with bio, location, timezone, turnaround,
-active work, selected delivered projects, and portfolio metrics while private
-earnings, notes, references, and team activity stay inside the workspace.
-
-### Keep External Resources Attached To The Project
-
-![CutLab Studio integrations and provider-neutral project resource links](assets/readme/integrations-resources.png)
-
-Google Drive, Dropbox, Slack, and Frame.io connection details and project links
-can be organized in CutLab today. Live OAuth, automatic file synchronization,
-and message delivery remain explicitly modeled as future integration work. The
-[third-party integration review](docs/security/THIRD_PARTY_INTEGRATION_REVIEW.md)
-defines the trust gate for future OAuth, webhook, accounting, or payment work.
-
-## Feature Status
-
-| Feature | Status | Notes |
-| --- | --- | --- |
-| Production dashboard | Available | Surfaces delivery urgency, workflow distribution, feedback, earnings, salary batches, deadlines, and activity. |
-| Personal and team projects | Available | Keeps solo projects separate from team-owned work while sharing one production index. |
-| Project templates | Available | Eight editing workflows plus reusable custom templates prefill stages, deliverables, checklists, work type, and expected duration. |
-| Client management | Available | Stores client contacts, project relationships, delivery context, and portal access. |
-| Team workspaces | Available | Supports shared projects, roles, invitations, assignments, comments, activity, notifications, and chat. |
-| Project file management | Available | Supports Convex Storage uploads, provider-neutral external links, client visibility, download controls, and typed approval states. |
-| File version history | Available | Stores immutable uploaded or linked revisions with normalized status, file, provider, uploader, and timestamp metadata. |
-| Cloudflare R2 storage | Upcoming | Prepared signed-upload path for large media files; current uploads remain on Convex Storage. |
-| Client portals | Available | Provides no-account progress, approved downloads, delivery history, and timecoded revision requests through public links. |
-| Portal access controls | Available | Editors can publish, unpublish, disable, expire, regenerate, or password-protect a portal. |
-| Timecoded feedback | Available | Team comments and client revisions accept `MM:SS` and `HH:MM:SS` timestamps. |
-| Production timeline | Available | Presents project milestones and delivery progress as a chronological production view. |
-| Calendar | Available | Maps project due dates into a navigable delivery calendar. |
-| Payout reports | Available | Shows salary batches, delivered projects, editor totals, work mix, paid status, period filters, and CSV export. |
-| Salary batch tracking | Available | Reconciles delivered salary edits into configurable batches and tracks paid or outstanding payouts. |
-| Public editor profiles | Available | Editors can publish a shareable profile page. |
-| Appearance and density | Available | Supports light, dark, and system themes, accent selection, and comfortable or compact layouts. |
-| Workspace settings | Available | Controls stages, defaults, permissions, notifications, appearance, and regional preferences. |
-| Clerk authentication | Available | Clerk sign-in supplies authenticated identity to the app and Convex. |
-| Convex sync | Available | Projects, settings, resources, payouts, teams, files, portals, and profiles sync through Convex with local fallback and recovery. |
-| Google Drive integration | Modeled | Google Drive links and provider IDs are supported; OAuth and API synchronization are not implemented. |
-| Dropbox integration | Modeled | Dropbox links and provider IDs are supported; OAuth and API synchronization are not implemented. |
-| Slack integration | Modeled | Workspace and channel details can be stored; live message delivery is not implemented. |
-| Frame.io integration | Modeled | Frame.io links and provider IDs are supported; OAuth and API synchronization are not implemented. |
-| Invoice drafts | Available | Reports generate local invoice CSV drafts for unpaid delivered client projects; payment collection and accounting integrations are not implemented. |
-| Client payment tracking | Available | Delivered billable projects can be marked paid/unpaid locally and sync through Convex. |
-| Custom template builder | Available | Create, edit, delete, and reuse user-defined project templates from the Templates page and project start dialog. |
-
-Planned work is outlined in the [CutLab Studio Roadmap](docs/product/ROADMAP.md).
-
-## Demo
-
-The [60-90 second product demo flow](docs/product/DEMO_FLOW.md) covers the full editor-to-client
-story, including project setup, versioned delivery, a timecoded revision request,
-final delivery, and the resulting dashboard update.
+```bash
+npm run lint          # TypeScript check
+npm run check         # Lint, build, audit, UI allowlist
+npm run test:e2e      # Playwright journeys
+npm run verify        # Route and source-invariant checks
+```
 
 ## Cloudflare Deployment
 
-The main Next.js app deploys to Cloudflare Workers through OpenNext. It is not a
-static Pages upload: the app uses dynamic routes, middleware, Convex-backed
-queries, and a route handler.
+The app deploys to Cloudflare Workers through OpenNext; it is not a static upload.
 
 For a local Worker preview:
 
@@ -198,129 +126,36 @@ For a local Worker preview:
 npm run preview
 ```
 
-For deployment from a machine authenticated with Wrangler:
+To deploy from a machine authenticated with Wrangler:
 
 ```bash
 npm run deploy
 ```
 
-Cloudflare Workers Builds must run `npx opennextjs-cloudflare build` as the
-build command and `npx opennextjs-cloudflare deploy` as the deploy command.
-Do not use `npm run build` followed by `npx wrangler deploy`: that produces a
-normal Next build but skips the OpenNext Worker bundle. Configure these values
-in the Worker’s build variables and runtime settings:
+Cloudflare Workers Builds must run `npx opennextjs-cloudflare build` and `npx opennextjs-cloudflare deploy`. Do not chain `next build` with `wrangler deploy`; that skips the Worker bundle.
+
+Set these in the Worker environment:
 
 - `NEXT_PUBLIC_CONVEX_URL`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `NEXT_PUBLIC_SITE_URL`
-- `ACCESS_WALL_PASSWORD` as a secret
+- `ACCESS_WALL_PASSWORD` (secret)
 
-The Clerk issuer variables in `.env.example` belong to the Convex deployment
-environment, not the Worker. Set `NEXT_PUBLIC_SITE_URL` to the production
-custom domain so metadata, canonical links, robots.txt, and sitemap.xml use
-the deployed address.
-
-After deployment, verify that the access wall and Clerk modal work together:
-
-```bash
-FRAME_DESK_VERIFY_URL=https://your-worker.example \
-FRAME_DESK_ACCESS_PASSWORD=your-access-password \
-npm run verify:cloudflare-auth
-```
-
-The check keeps the password in the process environment and fails if the app
-shows its incomplete Clerk/Convex configuration warning instead of opening
-Clerk sign-in.
-
-## Architecture Snapshot
-
-| Layer | Stack |
-| --- | --- |
-| App framework | Next.js App Router |
-| Interface | React 19, Material UI, MUI X Charts |
-| Language | TypeScript |
-| Auth | Clerk |
-| Backend | Convex |
-| Storage | Convex Storage plus provider-neutral external links; Cloudflare R2 upcoming |
-| Local mode | Browser storage |
-| Analytics | Disabled in the current build |
-| Tests | Vitest, `convex-test`, Playwright, route/runtime verifiers |
-
-## Data Model Notes
-
-- `projectFiles` represents the logical deliverable, reference, or asset.
-- `projectFileVersions` stores each uploaded or linked revision.
-- Shared domain constants and Convex validators constrain project, file, provider, role, member, revision, notification, and activity values.
-- Legacy values are normalized at read boundaries so stricter validation does not strand existing records.
-- Public portal queries return explicit client-safe projections.
-- Server authorization always derives from the authenticated Convex identity.
-- Team roles gate project and file mutations.
-- Deleted projects clean up file versions, client portals, and project activity.
-
-### Upcoming: Cloudflare R2 uploads
-
-Cloudflare R2 support is prepared but intentionally parked. Current project
-uploads use Convex Storage. When the R2 feature is released, Convex will remain
-the owner of file metadata, authorization, version history, and portal
-visibility while R2 stores binary objects behind short-lived signed URLs.
-
-Do not set `NEXT_PUBLIC_FILE_STORAGE_PROVIDER=r2` or configure the R2 secrets
-yet. The future setup will use `R2_ENDPOINT`, `R2_REGION`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, and `R2_BUCKET` in the Convex deployment environment.
-
-The planned R2 bucket CORS policy is:
-
-```json
-[
-  {
-    "AllowedOrigins": ["http://localhost:3000", "https://your-cutlab-domain.example"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
-    "AllowedHeaders": ["Content-Type"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-Existing Convex Storage versions continue to work and are not migrated
-automatically. Consider an R2 lifecycle rule for abandoned objects under
-`projects/` if users can close the upload dialog after a successful PUT.
-
-More detail lives in [Project File Architecture](docs/architecture/project-file-architecture.md).
+Clerk issuer variables belong in the Convex deployment environment, not the Worker. Set `NEXT_PUBLIC_SITE_URL` to the production domain so metadata, canonical links, robots.txt, and sitemap.xml use the deployed address.
 
 ## Quality Gates
 
-This branch is validated with TypeScript, Convex tests, team-permission tests, production build checks, route verification, asset verification, and Convex development deployment.
+Changes should pass TypeScript checks, Convex tests, production build verification, and relevant Vitest suites. Playwright journeys cover local persistence and the editor-to-client cloud workflow, including portal access controls and comment resolution. Keyboard-only operation and WCAG 2.2 AA contrast are acceptance requirements, not extras.
 
-Changes to the Convex-backed Team workspace should pass `npm run verify:team` and a live two-account Clerk/Convex smoke test using the checklist from `npm run verify:team:live`.
-
-Current automated coverage includes:
-
-- Team roles, invitations, project sync, comments, mentions, chat, and role migration.
-- Project uploads, external providers, normalized version history, storage uniqueness, portal ordering, privacy, passwords, expiry, and revision limits.
-- Local and authenticated cloud project workflows through Playwright.
-- Timecode normalization, salary reconciliation, payout calculations, and CSV output through typed application logic.
-- Route, link, metadata, screenshot asset, and source-invariant verification across the app.
-
-The Convex-backed Team workspace has a static invariant check with
-`npm run verify:team`. Authenticated realtime behavior is covered by the
-`npm run verify:team:live` live two-account Clerk/Convex smoke test.
+Release-blocking journeys include entry-mode selection, local backup and restore, client and project CRUD, stage changes, Delivered confirmation, salary batch formation, portal access controls, media version comments, reports, file quotas, and keyboard operation.
 
 ## Current State
 
-CutLab Studio currently includes the redesigned production dashboard, separated
-personal and team projects, client management, delivery timeline, calendar,
-versioned media library, feedback queue, eight editing templates plus custom reusable templates, project file
-and version management, secured client portals, timecoded feedback, team
-collaboration, payout reporting, public profiles, indexed settings, responsive
-light and dark themes, Clerk authentication, resilient Convex synchronization,
-local guest mode, and end-to-end workflow coverage.
-
-Client portal security currently includes enable/disable controls, optional expiry, token regeneration, and optional PBKDF2-hashed PIN/password protection. See [Security](docs/security/SECURITY.md) for the storage and access contract.
+Relay is a clean rebuild of the previous CutLab Studio product. The rebuild replaces the old navigation, data model, and screens with the domain described above. See [issue #16](https://github.com/zaid-gd/Relay/issues/16) for the full specification. Legacy cloud records remain untouched during the rebuild.
 
 ## Security
 
-CutLab Studio uses Clerk authentication, identity-based Convex authorization, explicit client-safe portal projections, and baseline response headers. See the [Security Policy](docs/security/SECURITY.md) for implementation boundaries and private vulnerability reporting.
+Relay uses Clerk authentication, identity-based Convex authorization, server-side permission checks, explicit client-safe portal projections, and short-lived signed file links. Optional analytics are consent-based and strip names, comments, links, tokens, and money amounts. See the [Security Policy](docs/security/SECURITY.md).
 
 ## Contributing
 

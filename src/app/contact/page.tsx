@@ -5,10 +5,11 @@ import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = {
   title: "Contact | Relay",
-  description: "Contact Relay for product support, account help, privacy requests, or business inquiries.",
+  description:
+    "Contact Relay for product support, account help, privacy requests, or business inquiries.",
   alternates: {
-    canonical: "/contact"
-  }
+    canonical: "/contact",
+  },
 };
 
 export default function ContactRoute() {
@@ -20,36 +21,48 @@ export default function ContactRoute() {
     mainEntity: {
       "@type": "Organization",
       name: "Relay",
-      email: "Cutlab.Studios@gmail.com",
-      url: siteUrl
-    }
+      email: "zns.studios@gmail.com",
+      url: siteUrl,
+    },
   };
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema).replace(/</g, "\\u003c") }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(contactSchema).replace(/</g, "\\u003c"),
+        }}
+      />
       <LegalPage
         title="Contact Relay"
         updatedAt="July 22, 2026"
-        intro="Get help with the product, your account, privacy requests, or a business inquiry. We review messages sent to the address below."
+        intro="Get help with the product, your account, privacy requests, or a business inquiry. We review the messages & try to reply under 24 hours."
         sections={[
           {
             title: "Email",
             body: (
               <p>
                 Email us directly at{" "}
-                <a href="mailto:Cutlab.Studios@gmail.com">Cutlab.Studios@gmail.com</a>.
+                <a href="mailto:zns.studios@gmail.com">zns.studios@gmail.com</a>
+                .
               </p>
-            )
+            ),
           },
           {
             title: "Send A Message",
-            body: <ContactForm />
+            body: <ContactForm />,
           },
           {
             title: "Response Expectations",
-            body: <p>Include the page or feature involved, what you expected, and what happened. Please do not send passwords, API keys, private client files, or payment details.</p>
-          }
+            body: (
+              <p>
+                Include the page or feature involved, what you expected, and
+                what happened. Please do not send passwords, API keys, private
+                client files, or payment details.
+              </p>
+            ),
+          },
         ]}
       />
     </>

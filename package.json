@@ -35,7 +35,8 @@
     "verify:light-highlights": "node scripts/verify-light-highlights.mjs",
     "verify:light-logo": "node scripts/verify-light-logo.mjs",
     "verify:ui": "node scripts/verify-ui-interactions.mjs",
-    "verify:prod": "node scripts/verify-production.mjs"
+    "verify:prod": "node scripts/verify-production.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",
@@ -78,6 +79,9 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "convex-test": "^0.0.53",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.8",
