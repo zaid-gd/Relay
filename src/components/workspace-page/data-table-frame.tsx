@@ -24,13 +24,13 @@ export function DataTableFrame({
     <section
       data-slot="data-table-frame"
       className={cn(
-        "flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm shadow-black/[0.02]",
+        "flex min-w-0 flex-col overflow-hidden rounded-[6px] bg-card text-card-foreground",
         bounded && "min-h-0",
         className,
       )}
       {...props}
     >
-      {header ? <div className="shrink-0 border-b border-border">{header}</div> : null}
+      {header ? <div className="shrink-0">{header}</div> : null}
       <div
         data-slot="data-table-frame-body"
         aria-label={bodyLabel}
@@ -43,7 +43,7 @@ export function DataTableFrame({
       >
         {children}
       </div>
-      {footer ? <div className="shrink-0 border-t border-border">{footer}</div> : null}
+      {footer ? <div className="shrink-0">{footer}</div> : null}
     </section>
   );
 }

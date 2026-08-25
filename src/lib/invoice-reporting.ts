@@ -1,6 +1,6 @@
 import { normalizeStoredProjectStatus } from "./domain-values";
 import type { WorkItem } from "./types";
-import { payoutPeriodRange, type PayoutPeriod } from "./payout-reporting";
+import { payoutPeriodRange, type PayoutDateRange, type PayoutPeriod } from "./payout-reporting";
 
 export type InvoiceLineItem = {
   projectId: string;
@@ -27,6 +27,7 @@ type BuildInvoiceDraftsOptions = {
   salaryWorkType: string;
   currencyCode: string;
   period: PayoutPeriod;
+  customRange?: PayoutDateRange;
   now?: Date;
 };
 
@@ -77,9 +78,10 @@ export function buildInvoiceDrafts({
   salaryWorkType,
   currencyCode,
   period,
+  customRange,
   now = new Date(),
 }: BuildInvoiceDraftsOptions): InvoiceDraft[] {
-  const range = payoutPeriodRange(period, now);
+  const range = payoutPeriodRange(period, now, customRange);
   const salaryKey = salaryWorkType.trim().toLowerCase();
   const issueDate = isoDate(now);
   const dueDate = isoDate(addDays(now, 14));
@@ -87,7 +89,8 @@ export function buildInvoiceDrafts({
 
   for (const project of projects) {
     if (normalizeStoredProjectStatus(project.status) !== "Delivered") continue;
-    if (!isInRange(project.dueDate, range.start, range.end)) continue;
+    const completedDate = project.completedAt?.slice(0, 10) || project.dueDate;
+    if (!isInRange(completedDate, range.start, range.end)) continue;
     if (project.workType.trim().toLowerCase() === salaryKey) continue;
     if (project.paid) continue;
     const amount = safeAmount(project.earnings);
@@ -96,7 +99,7 @@ export function buildInvoiceDrafts({
     const lineItems = groups.get(client) ?? [];
     lineItems.push({
       projectId: project.id,
-      date: project.dueDate,
+      date: completedDate,
       title: project.title.trim() || "Untitled project",
       workType: project.workType,
       amount,

@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  ArrowDown,
   ArrowRight,
-  ArrowUp,
-  ArrowUpDown,
   CalendarDays,
   CheckCircle2,
+  Archive,
   Edit3,
   Film,
   FolderKanban,
@@ -22,19 +20,36 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type Announcements,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import {
   AnimatePresence,
   motion,
   MotionConfig,
 } from "motion/react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import type { SettingsState, WorkItem } from "@/lib/types";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { SettingsState, WorkItem, WorkflowStage } from "@/lib/types";
+import type { StoredTeamRole } from "@/lib/domain-values";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { projectStatusTone } from "@/lib/project-status-style";
+import {
+  DEFAULT_PROJECT_TABLE_STATE,
+  getProjectTableDeletionWarning,
+  parseProjectTableSearch,
+} from "@/features/projects/project-table-domain";
+import { useProjectTableController } from "@/features/projects/project-table-controller";
+import type { ProjectStageMenuChoice } from "@/features/projects/project-domain";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,14 +86,24 @@ type PrecisionProjectsProps = {
   personalProjects: WorkItem[];
   teamProjects: WorkItem[];
   teamName?: string;
+  currentUserId: string;
+  currentUserRole?: StoredTeamRole;
+  teamMembers: ReadonlyArray<{ userId: string; name: string }>;
+  allowAllTeamProjects?: boolean;
+  loading?: boolean;
+  error?: string;
   onNewProject: (scope: WorkspaceScope) => void;
   onViewProject: (item: WorkItem) => void;
   onEditProject: (item: WorkItem) => void;
+  onArchiveProject: (item: WorkItem) => void;
   onDeleteProject: (id: string) => void;
+  onUpdateProjectStatus: (project: WorkItem, status: string) => void;
   canCreateProjects: boolean;
   canCreateTeamProjects: boolean;
   canEditProjects: boolean;
+  canUpdateProjectStatus: boolean;
   canDeleteProject: (project: WorkItem) => boolean;
+  onManageProjectGroups: (scope: WorkspaceScope) => void;
 };
 
 const columnHelper = createColumnHelper<WorkItem>();
@@ -170,19 +195,101 @@ function ProjectVideoThumbnail({
   );
 }
 
+function ProjectBoardCard({
+  project,
+  selected,
+  disabled,
+  stageChoices,
+  onSelect,
+  onOpen,
+  onUpdateProjectStatus,
+}: {
+  project: WorkItem;
+  selected: boolean;
+  disabled: boolean;
+  stageChoices: ProjectStageMenuChoice[];
+  onSelect: () => void;
+  onOpen: () => void;
+  onUpdateProjectStatus: PrecisionProjectsProps["onUpdateProjectStatus"];
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: project.id, disabled });
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined }}
+      className={cn("relative flex items-start gap-1 px-3 py-3", selected && "bg-[var(--app-active)]", isDragging && "z-20 opacity-60")}
+    >
+      <button
+        type="button"
+        className={cn("min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", !disabled && "cursor-grab active:cursor-grabbing")}
+        onClick={onSelect}
+        onDoubleClick={onOpen}
+        {...listeners}
+        {...attributes}
+      >
+        <span className="block truncate text-xs font-semibold">{project.title}</span>
+        <span className="mt-1 block truncate text-[11px] text-[var(--app-muted)]">{project.client || "No client"} · {formatDate(project.dueDate)}</span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label={`Change stage for ${project.title}`}>
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {stageChoices.map((choice) => (
+            <DropdownMenuItem
+              key={choice.stage.id}
+              aria-label={choice.ariaLabel}
+              disabled={choice.disabled}
+              onSelect={() => onUpdateProjectStatus(project, choice.stage.id)}
+            >
+              {choice.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </article>
+  );
+}
+
+function ProjectBoardColumn({ stage, projects, children }: { stage: WorkflowStage; projects: number; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `stage:${stage.id}` });
+  return (
+    <section
+      ref={setNodeRef}
+      className={cn("min-w-[210px] border-r border-[var(--app-border)] last:border-r-0", isOver && "bg-[var(--app-hover)]")}
+      aria-label={`${stage.label} projects`}
+    >
+      <h3 className="sticky top-0 z-10 flex h-9 items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-soft-panel)] px-3 text-[10px] font-semibold uppercase text-[var(--app-subtle)]"><span>{stage.label}</span><span>{projects}</span></h3>
+      <div className="min-h-24 divide-y divide-[var(--app-border)]">{children}</div>
+    </section>
+  );
+}
+
 export function PrecisionProjects(props: PrecisionProjectsProps) {
   const [scope, setScope] = useState<WorkspaceScope>("personal");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("All");
-  const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedId, setSelectedId] = useState("");
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const reduceMotion = useHydratedReducedMotion();
-  const deferredQuery = useDeferredValue(query);
-  const deferredStatus = useDeferredValue(status);
   const hasTeam = Boolean(props.teamName);
-  const source = scope === "team" ? props.teamProjects : props.personalProjects;
-  const isUpdating = deferredQuery !== query || deferredStatus !== status;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const { state: tableState, deferredState: deferredTableState, setState: setTableState, isUpdating, source, projects, board, summary, hasFilters, showAssignees, getPaymentState, isSalaryProject, canMoveProject, getStageChoices } = useProjectTableController({
+    scope,
+    personalProjects: props.personalProjects,
+    teamProjects: props.teamProjects,
+    clients: props.settings.clients,
+    salaryWorkType: props.settings.salaryWorkType,
+    currentUserId: props.currentUserId,
+    currentUserRole: props.currentUserRole,
+    allowAllTeamProjects: props.allowAllTeamProjects ?? false,
+    activeTeamMemberCount: props.teamMembers.length,
+    canUpdateProjectStatus: props.canUpdateProjectStatus,
+  });
   const springTransition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 430, damping: 38, mass: 0.75 };
@@ -194,12 +301,6 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
     if (!hasTeam && scope === "team") setScope("personal");
   }, [hasTeam, scope]);
 
-  const projects = useMemo(() => source.filter((project) => {
-    const haystack = `${project.title} ${project.client || ""} ${project.notes} ${project.workType}`.toLowerCase();
-    return (!deferredQuery.trim() || haystack.includes(deferredQuery.trim().toLowerCase()))
-      && (deferredStatus === "All" || project.status === deferredStatus);
-  }), [deferredQuery, deferredStatus, source]);
-
   useEffect(() => {
     if (!projects.some((project) => project.id === selectedId)) {
       setSelectedId(projects[0]?.id ?? "");
@@ -207,70 +308,80 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
   }, [projects, selectedId]);
 
   const selected = source.find((project) => project.id === selectedId) ?? projects[0] ?? null;
-  const summary = useMemo(() => ({
-    active: source.filter((project) => !delivered(project) && project.status !== "Cancelled").length,
-    review: source.filter((project) => ["Review", "Revision", "Client Review"].includes(project.status)).length,
-    delivered: source.filter(delivered).length,
-    dueSoon: source.filter((project) => {
-      if (delivered(project) || project.status === "Cancelled") return false;
-      const due = new Date(`${project.dueDate}T00:00:00`).getTime();
-      const now = Date.now();
-      return due >= now && due <= now + (7 * 86_400_000);
-    }).length,
-    earned: source.filter(delivered).reduce((total, project) => total + project.earnings, 0),
-  }), [source]);
+  const projectName = (id: string | number) => projects.find((project) => project.id === String(id))?.title ?? "Project";
+  const dropStage = (id: string | number | undefined) => {
+    const value = String(id ?? "");
+    return value.startsWith("stage:") ? value.slice(6) : undefined;
+  };
+  const validMove = (projectId: string | number, stage: string | undefined) => {
+    const project = projects.find((candidate) => candidate.id === String(projectId));
+    return Boolean(project && stage && canMoveProject(project, stage));
+  };
+  const stageLabel = (stageId: string | undefined) => board.find(({ stage }) => stage.id === stageId)?.stage.label ?? stageId;
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${projectName(active.id)}.`,
+    onDragOver: ({ active, over }) => {
+      const stage = dropStage(over?.id);
+      return stage ? `${projectName(active.id)} is over ${stageLabel(stage)}.` : undefined;
+    },
+    onDragEnd: ({ active, over }) => {
+      const stage = dropStage(over?.id);
+      return validMove(active.id, stage) ? `Requested move for ${projectName(active.id)} to ${stageLabel(stage)}.` : `${projectName(active.id)} was not moved.`;
+    },
+    onDragCancel: ({ active }) => `Moving ${projectName(active.id)} was cancelled.`,
+  };
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    const project = projects.find((candidate) => candidate.id === String(active.id));
+    const stage = dropStage(over?.id);
+    if (project && stage && canMoveProject(project, stage)) {
+      props.onUpdateProjectStatus(project, stage);
+    }
+  };
 
   const columns = useMemo(() => [
     columnHelper.accessor("title", {
-      header: "Project",
+      header: "Name",
       cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-3">
           <ProjectVideoThumbnail project={row.original} />
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold">{row.original.title}</p>
-            <p className="mt-0.5 max-w-[300px] truncate text-[11px] text-[var(--app-muted)]">
-              {row.original.client ? `${row.original.client} · ` : ""}{row.original.notes || "No notes"}
-            </p>
+            <p className="mt-0.5 max-w-[300px] truncate text-[11px] text-[var(--app-muted)]">{row.original.notes || "No notes"}</p>
           </div>
         </div>
       ),
     }),
-    columnHelper.accessor("dueDate", {
-      header: "Due date",
-      cell: (info) => <span className="whitespace-nowrap text-xs">{formatDate(info.getValue())}</span>,
+    columnHelper.display({
+      id: "client",
+      header: "Client",
+      cell: ({ row }) => <span className="block truncate text-xs">{props.settings.clients.find((client) => client.id === row.original.clientId)?.name ?? row.original.client ?? "No client"}</span>,
     }),
     columnHelper.accessor("status", {
-      header: "Status",
+      header: "Stage",
       cell: (info) => <Badge variant="outline" className={cn("h-5 rounded px-1.5 text-[10px] font-semibold", projectStatusTone(info.getValue()))}>{info.getValue()}</Badge>,
     }),
+    columnHelper.accessor("dueDate", {
+      header: "Due",
+      cell: (info) => <span className="whitespace-nowrap text-xs">{formatDate(info.getValue())}</span>,
+    }),
     columnHelper.display({
-      id: "progress",
-      header: "Progress",
+      id: "payment",
+      header: "Payment",
+      cell: ({ row }) => <span className="text-xs capitalize">{getPaymentState(row.original).replace("-", " ")}</span>,
+    }),
+    columnHelper.display({
+      id: "salary",
+      header: "Salary",
+      cell: ({ row }) => <span className="whitespace-nowrap text-xs">{isSalaryProject(row.original) ? "Salary" : money(row.original.earnings, props.settings.currencyCode)}</span>,
+    }),
+    ...(showAssignees ? [columnHelper.display({
+      id: "assignees",
+      header: "Assignees",
       cell: ({ row }) => {
-        const value = progress(row.original);
-        return (
-          <div className="w-[130px]">
-            <div className="mb-1 flex items-center justify-between text-[10px]"><span>{value}%</span><span className={value === 100 ? "text-[var(--app-success)]" : "text-[var(--app-muted)]"}>{value === 100 ? "Done" : "Active"}</span></div>
-            <div className="h-1 overflow-hidden rounded-full bg-[var(--app-progress-track)]">
-              <motion.div
-                className="h-full origin-left rounded-full bg-[var(--app-accent)]"
-                initial={false}
-                animate={{ width: `${value}%` }}
-              />
-            </div>
-          </div>
-        );
+        const names = (row.original.assigneeUserIds ?? []).map((id) => props.teamMembers.find((member) => member.userId === id)?.name).filter((name): name is string => Boolean(name));
+        return <span className="block truncate text-xs">{names.join(", ") || "Unassigned"}</span>;
       },
-    }),
-    columnHelper.accessor("earnings", {
-      id: "amount",
-      header: "Value",
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap text-xs font-medium">
-          {row.original.workType === props.settings.salaryWorkType ? "Batch tracked" : money(row.original.earnings, props.settings.currencyCode)}
-        </span>
-      ),
-    }),
+    })] : []),
     columnHelper.display({
       id: "actions",
       header: "",
@@ -284,7 +395,14 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => props.onViewProject(row.original)}>Open project</DropdownMenuItem>
             <DropdownMenuItem disabled={!props.canEditProjects && Boolean(row.original.teamId)} onSelect={() => props.onEditProject(row.original)}><Edit3 /> Edit</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive" disabled={!props.canDeleteProject(row.original)} onSelect={() => props.onDeleteProject(row.original.id)}><Trash2 /> Delete</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => props.onArchiveProject(row.original)}><Archive /> {row.original.archived ? "Restore" : "Archive"}</DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={!props.canDeleteProject(row.original)}
+              onSelect={() => {
+                if (window.confirm(getProjectTableDeletionWarning(row.original.title))) props.onDeleteProject(row.original.id);
+              }}
+            ><Trash2 /> Permanently delete (Owner only)</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -292,20 +410,22 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
   ], [
     props.canDeleteProject,
     props.canEditProjects,
+    props.onArchiveProject,
     props.onDeleteProject,
     props.onEditProject,
     props.onViewProject,
     props.settings.currencyCode,
-    props.settings.salaryWorkType,
+    props.settings.clients,
+    props.teamMembers,
+    getPaymentState,
+    isSalaryProject,
+    showAssignees,
   ]);
 
   const table = useReactTable({
     data: projects,
     columns,
-    state: { sorting },
-    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
@@ -329,19 +449,44 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
         <>
         <div className="relative min-w-0 flex-1 sm:max-w-[560px]">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--app-muted)]" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search project, client, or note..." aria-label="Search projects" className="h-9 bg-[var(--app-panel)] pl-8 text-xs transition-shadow focus-visible:ring-2" />
+          <Input value={tableState.query} onChange={(event) => setTableState((state) => ({ ...state, query: event.target.value }))} placeholder="Search project, client, or note..." aria-label="Search projects" className="h-9 bg-[var(--app-panel)] pl-8 text-xs transition-shadow focus-visible:ring-2" />
         </div>
         <div className="flex min-w-[150px] items-center gap-2">
           <SlidersHorizontal className="size-4 shrink-0 text-[var(--app-muted)]" />
-          <Select value={status} onValueChange={setStatus}>
+          <Select value={tableState.stage} onValueChange={(value) => setTableState((state) => ({ ...state, stage: parseProjectTableSearch(`stage=${encodeURIComponent(value)}`).stage }))}>
             <SelectTrigger aria-label="Filter projects by status" className="h-9 w-full bg-[var(--app-panel)] text-xs transition-colors"><SelectValue /></SelectTrigger>
-            <SelectContent>{["All", "Planned", "In Progress", "Review", "Client Review", "Revision", "Delivered", "Cancelled"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent>
+            <SelectContent>{["all", "Planned", "In Progress", "Review", "Client Review", "Revision", "Delivered", "Cancelled"].map((value) => <SelectItem key={value} value={value}>{value === "all" ? "All stages" : value}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+        <Select value={tableState.clientId || "all"} onValueChange={(value) => setTableState((state) => ({ ...state, clientId: value === "all" ? "" : value }))}>
+          <SelectTrigger aria-label="Filter projects by client" className="h-9 w-[140px] bg-[var(--app-panel)] text-xs"><SelectValue placeholder="All clients" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All clients</SelectItem>{props.settings.clients.filter((client) => !client.archived).map((client) => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select value={tableState.payment} onValueChange={(value) => setTableState((state) => ({ ...state, payment: parseProjectTableSearch(`payment=${value}`).payment }))}>
+          <SelectTrigger aria-label="Filter projects by payment" className="h-9 w-[130px] bg-[var(--app-panel)] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All payments</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="unpaid">Unpaid</SelectItem><SelectItem value="not-billable">Not billable</SelectItem></SelectContent>
+        </Select>
+        <Select value={tableState.salary} onValueChange={(value) => setTableState((state) => ({ ...state, salary: parseProjectTableSearch(`salary=${value}`).salary }))}>
+          <SelectTrigger aria-label="Filter projects by salary type" className="h-9 w-[125px] bg-[var(--app-panel)] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All work</SelectItem><SelectItem value="salary">Salary</SelectItem><SelectItem value="client">Client work</SelectItem></SelectContent>
+        </Select>
+        <Select value={tableState.archive} onValueChange={(value) => setTableState((state) => ({ ...state, archive: parseProjectTableSearch(`archive=${value}`).archive }))}>
+          <SelectTrigger aria-label="Filter archived projects" className="h-9 w-[120px] bg-[var(--app-panel)] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="archived">Archived</SelectItem><SelectItem value="all">All records</SelectItem></SelectContent>
+        </Select>
+        {showAssignees ? <Select value={tableState.assigneeUserId || "all"} onValueChange={(value) => setTableState((state) => ({ ...state, assigneeUserId: value === "all" ? "" : value }))}>
+          <SelectTrigger aria-label="Filter projects by assignee" className="h-9 w-[135px] bg-[var(--app-panel)] text-xs"><SelectValue placeholder="All assignees" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All assignees</SelectItem>{props.settings.teamMembers.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
+        </Select> : null}
         </>
         }
         secondary={
         <>
+        <Button variant="outline" className="h-9" onClick={() => props.onManageProjectGroups(scope)}>Project Groups</Button>
+        <div className="flex h-9 items-center border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5" aria-label="Project view">
+          <button type="button" aria-pressed={tableState.view === "table"} className={cn("h-7 px-2 text-xs capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", tableState.view === "table" ? "bg-[var(--app-active)] text-[var(--app-highlight)]" : "text-[var(--app-muted)]")} onClick={() => setTableState((state) => ({ ...state, view: "table" }))}>Table</button>
+          <button type="button" aria-pressed={tableState.view === "board"} className={cn("h-7 px-2 text-xs capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", tableState.view === "board" ? "bg-[var(--app-active)] text-[var(--app-highlight)]" : "text-[var(--app-muted)]")} onClick={() => setTableState((state) => ({ ...state, view: "board" }))}>Board</button>
+        </div>
         <div className="relative inline-flex w-fit rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
           <button
             type="button"
@@ -363,16 +508,19 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
             <span className="relative">Team Projects <span className="ml-1 text-[10px]">{props.teamProjects.length}</span></span>
           </button>
         </div>
-          <Select
-            value={sorting[0]?.id ?? "updated"}
-            onValueChange={(value) => setSorting(value === "updated" ? [] : [{ id: value, desc: value === "amount" }])}
-          >
+          <Select value={`${tableState.sort}:${tableState.direction}`} onValueChange={(value) => {
+            const [sort, direction] = value.split(":");
+            const parsed = parseProjectTableSearch(`sort=${sort}&dir=${direction}`);
+            setTableState((state) => ({ ...state, sort: parsed.sort, direction: parsed.direction }));
+          }}>
             <SelectTrigger aria-label="Sort projects" className="h-9 w-[140px] bg-[var(--app-panel)] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="updated">Last updated</SelectItem>
-              <SelectItem value="dueDate">Due date</SelectItem>
-              <SelectItem value="title">Title</SelectItem>
-              <SelectItem value="amount">Value</SelectItem>
+              <SelectItem value="due:asc">Due first</SelectItem>
+              <SelectItem value="due:desc">Due last</SelectItem>
+              <SelectItem value="name:asc">Name A-Z</SelectItem>
+              <SelectItem value="stage:asc">Stage</SelectItem>
+              <SelectItem value="payment:asc">Payment</SelectItem>
+              <SelectItem value="salary:desc">Salary first</SelectItem>
             </SelectContent>
           </Select>
         </>
@@ -402,23 +550,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           className="relative h-full min-h-0 border-[var(--app-border)] bg-[var(--app-panel)]"
           bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:flex-none max-lg:overflow-visible"
         >
-          <AnimatePresence>
-            {isUpdating ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden bg-[var(--app-progress-track)]"
-              >
-                <motion.span
-                  className="block h-full w-1/3 bg-[var(--app-accent)]"
-                  initial={reduceMotion ? false : { x: "-100%" }}
-                  animate={{ x: reduceMotion ? "0%" : "300%" }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.8, ease: "easeInOut", repeat: Infinity }}
-                />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+          {isUpdating ? <div className="absolute inset-x-0 top-0 z-20 h-0.5 bg-[var(--app-accent)]" /> : null}
           <header className="flex h-12 items-center justify-between px-4">
             <div>
               <h2 className="text-sm font-semibold">Project library</h2>
@@ -427,7 +559,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
             <span className="flex items-center gap-2 text-[11px] text-[var(--app-muted)]" aria-live="polite">
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
-                  key={`${scope}-${deferredStatus}-${projects.length}`}
+                  key={`${scope}-${deferredTableState.stage}-${projects.length}`}
                   initial={reduceMotion ? false : { opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
@@ -439,7 +571,34 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
             </span>
           </header>
 
-          {projects.length ? (
+          {props.error ? (
+            <div role="alert" className="grid min-h-72 place-items-center px-5 text-center text-sm text-destructive">{props.error}</div>
+          ) : props.loading ? (
+            <div aria-label="Loading projects"><ProjectTableSkeleton reduceMotion /></div>
+          ) : projects.length ? tableState.view === "board" ? (
+            <DndContext sensors={sensors} accessibility={{ announcements }} onDragEnd={handleDragEnd}>
+              <div className="grid min-h-0 flex-1 auto-cols-[minmax(210px,1fr)] grid-flow-col overflow-x-auto border-t border-[var(--app-border)]" aria-label="Project board">
+                {board.map(({ stage, projects: stageProjects }) => {
+                  return (
+                    <ProjectBoardColumn key={stage.id} stage={stage} projects={stageProjects.length}>
+                      {stageProjects.map((project) => (
+                        <ProjectBoardCard
+                          key={project.id}
+                          project={project}
+                          selected={selected?.id === project.id}
+                          disabled={!props.canUpdateProjectStatus && Boolean(project.teamId)}
+                          stageChoices={getStageChoices(project)}
+                          onSelect={() => setSelectedId(project.id)}
+                          onOpen={() => props.onViewProject(project)}
+                          onUpdateProjectStatus={props.onUpdateProjectStatus}
+                        />
+                      ))}
+                    </ProjectBoardColumn>
+                  );
+                })}
+              </div>
+            </DndContext>
+          ) : (
             <>
             <div className="divide-y divide-[var(--app-border)] lg:hidden" aria-label="Project cards">
               {table.getRowModel().rows.map((row) => (
@@ -489,27 +648,19 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
                       {group.headers.map((header) => (
                         <th
                           key={header.id}
-                          aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : "none"}
                           className={cn(
                             "h-8 px-3 text-left text-[10px] font-semibold uppercase text-[var(--app-subtle)]",
-                            header.column.id === "title" && "w-[38%]",
-                            header.column.id === "dueDate" && "w-[14%]",
-                            header.column.id === "status" && "w-[14%]",
-                            header.column.id === "progress" && "w-[17%]",
-                            header.column.id === "amount" && "w-[13%]",
+                            header.column.id === "title" && "w-[25%]",
+                            header.column.id === "client" && "w-[13%]",
+                            header.column.id === "dueDate" && "w-[12%]",
+                            header.column.id === "status" && "w-[12%]",
+                            header.column.id === "payment" && "w-[10%]",
+                            header.column.id === "salary" && "w-[12%]",
+                            header.column.id === "assignees" && "w-[12%]",
                             header.column.id === "actions" && "w-[4%]",
                           )}
                         >
-                          {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                            <button
-                              type="button"
-                              className="group inline-flex items-center gap-1 rounded-sm py-1 text-left transition-colors hover:text-[var(--app-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              <SortIcon direction={header.column.getIsSorted()} />
-                            </button>
-                          ) : flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                         </th>
                       ))}
                     </tr>
@@ -586,12 +737,12 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
             >
               <div className="max-w-xs">
                 <FolderKanban className="mx-auto size-7 text-[var(--app-muted)]" />
-                <p className="mt-2 text-sm font-semibold">{query || status !== "All" ? "No projects match these filters" : "No projects in this workspace"}</p>
+                <p className="mt-2 text-sm font-semibold">{hasFilters ? "No projects match these filters" : "No projects in this workspace"}</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--app-muted)]">
-                  {query || status !== "All" ? "Adjust the search or status filter to bring projects back into view." : "Create the first project to start tracking production work here."}
+                  {hasFilters ? "Adjust the filters to bring projects back into view." : "Create the first project to start tracking production work here."}
                 </p>
-                {query || status !== "All" ? (
-                  <Button variant="outline" className="mt-3 h-8 active:scale-[0.98]" size="sm" onClick={() => { setQuery(""); setStatus("All"); }}>
+                {hasFilters ? (
+                  <Button variant="outline" className="mt-3 h-8 active:scale-[0.98]" size="sm" onClick={() => setTableState((state) => ({ ...DEFAULT_PROJECT_TABLE_STATE, view: state.view }))}>
                     Clear filters
                   </Button>
                 ) : (
@@ -696,7 +847,7 @@ function ProjectInspector({
         initial={reduceMotion ? false : { opacity: 0, x: 8 }}
         animate={{ opacity: 1, x: 0 }}
         exit={reduceMotion ? undefined : { opacity: 0, x: 8 }}
-        className={cn("rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-center text-xs text-[var(--app-muted)]", className)}
+        className={cn("rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-6 text-center text-xs text-[var(--app-muted)]", className)}
       >
         <FolderOpen className="mx-auto mb-2 size-6 opacity-70" />
         Select a project to inspect its production details.
@@ -711,7 +862,7 @@ function ProjectInspector({
       exit={reduceMotion ? undefined : { opacity: 0, x: -6 }}
       aria-label="Selected project details"
       className={cn(
-        "workspace-scrollbar-hidden h-full min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)]",
+        "workspace-scrollbar-hidden h-full min-h-0 overflow-y-auto overscroll-contain rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]",
         className,
       )}
     >
@@ -769,12 +920,6 @@ function Detail({ label, value }: { label: string; value: string }) {
   return <div><p className="text-[9px] font-semibold uppercase text-[var(--app-subtle)]">{label}</p><p className="mt-1 text-xs font-medium">{value}</p></div>;
 }
 
-function SortIcon({ direction }: { direction: false | "asc" | "desc" }) {
-  if (direction === "asc") return <ArrowUp className="size-3 text-[var(--app-highlight)]" />;
-  if (direction === "desc") return <ArrowDown className="size-3 text-[var(--app-highlight)]" />;
-  return <ArrowUpDown className="size-3 opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />;
-}
-
 function ProjectTableSkeleton({ reduceMotion }: { reduceMotion: boolean | null }) {
   return (
     <div className="min-h-72 border-t border-[var(--app-border)]" aria-label="Updating projects">
@@ -782,9 +927,8 @@ function ProjectTableSkeleton({ reduceMotion }: { reduceMotion: boolean | null }
         <motion.div
           key={index}
           className="grid h-[58px] grid-cols-[minmax(180px,1.6fr)_minmax(80px,0.7fr)_minmax(100px,0.9fr)_minmax(72px,0.7fr)_minmax(100px,1fr)] items-center gap-3 border-b border-[var(--app-border)] px-3"
-          initial={reduceMotion ? false : { opacity: 0 }}
-          animate={reduceMotion ? { opacity: 0.65 } : { opacity: [0.45, 0.8, 0.45] }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 1.2, delay: index * 0.06, repeat: Infinity }}
+          initial={false}
+          animate={{ opacity: reduceMotion ? 0.65 : 0.72 }}
         >
           <div className="flex items-center gap-3">
             <span className="h-9 w-12 rounded-md bg-[var(--app-soft-panel)]" />

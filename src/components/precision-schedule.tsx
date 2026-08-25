@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock3,
+  Download,
   Milestone,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -15,6 +16,7 @@ import type { SettingsState, WorkItem } from "@/lib/types";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { projectStatusColor, projectStatusTone } from "@/lib/project-status-style";
 import { cn } from "@/lib/utils";
+import { calendarFeedIcs, deriveCalendarEvents, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -111,10 +113,12 @@ function projectProgress(status: WorkItem["status"]) {
 
 export function PrecisionCalendar({
   projects,
+  outputs = [],
   settings,
   onViewProject,
 }: {
   projects: WorkItem[];
+  outputs?: readonly WorkspaceOutput[];
   settings: SettingsState;
   onViewProject: (project: WorkItem) => void;
 }) {
@@ -124,17 +128,16 @@ export function PrecisionCalendar({
   const [selectedDate, setSelectedDate] = useState(iso(todayDate()));
   const [viewMode, setViewMode] = useState<"month" | "week" | "agenda">("month");
   const reduceMotion = useHydratedReducedMotion();
+  const events = useMemo(() => deriveCalendarEvents(projects, outputs, { salaryWorkType: settings.salaryWorkType }), [outputs, projects, settings.salaryWorkType]);
 
   const monthDays = useMemo(() => calendarMonthDays(visibleMonth, settings.weekStart), [visibleMonth, settings.weekStart]);
   const weekdays = useMemo(() => orderedWeekdays(settings.weekStart), [settings.weekStart]);
   const monthLabel = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(visibleMonth);
-  const selectedProjects = useMemo(() => projects
-    .filter((project) => project.dueDate === selectedDate)
-    .sort((a, b) => a.title.localeCompare(b.title)), [projects, selectedDate]);
-  const monthProjectCount = useMemo(() => projects.filter((project) => {
-    const due = parseDate(project.dueDate);
+  const selectedEvents = useMemo(() => events.filter((event) => event.date === selectedDate), [events, selectedDate]);
+  const monthProjectCount = useMemo(() => events.filter((event) => {
+    const due = parseDate(event.date);
     return due?.getFullYear() === visibleMonth.getFullYear() && due.getMonth() === visibleMonth.getMonth();
-  }).length, [projects, visibleMonth]);
+  }).length, [events, visibleMonth]);
   const visibleMonthProjects = useMemo(() => projects
     .filter((project) => {
       const due = parseDate(project.dueDate);
@@ -173,16 +176,25 @@ export function PrecisionCalendar({
     setSelectedDate(iso(today));
   }
 
+  function downloadFeed() {
+    const url = URL.createObjectURL(new Blob([calendarFeedIcs(events)], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "relay-workspace-calendar.ics";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <WorkspacePage family="canvas" mode="fill">
       <PageHeader
         title="Calendar"
         description="A delivery-date calendar for planned, active, and delivered work."
         actions={(
-          <Button variant="outline" className="h-10 border-[var(--app-highlight)] px-4 text-[var(--app-highlight)] hover:bg-[var(--app-active)]" onClick={jumpToToday}>
-            <CalendarDays className="size-4" />
-            Today
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-10" onClick={downloadFeed} disabled={!events.length}><Download className="size-4" /> Subscribe .ics</Button>
+            <Button variant="outline" className="h-10 border-[var(--app-highlight)] px-4 text-[var(--app-highlight)] hover:bg-[var(--app-active)]" onClick={jumpToToday}><CalendarDays className="size-4" />Today</Button>
+          </div>
         )}
       />
 
@@ -215,7 +227,7 @@ export function PrecisionCalendar({
                 onClick={() => setViewMode(mode)}
                 className={cn(
                   "rounded px-3 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]",
-                  viewMode === mode ? "bg-[var(--app-panel)] text-[var(--app-highlight)] shadow-sm" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
+                  viewMode === mode ? "bg-[var(--app-panel)] text-[var(--app-highlight)]" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
                 )}
               >
                 {mode}
@@ -240,7 +252,7 @@ export function PrecisionCalendar({
             ))}
             {monthDays.map((day) => {
               const key = iso(day.date);
-              const dayProjects = projects.filter((project) => project.dueDate === key);
+              const dayEvents = events.filter((event) => event.date === key);
               const isCurrentMonth = day.date.getMonth() === visibleMonth.getMonth();
               const isSelected = selectedDate === key;
               const isToday = key === iso(todayDate());
@@ -250,7 +262,7 @@ export function PrecisionCalendar({
                   key={key}
                   type="button"
                   whileTap={reduceMotion ? undefined : { scale: 0.995 }}
-                  aria-label={`Select ${formatDate(key, { month: "long", day: "numeric", year: "numeric" })} with ${dayProjects.length} scheduled ${dayProjects.length === 1 ? "delivery" : "deliveries"}`}
+                  aria-label={`Select ${formatDate(key, { month: "long", day: "numeric", year: "numeric" })} with ${dayEvents.length} scheduled ${dayEvents.length === 1 ? "commitment" : "commitments"}`}
                   onClick={() => setSelectedDate(key)}
                   className={cn(
                     "min-h-[84px] border-b border-r border-[var(--app-border)] p-1.5 text-left outline-none transition-colors hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--app-highlight)] sm:min-h-[108px] sm:p-2",
@@ -260,18 +272,19 @@ export function PrecisionCalendar({
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className={cn("text-[13px] font-semibold", (isSelected || isToday) ? "text-[var(--app-highlight)]" : "text-[var(--app-ink)]")}>{day.date.getDate()}</span>
-                    {dayProjects.length ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--app-active)] px-1 text-[11px] font-semibold text-[var(--app-highlight)]">{dayProjects.length}</span> : null}
+                    {dayEvents.length ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--app-active)] px-1 text-[11px] font-semibold text-[var(--app-highlight)]">{dayEvents.length}</span> : null}
                   </span>
                   <span className="mt-2 block space-y-1">
-                    {dayProjects.slice(0, 1).map((project) => {
-                      const palette = statusPalette(project.status);
+                    {dayEvents.slice(0, 1).map((event) => {
+                      const project = projects.find((item) => item.id === event.projectId);
+                      const palette = statusPalette(project?.status ?? "Planned");
                       return (
-                          <span key={project.id} className="block truncate rounded border border-black/5 px-1.5 py-1 text-[11px] font-semibold" style={{ background: palette.bg, color: palette.fg }}>
-                          {project.title}
+                          <span key={event.id} className="block truncate rounded border border-black/5 px-1.5 py-1 text-[11px] font-semibold" style={{ background: palette.bg, color: palette.fg }}>
+                          {event.title}
                         </span>
                       );
                     })}
-                    {dayProjects.length > 1 ? <span className="block text-[11px] text-[var(--app-muted)]">+{dayProjects.length - 1} more</span> : null}
+                    {dayEvents.length > 1 ? <span className="block text-[11px] text-[var(--app-muted)]">+{dayEvents.length - 1} more</span> : null}
                   </span>
                 </motion.button>
               );
@@ -309,13 +322,15 @@ export function PrecisionCalendar({
             </ContentSection>
           )}
           secondary={(
-            <ContentSection title={formatLongDate(selectedDate)} description={`${selectedProjects.length} scheduled deliveries`} className="h-full" bodyClassName="h-full">
+            <ContentSection title={formatLongDate(selectedDate)} description={`${selectedEvents.length} scheduled commitments`} className="h-full" bodyClassName="h-full">
           <div className="mt-8 space-y-3">
-            {selectedProjects.length ? selectedProjects.map((project) => {
+            {selectedEvents.length ? selectedEvents.map((event) => {
+              const project = projects.find((item) => item.id === event.projectId);
+              if (!project) return null;
               const palette = statusPalette(project.status);
               return (
                 <motion.div
-                  key={project.id}
+                  key={event.id}
                   initial={reduceMotion ? false : { opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={reduceMotion ? { duration: 0 } : revealTransition}
@@ -323,10 +338,10 @@ export function PrecisionCalendar({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{project.title}</p>
-                      <p className="mt-1 truncate text-xs text-[var(--app-muted)]">{project.client || project.workType}</p>
+                      <p className="truncate text-sm font-semibold">{event.title}</p>
+                      <p className="mt-1 truncate text-xs text-[var(--app-muted)]">{event.detail ?? event.kind}</p>
                     </div>
-                    <Badge variant="outline" className={cn("h-5 shrink-0 rounded px-1.5 text-[10px]", projectStatusTone(project.status))}>{project.status}</Badge>
+                    <Badge variant="outline" className="h-5 shrink-0 rounded px-1.5 text-[10px] capitalize">{event.kind}</Badge>
                   </div>
                   <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--app-progress-track)]">
                     <div className="h-full rounded-full bg-[var(--app-highlight)]" style={{ width: `${projectProgress(project.status)}%` }} />
@@ -404,7 +419,6 @@ export function PrecisionTimeline({
   return (
     <WorkspacePage family="data-index">
       <PageHeader
-        eyebrow="Delivery planning"
         title="Delivery timeline"
         description="A chronological view of project milestones, reviews, and completed deliveries."
         actions={(

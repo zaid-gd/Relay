@@ -31,7 +31,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { SalaryBatch, SettingsState, WorkItem } from "@/lib/types";
+import type { Client, SalaryBatch, SettingsState, WorkItem } from "@/lib/types";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { paymentStatusTone, projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -88,6 +88,18 @@ function money(value: number, currency: string) {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
+function priorDateRange(start: string, end: string) {
+  if (!start || !end) return undefined;
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  const days = Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1;
+  const priorEnd = new Date(startDate);
+  priorEnd.setDate(priorEnd.getDate() - 1);
+  const priorStart = new Date(priorEnd);
+  priorStart.setDate(priorStart.getDate() - days + 1);
+  return { start: priorStart.toISOString().slice(0, 10), end: priorEnd.toISOString().slice(0, 10) };
+}
+
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "No date";
@@ -98,12 +110,13 @@ function clientInitials(value: string) {
   return value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "CL";
 }
 
-type ClientRecord = {
-  name: string;
+type ClientRecord = Client & {
   projects: WorkItem[];
   active: number;
   delivered: number;
-  value: number;
+  earned: number;
+  collected: number;
+  outstanding: number;
 };
 
 const revealTransition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
@@ -112,41 +125,57 @@ export function PrecisionClients({
   projects,
   settings,
   onAddClient,
+  onUpdateClient,
   onViewProject,
 }: {
   projects: WorkItem[];
   settings: SettingsState;
-  onAddClient: (name: string) => void;
+  onAddClient: (client: Omit<Client, "id" | "archived">) => void;
+  onUpdateClient: (client: Client) => void;
   onViewProject: (project: WorkItem) => void;
 }) {
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [newClient, setNewClient] = useState("");
+  const [newCompany, setNewCompany] = useState("");
+  const [newContactName, setNewContactName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newNotes, setNewNotes] = useState("");
   const [copiedName, setCopiedName] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const reduceMotion = useHydratedReducedMotion();
 
   const clients = useMemo(() => {
-    const map = new Map<string, WorkItem[]>();
-    for (const name of settings.customClients) {
-      if (name.trim()) map.set(name.trim(), []);
-    }
+    const records = settings.clients.length ? settings.clients : settings.customClients.map((name) => ({ id: `client-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, name, company: "", contactName: "", email: "", phone: "", notes: "", archived: false }));
+    const map = new Map(records.map((client) => [client.id, { client, projects: [] as WorkItem[] }]));
     for (const project of projects) {
       const name = project.client?.trim();
       if (!name) continue;
-      map.set(name, [...(map.get(name) ?? []), project]);
+      const entry = (project.clientId ? map.get(project.clientId) : undefined) ?? [...map.values()].find(({ client }) => client.name.toLowerCase() === name.toLowerCase());
+      if (entry) entry.projects.push(project);
     }
-    return Array.from(map.entries())
-      .map(([name, clientProjects]): ClientRecord => ({
-        name,
-        projects: clientProjects,
-        active: clientProjects.filter(active).length,
-        delivered: clientProjects.filter(delivered).length,
-        value: clientProjects.filter(delivered).reduce((sum, project) => sum + (Number(project.earnings) || 0), 0),
-      }))
-      .filter((client) => !query.trim() || client.name.toLowerCase().includes(query.trim().toLowerCase()))
+    return Array.from(map.values())
+      .map(({ client, projects: clientProjects }): ClientRecord => {
+        const deliveredProjects = clientProjects.filter(delivered);
+        const earned = deliveredProjects.reduce((sum, project) => sum + (Number(project.earnings) || 0), 0);
+        const collected = deliveredProjects.filter((project) => project.paid).reduce((sum, project) => sum + (Number(project.earnings) || 0), 0);
+        return {
+          ...client,
+          projects: clientProjects,
+          active: clientProjects.filter(active).length,
+          delivered: deliveredProjects.length,
+          earned,
+          collected,
+          outstanding: earned - collected,
+        };
+      })
+      .filter((client) => showArchived || !client.archived)
+      .filter((client) => !query.trim() || [client.name, client.company, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.trim().toLowerCase())))
       .sort((a, b) => b.projects.length - a.projects.length || a.name.localeCompare(b.name));
-  }, [projects, query, settings.customClients]);
+  }, [projects, query, settings.clients, settings.customClients, showArchived]);
 
   useEffect(() => {
     if (!clients.some((client) => client.name === selectedName)) setSelectedName(clients[0]?.name ?? "");
@@ -163,9 +192,14 @@ export function PrecisionClients({
   function addClient() {
     const name = newClient.trim();
     if (!name) return;
-    onAddClient(name);
+    onAddClient({ name, company: newCompany.trim(), contactName: newContactName.trim(), email: newEmail.trim(), phone: newPhone.trim(), notes: newNotes.trim() });
     setSelectedName(name);
     setNewClient("");
+    setNewCompany("");
+    setNewContactName("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewNotes("");
     setAddOpen(false);
   }
 
@@ -181,10 +215,9 @@ export function PrecisionClients({
   return (
     <WorkspacePage family="master-detail" mode="fill">
       <PageHeader
-        eyebrow="Relationships"
         title="Clients"
         description="Projects, delivery history, and account context in one focused directory."
-        actions={<Button className="h-9" onClick={() => setAddOpen(true)}><Plus /> New Client</Button>}
+        actions={<div className="flex gap-2"><Button variant="outline" className="h-9" aria-pressed={showArchived} onClick={() => setShowArchived((value) => !value)}>Archived</Button><Button className="h-9" onClick={() => setAddOpen(true)}><Plus /> New Client</Button></div>}
       />
 
       <PageContent mode="fill">
@@ -263,11 +296,13 @@ export function PrecisionClients({
               className="flex min-h-0 min-w-0 flex-col lg:h-full"
             >
             <div className="flex flex-col gap-4 border-b border-[var(--app-border)] p-5 sm:flex-row sm:items-start">
-              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-[var(--app-active)] text-sm font-semibold text-[var(--app-highlight)]">{clientInitials(selected.name)}</span>
+              <span className="grid size-12 shrink-0 place-items-center rounded-[6px] bg-[var(--app-active)] text-sm font-semibold text-[var(--app-highlight)]">{clientInitials(selected.name)}</span>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-lg font-semibold">{selected.name}</h2>
-                <p className="mt-1 text-xs text-[var(--app-muted)]">{selected.active} active projects · {selected.delivered} delivered</p>
+                <p className="mt-1 text-xs text-[var(--app-muted)]">{selected.company || `${selected.active} active projects · ${selected.delivered} delivered`}</p>
               </div>
+              <Button variant="outline" className="h-8 self-start text-xs" onClick={() => setEditingClient(selected)}>Edit</Button>
+              <Button variant="outline" className="h-8 self-start text-xs" onClick={() => onUpdateClient({ ...selected, archived: !selected.archived })}>{selected.archived ? "Restore" : "Archive"}</Button>
               <Button
                 variant="outline"
                 className="h-8 self-start border-[var(--app-border)] bg-[var(--app-panel)] text-xs"
@@ -278,17 +313,30 @@ export function PrecisionClients({
                 {copiedName === selected.name ? "Copied" : "Copy name"}
               </Button>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-[var(--app-border)] border-b border-[var(--app-border)]">
+            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--app-border)] border-b border-[var(--app-border)] sm:grid-cols-4 sm:divide-y-0">
               <ClientMetric label="Projects" value={String(selected.projects.length)} />
-              <ClientMetric label="Delivered" value={String(selected.delivered)} />
-              <ClientMetric label="Collected" value={money(selected.value, settings.currencyCode)} />
+              <ClientMetric label="Earned" value={money(selected.earned, settings.currencyCode)} />
+              <ClientMetric label="Collected" value={money(selected.collected, settings.currencyCode)} />
+              <ClientMetric label="Outstanding" value={money(selected.outstanding, settings.currencyCode)} />
             </div>
+            {[selected.contactName, selected.email, selected.phone, selected.notes].some(Boolean) ? (
+              <dl className="grid gap-3 border-b border-[var(--app-border)] p-5 text-xs sm:grid-cols-2">
+                {[
+                  ["Contact", selected.contactName],
+                  ["Email", selected.email],
+                  ["Phone", selected.phone],
+                  ["Notes", selected.notes],
+                ].filter((entry) => entry[1]).map(([label, value]) => (
+                  <div key={label}><dt className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">{label}</dt><dd className="mt-1 text-[var(--app-ink)]">{value}</dd></div>
+                ))}
+              </dl>
+            ) : null}
             <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5" tabIndex={0} aria-label="Scrollable client project history">
               <div className="mb-3 flex items-center justify-between">
                 <div><h3 className="text-sm font-semibold">Project history</h3><p className="mt-0.5 text-[11px] text-[var(--app-muted)]">Current and completed work for this client.</p></div>
               </div>
               {selected.projects.length ? (
-                <div className="divide-y divide-[var(--app-border)] overflow-hidden rounded-lg border border-[var(--app-border)]">
+                <div className="divide-y divide-[var(--app-border)] overflow-hidden rounded-[6px] border border-[var(--app-border)]">
                   {selected.projects.slice().sort((a, b) => b.dueDate.localeCompare(a.dueDate)).map((project, index) => (
                     <motion.button
                       key={project.id}
@@ -309,7 +357,7 @@ export function PrecisionClients({
                   ))}
                 </div>
               ) : (
-                <div className="grid min-h-56 place-items-center rounded-lg border border-dashed border-[var(--app-border)] text-center"><div><BriefcaseBusiness className="mx-auto size-6 text-[var(--app-muted)]" /><p className="mt-2 text-sm font-semibold">No projects yet</p><p className="mt-1 text-xs text-[var(--app-muted)]">Assign this client when creating a project.</p></div></div>
+                <div className="grid min-h-56 place-items-center rounded-[6px] border border-dashed border-[var(--app-border)] text-center"><div><BriefcaseBusiness className="mx-auto size-6 text-[var(--app-muted)]" /><p className="mt-2 text-sm font-semibold">No projects yet</p><p className="mt-1 text-xs text-[var(--app-muted)]">Assign this client when creating a project.</p></div></div>
               )}
             </section>
             </motion.main>
@@ -336,10 +384,43 @@ export function PrecisionClients({
             <DialogTitle>New Client</DialogTitle>
             <DialogDescription>Create a client record now and assign it to projects later.</DialogDescription>
           </DialogHeader>
-          <Input value={newClient} onChange={(event) => setNewClient(event.target.value)} placeholder="Client or company name" autoFocus onKeyDown={(event) => { if (event.key === "Enter") addClient(); }} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input value={newClient} onChange={(event) => setNewClient(event.target.value)} placeholder="Client name" aria-label="Client name" autoFocus />
+            <Input value={newCompany} onChange={(event) => setNewCompany(event.target.value)} placeholder="Company (optional)" aria-label="Company" />
+            <Input value={newContactName} onChange={(event) => setNewContactName(event.target.value)} placeholder="Contact name (optional)" aria-label="Contact name" />
+            <Input value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="Email (optional)" aria-label="Email" type="email" />
+            <Input value={newPhone} onChange={(event) => setNewPhone(event.target.value)} placeholder="Phone (optional)" aria-label="Phone" />
+            <Input value={newNotes} onChange={(event) => setNewNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Notes" />
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={addClient} disabled={!newClient.trim()}>New Client</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editingClient)} onOpenChange={(open) => { if (!open) setEditingClient(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>Update the durable client record without changing its project links.</DialogDescription>
+          </DialogHeader>
+          {editingClient ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(["name", "company", "contactName", "email", "phone", "notes"] as const).map((field) => (
+                <Input
+                  key={field}
+                  aria-label={{ name: "Client name", company: "Company", contactName: "Contact name", email: "Email", phone: "Phone", notes: "Notes" }[field]}
+                  value={editingClient[field]}
+                  type={field === "email" ? "email" : "text"}
+                  onChange={(event) => setEditingClient({ ...editingClient, [field]: event.target.value })}
+                />
+              ))}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+            <Button disabled={!editingClient?.name.trim()} onClick={() => { if (editingClient) onUpdateClient({ ...editingClient, name: editingClient.name.trim() }); setEditingClient(null); }}>Save Client</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -531,6 +612,7 @@ export function PrecisionReports({
   settings,
   editors,
   currentUserId,
+  canManageFinance,
   onUpdateBatchPayment,
 }: {
   projects: WorkItem[];
@@ -538,31 +620,60 @@ export function PrecisionReports({
   settings: SettingsState;
   editors: Array<{ userId: string; name: string }>;
   currentUserId?: string;
+  canManageFinance: boolean;
   onUpdateBatchPayment: (batchId: string, paid: boolean) => void;
 }) {
   const [trendRange, setTrendRange] = useState<3 | 6 | "all">(6);
   const [period, setPeriod] = useState<PayoutPeriod>("all");
+  const [customRange, setCustomRange] = useState({ start: "", end: "" });
   const reduceMotion = useHydratedReducedMotion();
+  const reportProjects = useMemo(
+    () => canManageFinance ? projects : projects.map((project) => ({ ...project, earnings: 0, paid: false, paidDate: "" })),
+    [canManageFinance, projects],
+  );
+  const reportBatches = useMemo(
+    () => canManageFinance ? salaryBatches : salaryBatches.map((batch) => ({ ...batch, amount: 0, paid: false, paidDate: "" })),
+    [canManageFinance, salaryBatches],
+  );
   const report = useMemo(() => buildPayoutReport({
-    projects,
-    salaryBatches,
+    projects: reportProjects,
+    salaryBatches: reportBatches,
     salaryWorkType: settings.salaryWorkType,
     salaryBatchAmount: Number(settings.salaryBatchAmount) || 0,
     profileName: settings.profileName,
     editors,
     currentUserId,
     period,
-  }), [currentUserId, editors, period, projects, salaryBatches, settings.profileName, settings.salaryBatchAmount, settings.salaryWorkType]);
-  const collected = report.manualEarnings + report.paidBatchEarnings;
+    customRange,
+  }), [currentUserId, customRange, editors, period, reportBatches, reportProjects, settings.profileName, settings.salaryBatchAmount, settings.salaryWorkType]);
   const salaryEdits = report.deliveredProjects.filter((project) => project.isSalaryEdit).length;
+  const priorRange = priorDateRange(report.periodStart, report.periodEnd);
+  const priorReport = useMemo(() => priorRange ? buildPayoutReport({
+    projects: reportProjects,
+    salaryBatches: reportBatches,
+    salaryWorkType: settings.salaryWorkType,
+    salaryBatchAmount: Number(settings.salaryBatchAmount) || 0,
+    profileName: settings.profileName,
+    editors,
+    currentUserId,
+    period: "custom",
+    customRange: priorRange,
+  }) : null, [currentUserId, editors, priorRange, reportBatches, reportProjects, settings.profileName, settings.salaryBatchAmount, settings.salaryWorkType]);
+  const deliveredIds = new Set(report.deliveredProjects.map((project) => project.id));
+  const completedProjects = reportProjects.filter((project) => deliveredIds.has(project.id));
+  const outputCount = completedProjects.reduce((total, project) => total + (project.templateDeliverables?.length ?? 0), 0);
+  const turnaroundProjects = completedProjects.filter((project) => project.startDate && project.completedAt);
+  const averageTurnaround = turnaroundProjects.length
+    ? Math.round(turnaroundProjects.reduce((total, project) => total + Math.max(0, (new Date(project.completedAt!).getTime() - new Date(`${project.startDate}T00:00:00`).getTime()) / 86_400_000), 0) / turnaroundProjects.length)
+    : 0;
+  const delayedStages = projects.filter((project) => active(project) && project.dueDate && project.dueDate < new Date().toISOString().slice(0, 10)).length;
   const invoiceDrafts = useMemo(() => buildInvoiceDrafts({
-    projects,
+    projects: reportProjects,
     salaryWorkType: settings.salaryWorkType,
     currencyCode: settings.currencyCode,
     period,
-  }), [period, projects, settings.currencyCode, settings.salaryWorkType]);
-  const invoiceTotal = invoiceDrafts.reduce((total, draft) => total + draft.total, 0);
-
+    customRange,
+  }), [customRange, period, reportProjects, settings.currencyCode, settings.salaryWorkType]);
   const trendSeries = useMemo(() => {
     const map = new Map<string, { label: string; earned: number; delivered: number }>();
     const addPoint = (dateValue: string, earned: number, deliveredCount: number) => {
@@ -619,7 +730,6 @@ export function PrecisionReports({
   return (
     <WorkspacePage family="data-index">
       <PageHeader
-        eyebrow="Performance"
         title="Reports"
         description="Earnings, delivery throughput, work mix, and salary batch payout state."
         actions={(
@@ -632,22 +742,52 @@ export function PrecisionReports({
               <SelectItem value="month">This month</SelectItem>
               <SelectItem value="quarter">This quarter</SelectItem>
               <SelectItem value="year">This year</SelectItem>
+              <SelectItem value="custom">Custom dates</SelectItem>
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="h-8" onClick={exportReport}>
+          <Button variant="outline" size="sm" className="h-8" onClick={exportReport} disabled={!canManageFinance}>
             <Download /> Export CSV
           </Button>
         </div>
         )}
       />
       <PageContent>
+      {period === "custom" ? (
+        <div className="flex flex-wrap gap-2" aria-label="Custom report dates">
+          <Input type="date" aria-label="Report start date" value={customRange.start} onChange={(event) => setCustomRange((range) => ({ ...range, start: event.target.value }))} />
+          <Input type="date" aria-label="Report end date" value={customRange.end} onChange={(event) => setCustomRange((range) => ({ ...range, end: event.target.value }))} />
+        </div>
+      ) : null}
       <MetricStrip columns={4}>
-        <MetricItem label="Collected" value={money(collected, settings.currencyCode)} supporting="Freelance plus paid batches" icon={<CircleDollarSign className="size-4" />} />
-        <MetricItem label="Outstanding" value={money(report.unpaidBatchEarnings, settings.currencyCode)} supporting={`${report.unpaidBatchCount} unpaid batches`} icon={<Clock3 className="size-4" />} />
+        <MetricItem label="Earned" value={canManageFinance ? money(report.earned, settings.currencyCode) : "Restricted"} supporting={priorReport && canManageFinance ? `${money(report.earned - priorReport.earned, settings.currencyCode)} vs prior period` : "Delivered project and batch value"} icon={<CircleDollarSign className="size-4" />} />
+        <MetricItem label="Collected" value={canManageFinance ? money(report.collected, settings.currencyCode) : "Restricted"} supporting="Delivered and paid" icon={<CircleDollarSign className="size-4" />} />
+        <MetricItem label="Outstanding" value={canManageFinance ? money(report.outstanding, settings.currencyCode) : "Restricted"} supporting="Delivered and unpaid" icon={<Clock3 className="size-4" />} />
         <MetricItem label="Delivered edits" value={String(report.deliveredProjects.length)} supporting={`${salaryEdits} salary edits`} icon={<CheckCircle2 className="size-4" />} />
-        <MetricItem label="Invoice drafts" value={String(invoiceDrafts.length)} supporting={money(invoiceTotal, settings.currencyCode)} icon={<BriefcaseBusiness className="size-4" />} />
       </MetricStrip>
+
+      <ContentSection title="Period summary" description="Completed work, linked outputs, turnaround, and delayed active stages.">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <ClientMetric label="Completed projects" value={String(report.deliveredProjects.length)} />
+          <ClientMetric label="Linked outputs" value={String(outputCount)} />
+          <ClientMetric label="Avg turnaround" value={turnaroundProjects.length ? `${averageTurnaround} days` : "No data"} />
+          <ClientMetric label="Stage delays" value={String(delayedStages)} />
+        </dl>
+      </ContentSection>
+
+      <ContentSection title="Client totals" description="Delivered value split by payment state." bodyMode="flush">
+        <div className="divide-y divide-[var(--app-border)] border-t border-[var(--app-border)]">
+          {report.clients.map((client) => (
+            <div key={client.id} className="grid grid-cols-[minmax(0,1fr)_repeat(3,auto)] gap-4 px-4 py-3 text-xs">
+              <span className="truncate font-semibold">{client.name}</span>
+              <span>{client.deliveredProjects} projects</span>
+              <span>{canManageFinance ? money(client.collected, settings.currencyCode) : "Restricted"}</span>
+              <span>{canManageFinance ? money(client.outstanding, settings.currencyCode) : "Restricted"}</span>
+            </div>
+          ))}
+          {!report.clients.length ? <div className="grid min-h-24 place-items-center text-xs text-[var(--app-muted)]">No client totals for this period.</div> : null}
+        </div>
+      </ContentSection>
 
       <SplitPane
         primary={(
@@ -655,7 +795,7 @@ export function PrecisionReports({
           initial={reduceMotion ? false : { opacity: 0, y: 7 }}
           animate={{ opacity: 1, y: 0 }}
           transition={reduceMotion ? { duration: 0 } : { ...revealTransition, delay: 0.08 }}
-          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
+          className="rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div><h2 className="text-sm font-semibold">Delivery and earnings trend</h2><p className="mt-0.5 text-[10px] text-[var(--app-muted)]">Delivered value and salary batches grouped by month.</p></div>
@@ -721,7 +861,7 @@ export function PrecisionReports({
           initial={reduceMotion ? false : { opacity: 0, y: 7 }}
           animate={{ opacity: 1, y: 0 }}
           transition={reduceMotion ? { duration: 0 } : { ...revealTransition, delay: 0.12 }}
-          className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
+          className="rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] p-4"
         >
           <div><h2 className="text-sm font-semibold">Work mix</h2><p className="mt-0.5 text-[10px] text-[var(--app-muted)]">Distribution across project types.</p></div>
           <div className="mt-3 h-[190px]" role="img" aria-label={mixData.length ? `Work mix: ${mixData.map((item) => `${item.name}, ${item.value} projects`).join("; ")}` : "No work mix data available"}>

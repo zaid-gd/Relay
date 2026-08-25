@@ -1,7 +1,12 @@
 import { normalizeStoredProjectStatus } from "./domain-values";
 import type { SalaryBatch, WorkItem } from "./types";
 
-export type PayoutPeriod = "month" | "quarter" | "year" | "all";
+export type PayoutPeriod = "month" | "quarter" | "year" | "all" | "custom";
+
+export type PayoutDateRange = {
+  start: string;
+  end: string;
+};
 
 export type PayoutEditor = {
   userId: string;
@@ -17,6 +22,9 @@ export type PayoutProjectRow = {
   workType: string;
   amount: number;
   isSalaryEdit: boolean;
+  paid: boolean;
+  clientId?: string;
+  clientName: string;
 };
 
 export type PayoutBatchRow = {
@@ -27,6 +35,8 @@ export type PayoutBatchRow = {
   amount: number;
   paid: boolean;
   paidDate: string;
+  clientId?: string;
+  clientName: string;
 };
 
 export type PayoutEditorRow = {
@@ -39,6 +49,22 @@ export type PayoutEditorRow = {
   totalEarnings: number;
 };
 
+export type PayoutClientRow = {
+  id: string;
+  name: string;
+  deliveredProjects: number;
+  salaryBatches: number;
+  earned: number;
+  collected: number;
+  outstanding: number;
+};
+
+export type PayoutMoneyTotals = {
+  earned: number;
+  collected: number;
+  outstanding: number;
+};
+
 export type PayoutReport = {
   period: PayoutPeriod;
   periodStart: string;
@@ -46,14 +72,21 @@ export type PayoutReport = {
   deliveredProjects: PayoutProjectRow[];
   batches: PayoutBatchRow[];
   editors: PayoutEditorRow[];
+  clients: PayoutClientRow[];
   completedBatchCount: number;
   paidBatchCount: number;
   unpaidBatchCount: number;
   paidBatchEarnings: number;
   unpaidBatchEarnings: number;
   manualEarnings: number;
+  paidManualEarnings: number;
+  unpaidManualEarnings: number;
   batchEarnings: number;
   totalEarnings: number;
+  earned: number;
+  collected: number;
+  outstanding: number;
+  money: PayoutMoneyTotals;
 };
 
 type BuildPayoutReportOptions = {
@@ -65,6 +98,7 @@ type BuildPayoutReportOptions = {
   editors?: PayoutEditor[];
   currentUserId?: string;
   period: PayoutPeriod;
+  customRange?: PayoutDateRange;
   now?: Date;
 };
 
@@ -75,8 +109,24 @@ function isoDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function payoutPeriodRange(period: PayoutPeriod, now = new Date()) {
+function dateKey(value: string | undefined) {
+  const match = value?.trim().match(/^\d{4}-\d{2}-\d{2}/);
+  return match?.[0] ?? "";
+}
+
+export function payoutPeriodRange(
+  period: PayoutPeriod,
+  now = new Date(),
+  customRange?: PayoutDateRange,
+): PayoutDateRange {
   if (period === "all") return { start: "", end: "" };
+  if (period === "custom") {
+    return {
+      start: dateKey(customRange?.start),
+      end: dateKey(customRange?.end),
+    };
+  }
+
   const year = now.getFullYear();
   const month = now.getMonth();
   const start = period === "year"
@@ -98,7 +148,12 @@ function isInRange(date: string, start: string, end: string) {
 }
 
 function safeAmount(value: number | undefined, fallback = 0) {
-  return Number.isFinite(value) ? Math.max(0, value ?? 0) : Math.max(0, fallback);
+  const amount = value ?? fallback;
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+}
+
+function isSalaryProject(project: WorkItem, salaryKey: string) {
+  return Boolean(project.salaryPlanId?.trim()) || project.workType.trim().toLowerCase() === salaryKey;
 }
 
 export function buildPayoutReport({
@@ -110,46 +165,65 @@ export function buildPayoutReport({
   editors = [],
   currentUserId,
   period,
+  customRange,
   now,
 }: BuildPayoutReportOptions): PayoutReport {
-  const range = payoutPeriodRange(period, now);
+  const range = payoutPeriodRange(period, now, customRange);
   const editorNames = new Map(editors.map((editor) => [editor.userId, editor.name]));
   const personalEditorId = currentUserId?.trim() || (editors.length === 1 ? editors[0].userId : "personal");
   const personalEditorName = profileName.trim() || "You";
+  const salaryKey = salaryWorkType.trim().toLowerCase();
+  const projectById = new Map(projects.map((project) => [project.id, project]));
 
   const deliveredProjects = projects
     .filter((project) => normalizeStoredProjectStatus(project.status) === "Delivered")
-    .filter((project) => isInRange(project.dueDate, range.start, range.end))
-    .map((project): PayoutProjectRow => {
+    .map((project): PayoutProjectRow | undefined => {
+      const date = dateKey(project.completedAt) || dateKey(project.dueDate);
+      if (!isInRange(date, range.start, range.end)) return undefined;
       const editorId = project.assigneeUserIds?.[0] || project.ownerUserId || personalEditorId;
       const editorName = editorId === personalEditorId
         ? personalEditorName
         : editorNames.get(editorId) || "Unassigned";
-      const isSalaryEdit = project.workType.trim().toLowerCase() === salaryWorkType.trim().toLowerCase();
+      const isSalaryEdit = isSalaryProject(project, salaryKey);
       return {
         id: project.id,
-        date: project.dueDate,
+        date,
         title: project.title,
         editorId,
         editorName,
         workType: project.workType,
         amount: isSalaryEdit ? 0 : safeAmount(project.earnings),
         isSalaryEdit,
+        paid: project.paid === true,
+        clientId: project.clientId,
+        clientName: project.client?.trim() || "Unassigned client",
       };
     })
+    .filter((project): project is PayoutProjectRow => project !== undefined)
     .sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
 
   const batches = salaryBatches
-    .filter((batch) => isInRange(batch.completedDate, range.start, range.end))
-    .map((batch): PayoutBatchRow => ({
-      id: batch.id,
-      number: batch.number,
-      date: batch.completedDate,
-      editorName: personalEditorName,
-      amount: safeAmount(batch.amount, salaryBatchAmount),
-      paid: batch.paid ?? false,
-      paidDate: batch.paidDate ?? "",
-    }))
+    .map((batch): PayoutBatchRow | undefined => {
+      const date = dateKey(batch.completedDate);
+      if (!isInRange(date, range.start, range.end)) return undefined;
+      const linkedProject = batch.projectIds
+        ?.map((projectId) => projectById.get(projectId))
+        .find((project): project is WorkItem => project !== undefined);
+      const clientId = batch.clientId || linkedProject?.clientId;
+      const clientName = batch.clientName?.trim() || linkedProject?.client?.trim() || "Unassigned client";
+      return {
+        id: batch.id,
+        number: batch.number,
+        date,
+        editorName: personalEditorName,
+        amount: safeAmount(batch.amount, salaryBatchAmount),
+        paid: batch.paid === true,
+        paidDate: dateKey(batch.paidDate),
+        clientId,
+        clientName,
+      };
+    })
+    .filter((batch): batch is PayoutBatchRow => batch !== undefined)
     .sort((a, b) => b.date.localeCompare(a.date) || b.number - a.number);
 
   const editorRows = new Map<string, PayoutEditorRow>();
@@ -182,10 +256,55 @@ export function buildPayoutReport({
     row.totalEarnings = row.manualEarnings + row.batchEarnings;
   }
 
+  const clients = new Map<string, PayoutClientRow>();
+  const ensureClient = (id: string | undefined, name: string) => {
+    const clientId = id?.trim() || `name:${name.trim().toLowerCase()}`;
+    const existing = clients.get(clientId);
+    if (existing) return existing;
+    const row: PayoutClientRow = {
+      id: clientId,
+      name,
+      deliveredProjects: 0,
+      salaryBatches: 0,
+      earned: 0,
+      collected: 0,
+      outstanding: 0,
+    };
+    clients.set(clientId, row);
+    return row;
+  };
+
+  for (const project of deliveredProjects) {
+    if (project.isSalaryEdit) continue;
+    const client = ensureClient(project.clientId, project.clientName);
+    client.deliveredProjects += 1;
+    client.earned += project.amount;
+    if (project.paid) client.collected += project.amount;
+    else client.outstanding += project.amount;
+  }
+  for (const batch of batches) {
+    const client = ensureClient(batch.clientId, batch.clientName);
+    client.salaryBatches += 1;
+    client.earned += batch.amount;
+    if (batch.paid) client.collected += batch.amount;
+    else client.outstanding += batch.amount;
+  }
+
   const paidBatches = batches.filter((batch) => batch.paid);
   const unpaidBatches = batches.filter((batch) => !batch.paid);
-  const manualEarnings = deliveredProjects.reduce((total, project) => total + project.amount, 0);
+  const normalProjects = deliveredProjects.filter((project) => !project.isSalaryEdit);
+  const manualEarnings = normalProjects.reduce((total, project) => total + project.amount, 0);
+  const paidManualEarnings = normalProjects
+    .filter((project) => project.paid)
+    .reduce((total, project) => total + project.amount, 0);
+  const unpaidManualEarnings = manualEarnings - paidManualEarnings;
   const batchEarnings = batches.reduce((total, batch) => total + batch.amount, 0);
+  const paidBatchEarnings = paidBatches.reduce((total, batch) => total + batch.amount, 0);
+  const unpaidBatchEarnings = unpaidBatches.reduce((total, batch) => total + batch.amount, 0);
+  const earned = manualEarnings + batchEarnings;
+  const collected = paidManualEarnings + paidBatchEarnings;
+  const outstanding = unpaidManualEarnings + unpaidBatchEarnings;
+  const money: PayoutMoneyTotals = { earned, collected, outstanding };
 
   return {
     period,
@@ -194,14 +313,21 @@ export function buildPayoutReport({
     deliveredProjects,
     batches,
     editors: [...editorRows.values()].sort((a, b) => b.totalEarnings - a.totalEarnings || a.name.localeCompare(b.name)),
+    clients: [...clients.values()].sort((a, b) => b.earned - a.earned || a.name.localeCompare(b.name)),
     completedBatchCount: batches.length,
     paidBatchCount: paidBatches.length,
     unpaidBatchCount: unpaidBatches.length,
-    paidBatchEarnings: paidBatches.reduce((total, batch) => total + batch.amount, 0),
-    unpaidBatchEarnings: unpaidBatches.reduce((total, batch) => total + batch.amount, 0),
+    paidBatchEarnings,
+    unpaidBatchEarnings,
     manualEarnings,
+    paidManualEarnings,
+    unpaidManualEarnings,
     batchEarnings,
-    totalEarnings: manualEarnings + batchEarnings,
+    totalEarnings: earned,
+    earned,
+    collected,
+    outstanding,
+    money,
   };
 }
 

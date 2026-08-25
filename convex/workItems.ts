@@ -70,6 +70,9 @@ export const list = query({
       profileId: item.profileId,
       title: item.title,
       client: item.client,
+      clientId: item.clientId,
+      projectGroupId: item.projectGroupId,
+      archived: item.archived,
       status: item.status,
       workType: item.workType,
       startDate: item.startDate,
@@ -77,6 +80,7 @@ export const list = query({
       earnings: item.earnings,
       paid: item.paid,
       paidDate: item.paidDate,
+      completedAt: item.completedAt,
       notes: item.notes,
       templateId: item.templateId,
       templateProjectType: item.templateProjectType,
@@ -102,6 +106,9 @@ export const replaceAll = mutation({
         profileId: v.string(),
         title: v.string(),
         client: v.optional(v.string()),
+        clientId: v.optional(v.string()),
+        projectGroupId: v.optional(v.string()),
+        archived: v.optional(v.boolean()),
         status: storedProjectStatusValidator,
         workType: v.string(),
         startDate: v.string(),
@@ -109,6 +116,7 @@ export const replaceAll = mutation({
         earnings: v.number(),
         paid: v.optional(v.boolean()),
         paidDate: v.optional(v.string()),
+        completedAt: v.optional(v.string()),
         notes: v.string(),
         templateId: v.optional(v.string()),
         templateProjectType: v.optional(v.string()),
@@ -135,6 +143,8 @@ export const replaceAll = mutation({
     const canEditTeamProjects = Boolean(activeMembership?.permissions.editProjects);
     const canManageTeamProjects = Boolean(activeMembership?.permissions.manageTeam);
     const canUpdateTeamStatus = Boolean(activeMembership?.permissions.updateStatus);
+    const workspaceSettings = await ctx.db.query("settings").withIndex("by_userId", (q) => q.eq("userId", userId)).unique();
+    const activeClientIds = new Set((workspaceSettings?.clients ?? []).filter((client) => !client.archived).map((client) => client.id));
     const personalExisting = await ctx.db
       .query("workItems")
       .withIndex("by_userId_and_teamId", (q) =>
@@ -147,6 +157,14 @@ export const replaceAll = mutation({
           .withIndex("by_teamId", (q) => q.eq("teamId", activeMembership.teamId))
           .take(500)
       : [];
+    const personalGroups = await ctx.db
+      .query("projectGroups")
+      .withIndex("by_userId_and_teamId", (q) => q.eq("userId", userId).eq("teamId", undefined))
+      .take(500);
+    const teamGroups = activeMembership
+      ? await ctx.db.query("projectGroups").withIndex("by_teamId", (q) => q.eq("teamId", activeMembership.teamId)).take(500)
+      : [];
+    const projectGroupsById = new Map([...personalGroups, ...teamGroups].map((group) => [group.id, group]));
     const activeTeamMemberIds = activeMembership
       ? new Set(
           (
@@ -169,6 +187,12 @@ export const replaceAll = mutation({
     for (const item of args.items) {
       const existing = existingById.get(item.id);
       const targetTeamId = existing?.teamId ?? item.teamId;
+      if (!existing && !item.clientId) throw new Error("Project Client is required");
+      if (item.clientId && !activeClientIds.has(item.clientId)) throw new Error("Project Client must belong to this Workspace");
+      const projectGroup = item.projectGroupId ? projectGroupsById.get(item.projectGroupId) : undefined;
+      if (item.projectGroupId && (!projectGroup || projectGroup.clientId !== item.clientId || projectGroup.teamId !== targetTeamId)) {
+        throw new Error("Project Group must belong to the selected Client and Workspace");
+      }
       const isTeamProject = Boolean(targetTeamId);
       if (targetTeamId && activeMembership?.teamId !== targetTeamId) {
         throw new Error("Team access required for this project");
@@ -181,6 +205,9 @@ export const replaceAll = mutation({
         existing.teamId &&
         existing.title === item.title &&
         (existing.client ?? "") === (item.client ?? "") &&
+        existing.clientId === item.clientId &&
+        existing.projectGroupId === item.projectGroupId &&
+        (existing.archived ?? false) === (item.archived ?? false) &&
         existing.workType === item.workType &&
         existing.startDate === item.startDate &&
         existing.dueDate === item.dueDate &&
@@ -205,7 +232,7 @@ export const replaceAll = mutation({
       }
       if (isTeamProject && existing && existing.teamId && isStatusOnlyUpdate && !canEditTeamProjects && canUpdateTeamStatus) {
         if (existing.status !== item.status) {
-          await ctx.db.patch(existing._id, { status: item.status });
+          await ctx.db.patch(existing._id, { status: item.status, completedAt: item.completedAt });
           await syncClientPortal(ctx, existing, { ...existing, status: item.status });
           await logProjectActivity(ctx, {
             teamId: existing.teamId,
@@ -241,6 +268,9 @@ export const replaceAll = mutation({
         profileId: item.profileId,
         title: item.title,
         client: item.client ?? "",
+        clientId: item.clientId,
+        projectGroupId: item.projectGroupId,
+        archived: item.archived ?? false,
         status: item.status,
         workType: item.workType,
         startDate: item.startDate,
@@ -248,6 +278,7 @@ export const replaceAll = mutation({
         earnings: item.earnings,
         paid: normalizedPaid,
         paidDate: normalizedPaid ? (normalizedPaidDate || now) : "",
+        completedAt: item.completedAt,
         notes: item.notes,
         templateId: item.templateId,
         templateProjectType: item.templateProjectType?.trim().slice(0, 80),

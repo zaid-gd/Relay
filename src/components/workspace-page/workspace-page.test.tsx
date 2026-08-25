@@ -59,7 +59,9 @@ describe("workspace page primitives", () => {
     );
 
     expect(markup).toContain('data-family="conversation"');
+    expect(markup).toContain('data-design="studio-split"');
     expect(markup).toContain('data-slot="page-content"');
     expect(markup).toContain('data-mode="fill"');
   });
+
 });

@@ -1,4 +1,5 @@
 import type { ResourceLink, SettingsState, WorkItem } from "./types";
+import { workflowStagesFromLabels } from "./workflow-templates";
 
 export const sampleStudioVersion = 1;
 
@@ -18,6 +19,11 @@ export const sampleStudioSettings: SettingsState = {
   weekStart: "Mon",
   currencyCode: "USD",
   customClients: ["Aperture Coffee", "Field Notes", "Orbit Labs"],
+  clients: [
+    { id: "client-aperture-coffee", name: "Aperture Coffee", company: "Aperture Coffee", contactName: "", email: "", phone: "", notes: "", archived: false },
+    { id: "client-field-notes", name: "Field Notes", company: "Field Notes", contactName: "", email: "", phone: "", notes: "", archived: false },
+    { id: "client-orbit-labs", name: "Orbit Labs", company: "Orbit Labs", contactName: "", email: "", phone: "", notes: "", archived: false },
+  ],
   customProjectTemplates: [],
   projectTags: ["Client Work", "Retainer", "Personal Channel"],
   salaryWorkType: "Retainer",
@@ -51,7 +57,7 @@ export const sampleStudioProjects: WorkItem[] = [
     dueDate: "2026-07-24",
     earnings: 1800,
     notes: "Picture lock is due next. Sound mix and final captions follow after approval.",
-    workflowStages: ["Assembly", "Fine cut", "Client Review", "Delivery"],
+    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
     checklistItems: ["Organize selects", "Complete fine cut", "Send review link", "Export masters"],
     checklistCompleted: { "Organize selects": true, "Complete fine cut": true },
   },
@@ -67,7 +73,7 @@ export const sampleStudioProjects: WorkItem[] = [
     dueDate: "2026-07-23",
     earnings: 950,
     notes: "Review link sent. Client requested a tighter opening and one lower-third correction.",
-    workflowStages: ["Assembly", "Fine cut", "Client Review", "Delivery"],
+    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
     checklistItems: ["Build first cut", "Internal review", "Send client review", "Address notes"],
     checklistCompleted: { "Build first cut": true, "Internal review": true, "Send client review": true },
   },
@@ -97,7 +103,7 @@ export const sampleStudioResources: ResourceLink[] = [
     url: "/client-portal",
     category: "Review",
     projectId: "sample-founder-story",
-    notes: "Clients open a private editor-provided link and do not need a Frame Desk account.",
+    notes: "Clients open a private editor-provided link and do not need a Relay account.",
     createdAt: "2026-07-21T09:00:00.000Z",
     updatedAt: "2026-07-21T09:00:00.000Z",
   },

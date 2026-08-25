@@ -14,7 +14,7 @@ export function ContactForm() {
     const name = String(form.get("name") || "").trim();
     const email = String(form.get("email") || "").trim();
     const message = String(form.get("message") || "").trim();
-    const subject = encodeURIComponent(`Frame Desk inquiry from ${name}`);
+    const subject = encodeURIComponent(`Relay inquiry from ${name}`);
     const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\n${message}`);
     setStatus("Opening your email app. Review the message there before sending.");
     window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;

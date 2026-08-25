@@ -1,5 +1,5 @@
 import type { FileCategory, FileStatus } from "./domain-values";
-import type { SavedProjectTemplate, WorkItem } from "./types";
+import type { SavedProjectTemplate, WorkItem, WorkflowStage, WorkflowStagePurpose } from "./types";
 
 export const PROJECT_TEMPLATE_IDS = [
   "youtube-video",
@@ -23,6 +23,7 @@ export type ProjectTemplateDeliverable = {
 
 export type ProjectTemplate = SavedProjectTemplate;
 
+const stage = (id: string, label: string, purpose: WorkflowStagePurpose): WorkflowStage => ({ id, label, purpose });
 
 const deliverable = (
   title: string,
@@ -35,13 +36,31 @@ const deliverable = (
 
 export const PROJECT_TEMPLATES: ProjectTemplate[] = [
   {
+    id: "relay-default-workflow",
+    name: "Relay Default Workflow",
+    description: "A clear production path from planning through delivery.",
+    projectType: "Video production",
+    workType: "freelance",
+    durationDays: 10,
+    workflowStages: [
+      stage("planned", "Planned", "planned"),
+      stage("editing", "Editing", "editing"),
+      stage("client-review", "Client Review", "client_review"),
+      stage("revisions", "Revisions", "revisions"),
+      stage("approved", "Approved", "approved"),
+      stage("delivered", "Delivered", "delivered"),
+    ],
+    deliverables: [deliverable("Final master")],
+    checklistItems: ["Confirm brief", "Check export settings", "Confirm client approval"],
+  },
+  {
     id: "youtube-video",
     name: "YouTube Video",
     description: "Long-form creator edit with review, packaging, and publishing handoff.",
     projectType: "Long-form video",
     workType: "channel",
     durationDays: 10,
-    workflowStages: ["Brief", "Assembly", "Rough Cut", "Review", "Final Cut", "Published"],
+    workflowStages: [stage("brief", "Brief", "planned"), stage("assembly", "Assembly", "editing"), stage("rough-cut", "Rough Cut", "editing"), stage("review", "Review", "client_review"), stage("final-cut", "Final Cut", "approved"), stage("published", "Published", "delivered")],
     deliverables: [
       deliverable("16:9 master"),
       deliverable("Thumbnail source", "Asset"),
@@ -56,7 +75,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Short-form social",
     workType: "freelance",
     durationDays: 4,
-    workflowStages: ["Concept", "Selects", "First Cut", "Caption Pass", "Review", "Export"],
+    workflowStages: [stage("concept", "Concept", "planned"), stage("selects", "Selects", "editing"), stage("first-cut", "First Cut", "editing"), stage("caption-pass", "Caption Pass", "editing"), stage("review", "Review", "client_review"), stage("export", "Export", "delivered")],
     deliverables: [
       deliverable("9:16 master"),
       deliverable("Captioned version"),
@@ -71,7 +90,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Event coverage",
     workType: "freelance",
     durationDays: 14,
-    workflowStages: ["Ingest", "Sync", "Selects", "Assembly", "Client Review", "Finishing", "Delivery"],
+    workflowStages: [stage("ingest", "Ingest", "planned"), stage("sync", "Sync", "editing"), stage("selects", "Selects", "editing"), stage("assembly", "Assembly", "editing"), stage("client-review", "Client Review", "client_review"), stage("finishing", "Finishing", "approved"), stage("delivery", "Delivery", "delivered")],
     deliverables: [
       deliverable("Event highlight"),
       deliverable("Speaker cutdowns"),
@@ -86,7 +105,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Commercial",
     workType: "freelance",
     durationDays: 12,
-    workflowStages: ["Creative Brief", "Selects", "Offline Edit", "Brand Review", "Motion and Sound", "Legal Review", "Masters"],
+    workflowStages: [stage("creative-brief", "Creative Brief", "planned"), stage("selects", "Selects", "editing"), stage("offline-edit", "Offline Edit", "editing"), stage("brand-review", "Brand Review", "client_review"), stage("motion-and-sound", "Motion and Sound", "editing"), stage("legal-review", "Legal Review", "approved"), stage("masters", "Masters", "delivered")],
     deliverables: [
       deliverable("Primary campaign master"),
       deliverable("15-second cutdown"),
@@ -102,7 +121,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Wedding",
     workType: "freelance",
     durationDays: 30,
-    workflowStages: ["Ingest", "Audio Sync", "Story Selects", "Highlight Assembly", "Music and Color", "Couple Review", "Delivery"],
+    workflowStages: [stage("ingest", "Ingest", "planned"), stage("audio-sync", "Audio Sync", "editing"), stage("story-selects", "Story Selects", "editing"), stage("highlight-assembly", "Highlight Assembly", "editing"), stage("music-and-color", "Music and Color", "editing"), stage("couple-review", "Couple Review", "client_review"), stage("delivery", "Delivery", "delivered")],
     deliverables: [
       deliverable("Wedding highlight"),
       deliverable("Full ceremony edit"),
@@ -118,7 +137,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Social campaign",
     workType: "freelance",
     durationDays: 10,
-    workflowStages: ["Campaign Brief", "Attraction Selects", "Hero Edit", "Cutdowns", "Brand Review", "Platform QC", "Delivery"],
+    workflowStages: [stage("campaign-brief", "Campaign Brief", "planned"), stage("attraction-selects", "Attraction Selects", "editing"), stage("hero-edit", "Hero Edit", "editing"), stage("cutdowns", "Cutdowns", "editing"), stage("brand-review", "Brand Review", "client_review"), stage("platform-qc", "Platform QC", "approved"), stage("delivery", "Delivery", "delivered")],
     deliverables: [
       deliverable("Campaign hero"),
       deliverable("Vertical social cutdowns"),
@@ -134,7 +153,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Podcast",
     workType: "freelance",
     durationDays: 7,
-    workflowStages: ["Ingest", "Sync", "Dialogue Edit", "Multicam Cut", "Review", "Clips", "Publish"],
+    workflowStages: [stage("ingest", "Ingest", "planned"), stage("sync", "Sync", "editing"), stage("dialogue-edit", "Dialogue Edit", "editing"), stage("multicam-cut", "Multicam Cut", "editing"), stage("review", "Review", "client_review"), stage("clips", "Clips", "approved"), stage("publish", "Publish", "delivered")],
     deliverables: [
       deliverable("Full video episode"),
       deliverable("Audio episode"),
@@ -150,7 +169,7 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
     projectType: "Retainer package",
     workType: "freelance",
     durationDays: 30,
-    workflowStages: ["Monthly Planning", "Asset Intake", "Batch Production", "Client Review", "Revisions", "Delivery", "Monthly Wrap"],
+    workflowStages: [stage("monthly-planning", "Monthly Planning", "planned"), stage("asset-intake", "Asset Intake", "editing"), stage("batch-production", "Batch Production", "editing"), stage("client-review", "Client Review", "client_review"), stage("revisions", "Revisions", "revisions"), stage("delivery", "Delivery", "delivered"), stage("monthly-wrap", "Monthly Wrap", "approved")],
     deliverables: [
       deliverable("Monthly content batch"),
       deliverable("Platform variants"),
@@ -168,7 +187,7 @@ export function getProjectTemplate(id: ProjectTemplateId) {
 export function templateNotes(template: ProjectTemplate) {
   return [
     `Project type: ${template.projectType}`,
-    `Workflow: ${template.workflowStages.join(" -> ")}`,
+    `Workflow: ${template.workflowStages.map((item) => item.label).join(" -> ")}`,
     `Suggested deliverables:\n${template.deliverables.map((item) => `- ${item.title} [${item.category}]`).join("\n")}`,
     `Checklist:\n${template.checklistItems.map((item) => `- [ ] ${item}`).join("\n")}`,
   ].join("\n\n");
@@ -190,6 +209,7 @@ export function applyProjectTemplate(
     title: template.name,
     client: "",
     status: "Planned",
+    workflowStageId: template.workflowStages[0]?.id ?? "planned",
     workType: options.workType,
     startDate: options.startDate,
     dueDate: options.dueDate,
@@ -200,7 +220,7 @@ export function applyProjectTemplate(
     assigneeUserIds: [],
     templateId: template.id,
     templateProjectType: template.projectType,
-    workflowStages: [...template.workflowStages],
+    workflowStages: template.workflowStages.map((stage) => ({ ...stage })),
     templateDeliverables: template.deliverables.map((item) => ({ ...item })),
     checklistItems: [...template.checklistItems],
   };

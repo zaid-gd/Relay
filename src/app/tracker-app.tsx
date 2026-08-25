@@ -2,22 +2,28 @@
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { UserProfile } from "@clerk/nextjs";
+import { UserProfile, useAuth } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useData } from "@/lib/data-context";
+import { makeFunctionReference } from "convex/server";
+import { useData, useProjectGroups, useProjectWorkflow } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
-import type { WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
+import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
+import { useProjectController, useProjectCreationController } from "@/features/projects/project-controller";
+import { NewProjectDialog } from "@/components/new-project-dialog";
+import { ProjectGroupsDialog } from "@/components/project-groups-dialog";
+import { mergeClientRecords } from "@/lib/clients";
+import { validateWorkflowStages, workflowStagesFromLabels } from "@/lib/workflow-templates";
 import {
   APPROVAL_STATUS_LABELS,
   CLIENT_PORTAL_STAGE_VALUES,
   DELIVERABLE_STATUS_VALUES,
   FILE_CATEGORY_VALUES,
-  FILE_PROVIDER_VALUES,
   FILE_STATUS_VALUES,
   PROJECT_STATUS_VALUES,
   REVISION_STATUS_VALUES,
@@ -25,7 +31,6 @@ import {
   type ClientPortalStage,
   type DeliverableStatus,
   type FileCategory,
-  type FileProvider,
   type FileStatus,
   type ProjectStatus,
   type RevisionStatus,
@@ -36,7 +41,6 @@ import {
 import type { IntegrationLink, IntegrationLinks, IntegrationServiceId } from "@/lib/integrations";
 import {
   PROJECT_TEMPLATES,
-  applyProjectTemplate,
   type ProjectTemplate,
 } from "@/lib/project-templates";
 import {
@@ -54,7 +58,7 @@ import {
   isValidIntegrationUrl,
   normalizeIntegrationLink
 } from "@/lib/integrations";
-import { cutlab, cutlabThemeVariables } from "./design-system";
+import { cutlab } from "./design-system";
 import { CutLabLockup } from "./cutlab-brand";
 import { emptyStateAssetFor, emptyStateAssets } from "./brand-assets";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -74,11 +78,19 @@ import {
 import { PrecisionDashboard } from "@/components/precision-dashboard";
 import { PrecisionProjects } from "@/components/precision-projects";
 import { PrecisionCalendar, PrecisionTimeline } from "@/components/precision-schedule";
+import { PrecisionFiles } from "@/components/precision-files";
 import { PrecisionClients, PrecisionFeedback, PrecisionReports } from "@/components/precision-workspaces";
 import { PrecisionMedia } from "@/components/precision-media";
+import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
+import { ProjectPortalPanel } from "@/components/project-portal-panel";
+import { SalaryPlansPanel } from "@/components/salary-plans-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
+import { ClerkPricingPlans } from "@/components/subscription-plans";
 import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
+import { buildPayoutReport } from "@/lib/payout-reporting";
+import { buildWorkspaceSearchIndex, type WorkspaceFile, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
+import { getAnalyticsConsent, setAnalyticsConsent, trackOptionalEvent, type AnalyticsConsent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import { projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -91,6 +103,26 @@ import {
   AlertDialogHeader as OwnedAlertDialogHeader,
   AlertDialogTitle as OwnedAlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const teamApi = {
+  updateWorkspaceSettings: makeFunctionReference<"mutation", {
+    teamId: string;
+    name: string;
+    currencyCode: string;
+    timeZone: string;
+    defaultWorkflowTemplateId?: string;
+    allowAllTeamProjects: boolean;
+  }, null>("team:updateWorkspaceSettings"),
+  updateMemberPermissions: makeFunctionReference<"mutation", {
+    teamId: string;
+    memberId: string;
+    permissions: Record<string, boolean>;
+  }, null>("team:updateMemberPermissions"),
+  transferOwnership: makeFunctionReference<"mutation", { teamId: string; memberId: string }, null>("team:transferOwnership"),
+};
+const workspaceDiscoveryApi = {
+  list: makeFunctionReference<"query", { includeArchived?: boolean }, { outputs: WorkspaceOutput[]; files: WorkspaceFile[] }>("workspaceDiscovery:list"),
+};
 import {
   Accordion as OwnedAccordion,
   AccordionContent as OwnedAccordionContent,
@@ -177,6 +209,13 @@ const TEAM_WORKSPACE_NAME_LIMIT = 80;
 const TEAM_CHAT_MESSAGE_LIMIT = 800;
 const TEAM_PROJECT_COMMENT_LIMIT = 1000;
 const TEAM_INVITE_CODE_PATTERN = /^[A-Z0-9]{6}$/;
+const TEAM_MEMBER_PERMISSION_LABELS = [
+  ["viewProjects", "View Projects"],
+  ["editProjects", "Edit Projects"],
+  ["reviewProjects", "Reviews"],
+  ["managePortal", "Client Portals"],
+  ["manageFinance", "Finance"],
+] as const;
 const MIN_PUBLIC_SLUG_LENGTH = 2;
 const LOCAL_PROJECT_ACTIVITY_STORAGE_KEY = "cutlab-studio:project-activity:v1";
 const headingFont = cutlab.font.heading;
@@ -191,7 +230,7 @@ const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
 const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;const successColor = `var(--app-success, ${cutlab.color.success})`;
 const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
 
-type PageKey = "dashboard" | "projects" | "clients" | "timeline" | "calendar" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "profile" | "profile-edit" | "organization-profile";
+type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "files" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "subscription" | "profile" | "profile-edit" | "organization-profile";
 type ProjectKind = string;
 type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
 type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_desc" | "earnings_asc";type TeamMember = {
@@ -200,6 +239,21 @@ type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_de
   role: StoredTeamRole;
   email: string;
 };
+type TeamWorkspaceContract = {
+  _id: string;
+  ownerUserId: string;
+  name: string;
+  inviteCode: string;
+  allowAllTeamProjects?: boolean;
+  currencyCode?: string;
+  timeZone?: string;
+  defaultWorkflowTemplateId?: string;
+};
+type ProjectWorkspaceView = "overview" | "outputs" | "review" | "files" | "activity";
+
+function projectWorkspaceView(value: string | null): ProjectWorkspaceView {
+  return value === "overview" || value === "review" || value === "files" || value === "activity" ? value : "outputs";
+}
 type WorkspaceMemberOption = {
   userId: string;
   name: string;
@@ -222,6 +276,7 @@ type SettingsState = {
   weekStart: string;
   currencyCode: string;
   customClients: string[];
+  clients: Client[];
   customProjectTemplates: SavedProjectTemplate[];
   projectTags: string[];
   salaryWorkType: string;
@@ -268,9 +323,7 @@ const profile = getProfile(DEFAULT_PROFILE_ID);
 const statusOptions: ProjectStatus[] = [...PROJECT_STATUS_VALUES];
 // Upcoming capability: keep R2 disabled until the storage release is approved.
 const R2_STORAGE_ENABLED = false;
-const externalFileProviderOptions = FILE_PROVIDER_VALUES.filter(
-  (provider): provider is Exclude<FileProvider, "convex" | "r2"> => provider !== "convex" && provider !== "r2"
-);
+const MAX_SAFE_PROJECT_FILE_BYTES = 20 * 1024 * 1024;
 
 const teamRoleOptions = [...TEAM_ROLE_VALUES];
 const currencyOptions = ["USD", "EUR", "GBP", "INR", "AED", "SAR"];
@@ -352,6 +405,7 @@ const defaultSettings: SettingsState = {
   weekStart: "Mon",
   currencyCode: "USD",
   customClients: [],
+  clients: [],
   customProjectTemplates: [],
   projectTags: [...defaultProjectTags],
   salaryWorkType: defaultSalaryWorkType,
@@ -416,9 +470,13 @@ const emptyForm = (): WorkItem => ({
 
 export function TrackerApp({
   page,
+  projectId,
+  projectView,
   experienceMode = "workspace",
 }: {
   page: PageKey;
+  projectId?: string;
+  projectView?: string;
   experienceMode?: "workspace" | "sample";
 }) {
   const {
@@ -429,28 +487,37 @@ export function TrackerApp({
     resourceLinks,
     setResourceLinks,
     salaryBatches,
+    salaryPlans,
     isAuthEnabled,
     isSignedIn,
     isAuthLoaded,
     toast,
     setToast,
-    reconcileSalaryBatches,
     updateSalaryBatchPayment,
   } = useData();
+  const workflow = useProjectWorkflow();
+  const { groups: projectGroups, saveGroup: saveProjectGroup, setGroupArchived } = useProjectGroups();
+  const router = useRouter();
+  const [activeProjectView, setActiveProjectView] = useState<ProjectWorkspaceView>(() => projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
   const { openSignIn, openSignUp } = useOptionalAuth();
   const isSample = experienceMode === "sample";
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   const shouldLoadTeamPermissions = Boolean(isSignedIn && isConvexAuthenticated);
   const teamData = useQuery(api.team.getMyWorkspace, shouldLoadTeamPermissions ? {} : "skip");
+  const workspaceDiscovery = useQuery(workspaceDiscoveryApi.list, shouldLoadTeamPermissions ? {} : "skip");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [projectStartOpen, setProjectStartOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectTemplateId, setNewProjectTemplateId] = useState("relay-default-workflow");
+  const [projectGroupsOpen, setProjectGroupsOpen] = useState(false);
+  const [projectGroupsScope, setProjectGroupsScope] = useState<"personal" | "team">("personal");
   const [projectStartScope, setProjectStartScope] = useState<"personal" | "team">("personal");
   const [editingId, setEditingId] = useState("");
-  const [detailProjectId, setDetailProjectId] = useState("");
+  const [detailProjectId, setDetailProjectId] = useState(projectId ?? "");
   const [deleteTarget, setDeleteTarget] = useState<WorkItem | null>(null);
   const [form, setForm] = useState<WorkItem>(emptyForm);
   const [formError, setFormError] = useState("");
   const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
+  const [analyticsConsentOpen, setAnalyticsConsentOpen] = useState(false);
   const [onboardingVariant, setOnboardingVariant] = useState<OnboardingVariant>("v2");
   const onboardingStartedAt = useRef(Date.now());
   const projectLauncherTriggerRef = useRef<HTMLElement | null>(null);
@@ -471,6 +538,14 @@ export function TrackerApp({
       return [];
     }
   });
+
+  useEffect(() => {
+    if (projectId) setDetailProjectId(projectId);
+  }, [projectId]);
+
+  useEffect(() => {
+    setActiveProjectView(projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
+  }, [projectId, projectView]);
 
   useEffect(() => {
     applyRootThemeVariables(settings);
@@ -507,12 +582,12 @@ export function TrackerApp({
     trackOnboardingEvent("onboarding_dialog_viewed", { variant: onboardingVariant, entrySource: "workspace_root" });
   }, [authChoiceOpen, onboardingVariant]);
 
+  useEffect(() => {
+    trackOptionalEvent("weekly_return", { mode: isSignedIn ? "account" : "local" });
+  }, [isSignedIn]);
+
   const projects = useMemo(() => items.filter((item) => (item.profileId || DEFAULT_PROFILE_ID) === profile.id), [items]);
   const personalProjects = useMemo(() => projects.filter((item) => !item.teamId), [projects]);
-
-  useEffect(() => {
-    reconcileSalaryBatches(projects);
-  }, [projects, reconcileSalaryBatches]);
 
   const activeTeamMembers = useMemo(() => teamData?.members.filter((member) => member.status === "active") ?? [], [teamData]);
   const teamDataLoading = Boolean(isSignedIn && (isConvexAuthLoading || (isConvexAuthenticated && teamData === undefined)));
@@ -522,6 +597,7 @@ export function TrackerApp({
     () => (currentTeamId ? projects.filter((project) => project.teamId === currentTeamId) : []),
     [currentTeamId, projects]
   );
+  const teamWorkspace = teamData?.workspace as TeamWorkspaceContract | undefined;
   const teamStats = useMemo(() => {
     const deliveredProjects = teamProjects.filter((project) => isDoneStatus(project.status));
     return {
@@ -537,12 +613,57 @@ export function TrackerApp({
   const canEditProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.editProjects);
   const canUpdateProjectStatus = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.updateStatus);
   const canCommentProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.commentProjects);
+  const canManagePortals = teamSyncUnavailable || teamDataLoading
+    ? false
+    : !teamData || (projectPermissions?.managePortal ?? teamData.currentMember.role === "Owner");
+  const canManageFinance = teamSyncUnavailable || teamDataLoading
+    ? false
+    : !teamData || (projectPermissions?.manageFinance ?? teamData.currentMember.role === "Owner");
   const canManageTeamProjects = Boolean(projectPermissions?.manageTeam);
+
+  useEffect(() => {
+    if (!teamWorkspace) return;
+    const next = {
+      ...settings,
+      studioName: teamWorkspace.name,
+      currencyCode: teamWorkspace.currencyCode || settings.currencyCode,
+      timeZone: teamWorkspace.timeZone || settings.timeZone,
+    };
+    if (next.studioName === settings.studioName && next.currencyCode === settings.currencyCode && next.timeZone === settings.timeZone) return;
+    setSettings((current) => ({ ...current, studioName: next.studioName, currencyCode: next.currencyCode, timeZone: next.timeZone }));
+  }, [setSettings, settings.currencyCode, settings.studioName, settings.timeZone, teamWorkspace]);
   const detailProject = useMemo(() => items.find((item) => item.id === detailProjectId) ?? null, [detailProjectId, items]);
   const projectTagOptions = useMemo(() => projectWorkTypeOptions(settings, projects), [projects, settings]);
   const filterProjectTagOptions = useMemo(() => ["ALL", ...projectTagOptions], [projectTagOptions]);
-  const clientOptions = useMemo(() => buildClientOptions(projects, settings.customClients), [projects, settings.customClients]);
+  const clientRecords = useMemo(
+    () => mergeClientRecords(settings.clients, [...settings.customClients, ...projects.flatMap((project) => project.client ? [project.client] : [])]),
+    [projects, settings.clients, settings.customClients],
+  );
+  const clientOptions = useMemo(() => clientRecords.filter((client) => !client.archived).map((client) => client.name), [clientRecords]);
   const clientFilterOptions = useMemo(() => ["ALL", ...clientOptions], [clientOptions]);
+  const workflowTemplates = useMemo(
+    () => [...PROJECT_TEMPLATES, ...settings.customProjectTemplates],
+    [settings.customProjectTemplates],
+  );
+  const workspaceSearchRecords = useMemo(() => buildWorkspaceSearchIndex({
+    clients: clientRecords,
+    groups: projectGroups,
+    projects,
+    outputs: workspaceDiscovery?.outputs ?? [],
+    files: workspaceDiscovery?.files ?? [],
+  }), [clientRecords, projectGroups, projects, workspaceDiscovery?.files, workspaceDiscovery?.outputs]);
+
+  useEffect(() => {
+    if (!teamWorkspace?.defaultWorkflowTemplateId) return;
+    if (workflowTemplates.some((template) => template.id === teamWorkspace.defaultWorkflowTemplateId)) {
+      setNewProjectTemplateId(teamWorkspace.defaultWorkflowTemplateId);
+    }
+  }, [teamWorkspace?.defaultWorkflowTemplateId, workflowTemplates]);
+
+  useEffect(() => {
+    if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords)) return;
+    setSettings((current) => ({ ...current, clients: clientRecords }));
+  }, [clientRecords, setSettings, settings.clients]);
   const isClientBillableProject = useCallback((item: WorkItem) => (
     !isSalaryWorkType(item.workType, settings) &&
     isDoneStatus(item.status) &&
@@ -577,12 +698,22 @@ export function TrackerApp({
   }, [billingFilter, clientFilter, dueFilter, isProjectPaid, isProjectUnpaid, kindFilter, projects, query, sortKey, statusFilter]);
 
   const stats = useMemo(() => {
-    const earned = personalProjects.filter((item) => isProjectPaid(item)).reduce((total, item) => total + safeMoneyValue(item.earnings), 0);
+    const moneyReport = buildPayoutReport({
+      projects: personalProjects,
+      salaryBatches,
+      salaryWorkType: settings.salaryWorkType,
+      salaryBatchAmount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      profileName: settings.profileName,
+      period: "all",
+    });
     const unpaid = personalProjects.filter((item) => isProjectUnpaid(item)).length;
     const active = personalProjects.filter((item) => !isDoneStatus(item.status)).length;
     const salaryBatchSize = normalizedSalaryBatchSize(settings.salaryBatchSize);
-    const salaryEdits = personalProjects.filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status)).length;
-    const salaryBatches = Math.floor(salaryEdits / salaryBatchSize);
+    const deliveredSalaryProjects = personalProjects.filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status));
+    const settledProjectIds = new Set(salaryBatches.flatMap((batch) => batch.projectIds ?? []));
+    const legacySettledCount = salaryBatches.filter((batch) => !batch.projectIds).length * salaryBatchSize;
+    const unsettledSalaryProjects = deliveredSalaryProjects.filter((project) => !settledProjectIds.has(project.id)).slice(legacySettledCount);
+    const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) => isDoneStatus(item.status));
     const avgTurnaroundDays = delivered.length
       ? Math.round(delivered.reduce((total, item) => total + daysBetween(item.startDate, item.dueDate), 0) / delivered.length)
@@ -591,13 +722,15 @@ export function TrackerApp({
       total: personalProjects.length,
       active,
       unpaid,
-      earned: earned + salaryBatches * normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      earned: moneyReport.earned,
+      collected: moneyReport.collected,
+      outstanding: moneyReport.outstanding,
       salaryEdits,
-      salaryBatchProgress: salaryEdits % salaryBatchSize,
+      salaryBatchProgress: unsettledSalaryProjects.length % salaryBatchSize,
       delivered: delivered.length,
       avgTurnaroundDays
     };
-  }, [isProjectPaid, isProjectUnpaid, personalProjects, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
+  }, [isProjectUnpaid, personalProjects, salaryBatches, settings.profileName, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
 
   function openNewProject(scope: "personal" | "team" = "personal") {
     if (scope === "team" && !canCreateTeamProjects) {
@@ -612,20 +745,14 @@ export function TrackerApp({
       projectLauncherTriggerRef.current = document.activeElement;
     }
     setProjectStartScope(scope);
-    setProjectStartOpen(true);
+    setNewProjectTemplateId("relay-default-workflow");
+    setNewProjectOpen(true);
   }
 
   function openBlankProject(scope: "personal" | "team" = projectStartScope) {
-    setEditingId("");
-    setForm({
-      ...emptyForm(),
-      teamId: scope === "team" ? currentTeamId : undefined,
-      assigneeUserIds: [],
-      notes: defaultProjectNotes(settings)
-    });
-    setFormError("");
-    setProjectStartOpen(false);
-    setDialogOpen(true);
+    setProjectStartScope(scope);
+    setNewProjectTemplateId("");
+    setNewProjectOpen(true);
   }
 
   function notify(message: string, tone: ToastState["tone"] = "success") {
@@ -646,6 +773,7 @@ export function TrackerApp({
       window.localStorage.setItem(AUTH_MODE_STORAGE_KEY, "local");
     }
     setAuthChoiceOpen(false);
+    if (getAnalyticsConsent() === "unknown") setAnalyticsConsentOpen(true);
     trackOnboardingEvent("workspace_mode_selected", { variant: onboardingVariant, mode: "local", elapsedMs: Date.now() - onboardingStartedAt.current });
     notify("Using local mode on this device.", "info");
   }
@@ -674,27 +802,9 @@ export function TrackerApp({
       notify("Your team role cannot create projects in this workspace.", "warning");
       return;
     }
-    const freelanceTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("freelance"))
-      ?? settings.projectTags.find((tag) => !isSalaryWorkType(tag, settings))
-      ?? settings.projectTags[0]
-      ?? "Freelance";
-    const channelTag = settings.projectTags.find((tag) => tag.toLowerCase().includes("channel"))
-      ?? freelanceTag;
-    setEditingId("");
-    setForm({
-      id: "",
-      ...applyProjectTemplate(template, {
-        profileId: profile.id,
-        startDate: iso(todayDate()),
-        dueDate: iso(addDays(todayDate(), template.durationDays)),
-        workType: template.workType === "channel" ? channelTag : freelanceTag,
-        baseNotes: defaultProjectNotes(settings),
-        teamId: scope === "team" ? currentTeamId : undefined,
-      }),
-    });
-    setFormError("");
-    setProjectStartOpen(false);
-    setDialogOpen(true);
+    setProjectStartScope(scope);
+    setNewProjectTemplateId(template.id);
+    setNewProjectOpen(true);
   }
 
   function openEditProject(item: WorkItem) {
@@ -711,7 +821,11 @@ export function TrackerApp({
 
   function openProjectDetails(item: WorkItem) {
     setDetailProjectId(item.id);
-    if (isSample) trackOnboardingEvent("sample_project_opened", { variant: "v2", entrySource: "sample_dashboard" });
+    if (isSample) {
+      trackOnboardingEvent("sample_project_opened", { variant: "v2", entrySource: "sample_dashboard" });
+      return;
+    }
+    router.push(`/projects/${encodeURIComponent(item.id)}`);
   }
 
   function canDeleteProject(project: WorkItem | null) {
@@ -729,12 +843,20 @@ export function TrackerApp({
     if (target) setDeleteTarget(target);
   }
 
-  function updateProjectStatus(project: WorkItem, status: ProjectStatus) {
-    if (project.teamId && !canUpdateProjectStatus && !canEditProjects) {
-      notify("Your team role cannot update project status.", "warning");
-      return;
-    }
-    setItems((current) => current.map((item) => (item.id === project.id ? { ...item, status } : item)));
+  const { archiveProject, updateProjectStatus } = useProjectController({
+    setProjects: setItems,
+    canEditTeamProjects: canEditProjects,
+    canUpdateTeamStatus: canUpdateProjectStatus,
+    salaryWorkType: settings.salaryWorkType,
+    currencyCode: settings.currencyCode,
+    workflow,
+    confirmDelivery: (message) => window.confirm(message),
+    notify,
+    onStatusChanged: (project, previousStatus) => {
+      const status = project.status;
+      if (isDoneStatus(status) && !isDoneStatus(previousStatus)) {
+        trackOptionalEvent("project_delivered", { mode: isSignedIn ? "account" : "local" });
+      }
     setDashboardActivity((current) => {
       const activity: DashboardActivity = {
         id: createId(),
@@ -748,10 +870,41 @@ export function TrackerApp({
     logLocalProjectActivity({
       projectId: project.id,
       kind: "status_changed",
-      message: `${project.title} status changed from ${project.status} to ${status}.`
+        message: `${project.title} status changed from ${previousStatus} to ${status}.`
     });
-    notify(`${project.title} status updated.`);
-  }
+    },
+  });
+
+  const createProject = useProjectCreationController({
+    clients: clientRecords,
+    projectGroups,
+    workflowTemplates,
+    salaryPlans,
+    projectTags: settings.projectTags,
+    salaryWorkType: settings.salaryWorkType,
+    profileId: profile.id,
+    baseNotes: defaultProjectNotes(settings),
+    scope: projectStartScope,
+    teamId: currentTeamId,
+    ownerUserId: teamData?.currentMember.userId,
+    setProjects: setItems,
+    notify,
+    onCreated: (project) => {
+      const activity: DashboardActivity = {
+        id: createId(),
+        kind: "created",
+        message: `${project.title} was created`,
+        projectId: project.id,
+        createdAt: project.createdAt,
+      };
+      setDashboardActivity((current) => [activity, ...current].slice(0, 20));
+      logLocalProjectActivity({ projectId: project.id, kind: "project_created", message: `${project.title} was created.`, createdAt: project.createdAt });
+      trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+      setNewProjectOpen(false);
+      notify("Project created.");
+      router.push(`/projects/${encodeURIComponent(project.id)}`);
+    },
+  });
 
   function updateProjectChecklist(project: WorkItem, itemKey: string, completed: boolean) {
     if (project.teamId && !canEditProjects) {
@@ -771,8 +924,8 @@ export function TrackerApp({
   }
 
   function updateProjectPayment(project: WorkItem, paid: boolean) {
-    if (project.teamId && !canEditProjects) {
-      notify("Your team role cannot edit team project payment status.", "warning");
+    if (project.teamId && !canManageFinance) {
+      notify("Your team role cannot manage project payments.", "warning");
       return;
     }
     if (!isClientBillableProject(project)) {
@@ -800,6 +953,8 @@ export function TrackerApp({
 
   function saveProject() {
     const canonicalClient = canonicalClientName(form.client || "", clientOptions);
+    const clientRecord = clientRecords.find((client) => client.name.toLowerCase() === canonicalClient.toLowerCase())
+      ?? mergeClientRecords([], [canonicalClient])[0];
     const normalizedWorkType = canonicalWorkType(form.workType, projectTagOptions);
     const normalizedForm = { ...form, client: canonicalClient, workType: normalizedWorkType, integrationLinks: normalizeProjectIntegrationLinks(form.integrationLinks) };
     const typeConfig = getTypeConfig(normalizedForm.workType, settings);
@@ -818,6 +973,7 @@ export function TrackerApp({
       createdAt: form.createdAt || new Date().toISOString(),
       profileId: profile.id,
       client: normalizedForm.client?.trim() || "",
+      clientId: clientRecord?.id,
       notes: normalizedForm.notes.trim(),
       earnings: typeConfig.earningsMode === "batch" ? 0 : safeMoneyValue(normalizedForm.earnings),
       paid: typeConfig.earningsMode === "batch" ? false : Boolean(normalizedForm.paid),
@@ -825,6 +981,9 @@ export function TrackerApp({
       checklistCompleted: normalizeChecklistCompleted(normalizedForm.checklistItems, normalizedForm.checklistCompleted),
       integrationLinks: normalizedForm.integrationLinks
     };
+    if (clientRecord && !settings.clients.some((client) => client.id === clientRecord.id)) {
+      setSettings((current) => ({ ...current, customClients: [...current.customClients, clientRecord.name], clients: [...current.clients, clientRecord] }));
+    }
     setItems((current) => (editingId ? current.map((item) => (item.id === editingId ? payload : item)) : [payload, ...current]));
     if (!editingId) {
       trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
@@ -849,20 +1008,59 @@ export function TrackerApp({
     setEditingId("");
     setForm(emptyForm());
     notify(editingId ? "Project updated." : "Project created.");
+    if (!editingId) router.push(`/projects/${encodeURIComponent(payload.id)}`);
   }
 
-  function handleAddClient(clientName: string) {
-    const canonical = canonicalClientName(clientName, clientOptions, false);
-    if (!canonical) return;
+  function handleAddClient(client: Omit<Client, "id" | "archived">): Client | null {
+    const canonical = canonicalClientName(client.name, clientOptions, false);
+    if (!canonical) return null;
+    const existing = clientRecords.find((record) => record.name.toLowerCase() === canonical.toLowerCase());
+    if (existing) return existing;
+    const record = { ...mergeClientRecords([], [canonical])[0], ...client, name: canonical };
     setSettings((current) => {
-      const existing = findExistingClientName(canonical, [...current.customClients, ...buildClientOptions(projects)]);
-      if (existing) return current;
-      return { ...current, customClients: [...current.customClients, canonical] };
+      if (current.clients.some((item) => item.id === record.id)) return current;
+      return {
+        ...current,
+        customClients: [...current.customClients, canonical],
+        clients: [...current.clients, record],
+      };
     });
     notify(`Client "${canonical}" added.`);
+    return record;
   }
 
-  const pageContent = page === "dashboard" && personalProjects.length === 0 && !isSample ? (
+  function handleUpdateClient(client: Client) {
+    setSettings((current) => ({ ...current, clients: current.clients.map((record) => record.id === client.id ? client : record) }));
+    setItems((current) => current.map((project) => project.clientId === client.id ? { ...project, client: client.name } : project));
+    notify(client.archived ? `Client "${client.name}" archived.` : `Client "${client.name}" updated.`);
+  }
+
+  const pageContent = page === "project" ? (
+    detailProject ? <ProjectWorkspace
+      project={detailProject}
+      projectGroup={projectGroups.find((group) => group.id === detailProject.projectGroupId)}
+      settings={settings}
+      view={activeProjectView}
+      canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
+      canManagePayment={!isSample && (canManageFinance || !detailProject.teamId)}
+      canManagePortal={!isSample && (canManagePortals || !detailProject.teamId)}
+      canDelete={canDeleteProject(detailProject)}
+      canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)}
+      canComment={!isSample && canCommentProjects}
+      teamMembers={activeTeamMembers}
+      localActivity={localProjectActivity.filter((event) => event.projectId === detailProject.id)}
+      onBack={() => router.push("/projects")}
+      onViewChange={(view) => {
+        setActiveProjectView(view);
+        window.localStorage.setItem("relay:last-project-workspace-view", view);
+        router.replace(`/projects/${encodeURIComponent(detailProject.id)}?view=${view}`);
+      }}
+      onEdit={openEditProject}
+      onDelete={(project) => requestDeleteProject(project.id)}
+      onStatusChange={updateProjectStatus}
+      onPaymentChange={updateProjectPayment}
+    /> : <PageEmptyState icon={<FolderKanban />} title="Project not found" description="This Project does not exist or you cannot access it." />
+  ) : page === "dashboard" && personalProjects.length === 0 && !isSample ? (
     <FirstRunChecklist mode={isSignedIn ? "account" : "local"} onCreateProject={() => openNewProject("personal")} />
   ) : page === "dashboard" ? (
       <PrecisionDashboard
@@ -909,21 +1107,39 @@ export function TrackerApp({
       personalProjects={personalProjects}
       teamProjects={teamProjects}
       teamName={teamData?.workspace?.name}
+      currentUserId={teamData?.currentMember.userId ?? ""}
+      currentUserRole={teamData?.currentMember.role}
+      teamMembers={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
+      allowAllTeamProjects={teamData?.workspace.allowAllTeamProjects ?? false}
+      loading={!isAuthLoaded}
+      error={teamSyncUnavailable ? "Team Projects are unavailable until cloud authentication reconnects." : undefined}
       onNewProject={openNewProject}
       onViewProject={openProjectDetails}
       onEditProject={openEditProject}
       onDeleteProject={requestDeleteProject}
+      onArchiveProject={archiveProject}
+      onUpdateProjectStatus={updateProjectStatus}
       canCreateProjects={canCreateProjects}
       canCreateTeamProjects={canCreateTeamProjects}
       canEditProjects={canEditProjects}
+      canUpdateProjectStatus={canUpdateProjectStatus || canEditProjects}
       canDeleteProject={canDeleteProject}
+      onManageProjectGroups={(scope) => {
+        setProjectGroupsScope(scope);
+        setProjectGroupsOpen(true);
+      }}
     />
   ) : page === "clients" ? (
-    <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onViewProject={openProjectDetails} />
+    <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onViewProject={openProjectDetails} />
   ) : page === "timeline" ? (
     <PrecisionTimeline projects={personalProjects} onViewProject={openProjectDetails} />
   ) : page === "calendar" ? (
-    <PrecisionCalendar projects={personalProjects} settings={settings} onViewProject={openProjectDetails} />
+    <PrecisionCalendar projects={personalProjects} outputs={workspaceDiscovery?.outputs ?? []} settings={settings} onViewProject={openProjectDetails} />
+  ) : page === "files" ? (
+    <PrecisionFiles files={workspaceDiscovery?.files ?? []} projectTitles={Object.fromEntries(projects.map((project) => [project.id, project.title]))} loading={Boolean(isSignedIn && workspaceDiscovery === undefined)} onOpenProject={(projectId) => {
+      const project = projects.find((item) => item.id === projectId);
+      if (project) openProjectDetails(project);
+    }} />
   ) : page === "media" ? (
     <PrecisionMedia projects={personalProjects} onViewProject={openProjectDetails} />
   ) : page === "resources" ? (
@@ -934,16 +1150,21 @@ export function TrackerApp({
     <TemplatesDesignPage
       onUseBlank={() => openBlankProject("personal")}
       onUseTemplate={(template) => openTemplateProject(template, "personal")}
+      canManageTemplates={!teamData || canManageTeamProjects}
     />
   ) : page === "reports" ? (
-    <PrecisionReports
-      projects={projects}
-      salaryBatches={salaryBatches}
-      settings={settings}
-      editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
-      currentUserId={teamData?.currentMember.userId}
-      onUpdateBatchPayment={updateSalaryBatchPayment}
-    />
+    <div className="grid gap-4">
+      <PrecisionReports
+        projects={projects}
+        salaryBatches={salaryBatches}
+        settings={settings}
+        editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
+        currentUserId={teamData?.currentMember.userId}
+        canManageFinance={canManageFinance}
+        onUpdateBatchPayment={updateSalaryBatchPayment}
+      />
+      {!teamData || teamData.currentMember.role === "Owner" ? <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner /> : null}
+    </div>
   ) : page === "integrations" ? (
     <IntegrationsDesignPage projects={personalProjects} settings={settings} setSettings={setSettings} notify={notify} onEditProject={openEditProject} />
   ) : page === "team" ? (
@@ -951,9 +1172,11 @@ export function TrackerApp({
   ) : page === "team-chat" ? (
     <TeamChatPage />
   ) : page === "settings" ? (
-    <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} />
+    <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} teamWorkspace={teamWorkspace} canManageWorkspace={Boolean(teamData?.currentMember.role === "Owner")} />
   ) : page === "account" ? (
     <AccountSettingsPage />
+  ) : page === "subscription" ? (
+    <SubscriptionPage />
   ) : page === "profile" ? (
     <ProfileDesignPage projects={personalProjects} stats={stats} settings={settings} />
   ) : page === "profile-edit" ? (
@@ -964,13 +1187,29 @@ export function TrackerApp({
 
   const projectDialog = (
     <>
-      <ProjectStartDialog
-        open={projectStartOpen}
-        scope={projectStartScope}
-        returnFocusRef={projectLauncherTriggerRef}
-        onClose={() => setProjectStartOpen(false)}
-        onBlank={() => openBlankProject(projectStartScope)}
-        onTemplate={(template) => openTemplateProject(template, projectStartScope)}
+      <NewProjectDialog
+        open={newProjectOpen}
+        clients={clientRecords}
+        projectGroups={projectGroups.filter((group) => group.teamId === (projectStartScope === "team" ? currentTeamId : undefined))}
+        workflowTemplates={workflowTemplates}
+        initialTemplateId={newProjectTemplateId}
+        salaryPlanLabel={`${settings.salaryWorkType} Plan`}
+        salaryPlans={isSignedIn ? (projectStartScope === "team" ? [] : salaryPlans) : undefined}
+        currencyCode={settings.currencyCode}
+        onCreateClient={(client) => handleAddClient({ ...client, contactName: "", phone: "", notes: "" })}
+        onClose={() => setNewProjectOpen(false)}
+        onCreate={createProject}
+      />
+      <ProjectGroupsDialog
+        open={projectGroupsOpen}
+        teamId={projectGroupsScope === "team" ? currentTeamId : undefined}
+        clients={clientRecords}
+        groups={projectGroups}
+        projects={projectGroupsScope === "team" ? teamProjects : personalProjects}
+        currency={settings.currencyCode}
+        onClose={() => setProjectGroupsOpen(false)}
+        onSave={saveProjectGroup}
+        onArchive={setGroupArchived}
       />
       <ProjectDialog
         open={dialogOpen}
@@ -998,17 +1237,21 @@ export function TrackerApp({
       onConfirm={confirmDeleteProject}
     />
   );
-  const detailDialog = (
+  const detailDialog = page === "project" ? null : (
     <ProjectDetailDialog
       project={detailProject}
       settings={settings}
       canEdit={!isSample && (canEditProjects || !detailProject?.teamId)}
+      canManagePayment={!isSample && (canManageFinance || !detailProject?.teamId)}
+      canManagePortal={!isSample && (canManagePortals || !detailProject?.teamId)}
       canDelete={canDeleteProject(detailProject)}
       canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject?.teamId)}
       canComment={!isSample && canCommentProjects}
       teamMembers={activeTeamMembers}
       localActivity={localProjectActivity.filter((event) => event.projectId === detailProject?.id)}
-      onClose={() => setDetailProjectId("")}
+      onClose={() => {
+        setDetailProjectId("");
+      }}
       onEdit={(project) => openEditProject(project)}
       onDelete={(project) => {
         setDetailProjectId("");
@@ -1043,6 +1286,7 @@ export function TrackerApp({
           onCreateAccount={() => launchAccountFlow("sign-up")}
           onSignIn={() => launchAccountFlow("sign-in")}
         />
+        <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
       </div>
     );
   }
@@ -1050,11 +1294,13 @@ export function TrackerApp({
   return (
     <>
       <WorkspaceShell
-        page={page}
+        page={page === "project" ? "projects" : page}
         settings={settings}
         onNewProject={() => openNewProject("personal")}
         canCreateProject={canCreateProjects}
         starterNavigation={!isSample && personalProjects.length === 0}
+        showTeamNavigation={activeTeamMembers.length > 1 || Boolean(teamData?.members.some((member) => member.status === "invited")) || settings.teamMembers.length > 0}
+        searchRecords={workspaceSearchRecords}
         notificationSlot={<NotificationBell settings={settings} />}
       >
         {isSample ? <SampleModeBar /> : null}
@@ -1081,6 +1327,7 @@ export function TrackerApp({
         onCreateAccount={() => launchAccountFlow("sign-up")}
         onSignIn={() => launchAccountFlow("sign-in")}
       />
+      <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
     </>
   );
 }
@@ -1094,7 +1341,7 @@ function AccountSettingsPage() {
       <PageHeader
         eyebrow="Workspace / Account"
         title="Account Settings"
-        description="Manage your private login details separately from your public Frame Desk profile."
+        description="Manage your private login details separately from your public Relay profile."
         actions={
           <PageToolbar
             primary={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
@@ -1110,11 +1357,6 @@ function AccountSettingsPage() {
         }
       />
       <PageContent data-family-region="account-administration" className="space-y-5">
-        <MetricStrip columns={2}>
-          <MetricItem label="Private account" value={isLoaded ? (isSignedIn ? "Connected" : "Local") : "Loading"} supporting="Login, security, and provider controls" />
-          <MetricItem label="Public profile" value={isSignedIn ? "Ready" : "Locked"} supporting="The profile clients and collaborators can see" />
-        </MetricStrip>
-
         <ContentSection title="Private account" description="Authentication and account controls stay inside this signed-in area." bodyMode="flush" className="scroll-mt-6">
           {!isLoaded ? (
             <div role="status" className="grid min-h-[220px] place-items-center p-6">
@@ -1142,8 +1384,20 @@ function AccountSettingsPage() {
             </div>
           ) : (
             <div className="max-h-[min(720px,calc(100dvh-13rem))] overflow-y-auto p-2.5 overscroll-contain md:p-3.5">
-              <div className="[&_.cl-card]:shadow-none [&_.cl-cardBox]:w-full [&_.cl-cardBox]:rounded-lg [&_.cl-cardBox]:border [&_.cl-cardBox]:border-[var(--app-border)] [&_.cl-cardBox]:bg-[var(--app-soft-panel)] [&_.cl-cardBox]:shadow-none [&_.cl-navbar]:border-[var(--app-border)] [&_.cl-pageScrollBox]:py-1 [&_.cl-rootBox]:w-full">
-                <UserProfile routing="hash" />
+              <div>
+                <UserProfile
+                  routing="hash"
+                  appearance={{
+                    variables: { borderRadius: "6px" },
+                    elements: {
+                      rootBox: "w-full",
+                      cardBox: "w-full max-w-none rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] shadow-none",
+                      card: "shadow-none",
+                      navbar: "border-[var(--app-border)]",
+                      pageScrollBox: "py-1",
+                    },
+                  }}
+                />
               </div>
             </div>
           )}
@@ -1247,7 +1501,6 @@ function AppLoadingStatus() {
 
 function WelcomeChoiceDialog({
   open,
-  variant,
   onChooseLocal,
   onCreateAccount,
   onSignIn
@@ -1258,86 +1511,53 @@ function WelcomeChoiceDialog({
   onCreateAccount: () => void;
   onSignIn: () => void;
 }) {
-  if (variant === "control") {
-    return (
-      <OwnedDialog open={open} onOpenChange={() => {}}>
-        <OwnedDialogContent
-          showCloseButton={false}
-          className="border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-ink)] sm:max-w-lg"
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => event.preventDefault()}
-        >
-          <OwnedDialogHeader>
-            <OwnedDialogTitle className="text-[28px] leading-tight">Choose how to start</OwnedDialogTitle>
-            <OwnedDialogDescription>
-              Use Frame Desk locally on this device, or create an account to sync supported workspace data.
-            </OwnedDialogDescription>
-          </OwnedDialogHeader>
-          <div className="grid gap-2">
-            <OwnedButton type="button" variant="outline" onClick={onChooseLocal}>Use locally</OwnedButton>
-            <OwnedButton type="button" onClick={onCreateAccount}>Create account</OwnedButton>
-            <OwnedButton type="button" variant="ghost" onClick={onSignIn} className="text-muted-foreground">Sign in</OwnedButton>
-          </div>
-        </OwnedDialogContent>
-      </OwnedDialog>
-    );
-  }
-
   return (
     <OwnedDialog open={open} onOpenChange={() => {}}>
       <OwnedDialogContent
         showCloseButton={false}
         data-testid="welcome-choice-dialog"
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--app-border)] bg-[var(--app-panel)] p-5 text-[var(--app-ink)] sm:p-6 lg:aspect-video lg:max-w-[960px] lg:grid-rows-[auto_1fr] lg:overflow-hidden"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--app-border)] bg-[var(--app-panel)] p-5 text-[var(--app-ink)] sm:max-w-[880px] sm:p-6"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">See how a real project moves through Frame Desk</OwnedDialogTitle>
+          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">Choose how to use Relay</OwnedDialogTitle>
           <OwnedDialogDescription>
-            Explore a populated production workflow first. Choose where your own workspace lives only when you are ready.
+            Keep work on this device, sync an account, or explore a read-only sample.
           </OwnedDialogDescription>
         </OwnedDialogHeader>
-        <div className="grid min-h-0 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="flex min-h-0 flex-col justify-between rounded-lg border bg-card p-5 text-card-foreground">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-highlight)]">Guided preview</p>
-              <h3 className="mt-2 text-xl font-semibold">Experience the workflow</h3>
-              <p className="mt-2 max-w-[48ch] text-sm leading-relaxed text-muted-foreground">Open a read-only studio with an active deadline, a client review, recent activity, and a paid delivery. No account required.</p>
-            </div>
-            <OwnedButton asChild variant="outline" className="mt-5 min-h-12 w-full">
-              <Link href="/sample-studio">Explore a sample studio</Link>
-            </OwnedButton>
+        <div className="grid gap-3 md:grid-cols-3">
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Local Mode</p>
+            <h3 className="mt-2 text-lg font-semibold">Work on this device</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Fast solo workspace with no account.</p>
+            <p className="mt-4 text-xs leading-relaxed text-[var(--app-warning)]">Stored in this browser. Clearing site data can remove your work.</p>
+            <OwnedButton type="button" onClick={onChooseLocal} className="mt-4 w-full">Use Local Mode</OwnedButton>
           </section>
 
-          <div className="grid min-h-0 content-start gap-4">
-            <section className="rounded-lg border border-[var(--app-accent)] bg-card p-5 text-card-foreground shadow-[0_0_0_1px_color-mix(in_srgb,var(--app-accent)_18%,transparent)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--app-highlight)]">Your workspace</p>
-              <h3 className="mt-2 text-xl font-semibold">Pick up where you left off</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Sign in to sync your projects, settings, resources, and team workspace.</p>
-              <OwnedButton type="button" size="lg" onClick={onSignIn} className="mt-4 min-h-12 w-full shadow-[0_10px_28px_color-mix(in_srgb,var(--app-accent)_28%,transparent)]">Sign in</OwnedButton>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <OwnedButton type="button" variant="outline" onClick={onCreateAccount}>Create account</OwnedButton>
-                <OwnedButton type="button" variant="ghost" onClick={onChooseLocal}>Try on this device</OwnedButton>
-              </div>
-            </section>
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
+            <h3 className="mt-2 text-lg font-semibold">Sync your workspace</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Create an account for supported cloud and Team features.</p>
+            <OwnedButton type="button" variant="outline" onClick={onCreateAccount} className="mt-4 w-full">Create account</OwnedButton>
+          </section>
 
-            <OwnedAccordion type="multiple" className="grid gap-2">
-              <OwnedAccordionItem value="before-you-start" className="rounded-md border px-3">
-                <OwnedAccordionTrigger className="py-3 text-[13px] font-semibold hover:no-underline">Before you start</OwnedAccordionTrigger>
-                <OwnedAccordionContent className="text-[13px] leading-relaxed text-muted-foreground">
-                Local mode saves projects and settings in this browser, so clearing site data can remove them. Account mode syncs supported project, settings, resource, and salary-batch records. If sync fails, local records are only removed after confirmed uploads. Integrations currently save links and configuration; they are not automatic file sync. Read the <Link href="/privacy" style={{ color: accent }}>Privacy Policy</Link> and <Link href="/terms" style={{ color: accent }}>Terms</Link>.
-                </OwnedAccordionContent>
-              </OwnedAccordionItem>
-              <OwnedAccordionItem value="how-teams-work" className="rounded-md border px-3">
-                <OwnedAccordionTrigger className="py-3 text-[13px] font-semibold hover:no-underline">How teams work</OwnedAccordionTrigger>
-                <OwnedAccordionContent className="text-[13px] leading-relaxed text-muted-foreground">
-                Signed-in editors and producers can share team projects according to their current role permissions. Editors can publish private review links for clients. Connected-service settings are manual links and configuration, not OAuth or automatic transfers.
-                </OwnedAccordionContent>
-              </OwnedAccordionItem>
-            </OwnedAccordion>
-          </div>
+          <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Sample Workspace</p>
+            <h3 className="mt-2 text-lg font-semibold">Explore a real workflow</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Open realistic read-only projects, reviews, activity, and delivery data.</p>
+            <OwnedButton asChild variant="outline" className="mt-4 w-full">
+              <Link href="/sample-studio">Open Sample Workspace</Link>
+            </OwnedButton>
+          </section>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground">
+          <p>Already have an account?</p>
+          <OwnedButton type="button" variant="ghost" onClick={onSignIn}>Sign in</OwnedButton>
+        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Account sync covers supported workspace records. Integrations store links and settings only. Read the <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link> and <Link href="/terms" className="underline underline-offset-2">Terms</Link>.
+        </p>
       </OwnedDialogContent>
     </OwnedDialog>
   );
@@ -1677,7 +1897,7 @@ const emptyTemplateForm: TemplateFormState = {
   projectType: "",
   workType: "freelance",
   durationDays: 7,
-  workflowStagesText: "Brief\nEdit\nReview\nDelivery",
+  workflowStagesText: "Planned\nEditing\nClient Review\nRevisions\nApproved\nDelivered",
   deliverablesText: "Final master",
   checklistText: "Confirm brief\nCheck export settings",
 };
@@ -1690,7 +1910,7 @@ function templateToForm(template: ProjectTemplate): TemplateFormState {
     projectType: template.projectType,
     workType: template.workType,
     durationDays: template.durationDays,
-    workflowStagesText: template.workflowStages.join("\n"),
+    workflowStagesText: template.workflowStages.map((stage) => stage.label).join("\n"),
     deliverablesText: template.deliverables.map((item) => item.title).join("\n"),
     checklistText: template.checklistItems.join("\n"),
   };
@@ -1700,7 +1920,7 @@ function linesFromText(value: string, limit: number) {
   return value.split(/\r?\n|,/).map((line) => line.trim()).filter(Boolean).slice(0, limit);
 }
 
-function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
+function customTemplateFromForm(form: TemplateFormState, existing?: SavedProjectTemplate): SavedProjectTemplate {
   const name = form.name.trim().slice(0, 80) || "Custom template";
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "template";
   const id = form.id || `custom-${slug}-${Date.now().toString(36)}`;
@@ -1712,7 +1932,7 @@ function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
     projectType: form.projectType.trim().slice(0, 80) || "Custom project",
     workType: form.workType,
     durationDays: Math.max(1, Math.min(120, Math.floor(Number(form.durationDays) || 7))),
-    workflowStages: linesFromText(form.workflowStagesText, 12),
+    workflowStages: workflowStagesFromLabels(linesFromText(form.workflowStagesText, 12), existing?.workflowStages),
     deliverables: (deliverableTitles.length ? deliverableTitles : ["Final master"]).map((title) => ({
       title: title.slice(0, 120),
       category: "Deliverable" as FileCategory,
@@ -1727,17 +1947,21 @@ function customTemplateFromForm(form: TemplateFormState): SavedProjectTemplate {
 function TemplatesDesignPage({
   onUseBlank,
   onUseTemplate,
+  canManageTemplates,
 }: {
   onUseBlank: () => void;
   onUseTemplate: (template: ProjectTemplate) => void;
+  canManageTemplates: boolean;
 }) {
-  const { settings, setSettings } = useData();
+  const { items, settings, setSettings } = useData();
   const [templateForm, setTemplateForm] = useState<TemplateFormState>(emptyTemplateForm);
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [templateError, setTemplateError] = useState("");
   const customTemplates = settings.customProjectTemplates ?? [];
   const templates = useMemo(() => [...PROJECT_TEMPLATES, ...customTemplates], [customTemplates]);
 
   function openBuilder(template?: ProjectTemplate) {
+    setTemplateError("");
     setTemplateForm(template ? templateToForm(template) : { ...emptyTemplateForm, id: "" });
     setBuilderOpen(true);
   }
@@ -1745,8 +1969,24 @@ function TemplatesDesignPage({
   function saveTemplate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!templateForm.name.trim()) return;
+    const previousTemplate = customTemplates.find((template) => template.id === templateForm.id);
+    const nextStages = workflowStagesFromLabels(linesFromText(templateForm.workflowStagesText, 12), previousTemplate?.workflowStages);
+    const stageError = validateWorkflowStages(nextStages);
+    if (stageError) {
+      setTemplateError(stageError);
+      return;
+    }
 
-    const nextTemplate = customTemplateFromForm(templateForm);
+    const nextTemplate = customTemplateFromForm(templateForm, previousTemplate);
+    nextTemplate.archived = previousTemplate?.archived ?? false;
+    if (previousTemplate && items.some((item) => item.templateId === previousTemplate.id)) {
+      const nextStageIds = new Set(nextTemplate.workflowStages.map((stage) => stage.id));
+      const removedStage = previousTemplate.workflowStages.find((stage) => !nextStageIds.has(stage.id));
+      if (removedStage) {
+        setTemplateError(`Reassign Projects before removing the ${removedStage.label} stage.`);
+        return;
+      }
+    }
     setSettings((current) => {
       const currentTemplates = current.customProjectTemplates ?? [];
       const exists = currentTemplates.some((template) => template.id === nextTemplate.id);
@@ -1761,10 +2001,23 @@ function TemplatesDesignPage({
   }
 
   function deleteTemplate(templateId: string) {
+    if (items.some((item) => item.templateId === templateId)) {
+      setTemplateError("This template is in use. Reassign its Projects before deleting it.");
+      return;
+    }
     setSettings((current) => ({
       ...current,
       customProjectTemplates: (current.customProjectTemplates ?? []).filter((template) => template.id !== templateId),
     }));
+  }
+
+  function copyTemplate(template: ProjectTemplate) {
+    const copy = { ...template, id: `custom-copy-${Date.now().toString(36)}`, name: `${template.name} Copy`, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems], custom: true, updatedAt: new Date().toISOString() };
+    setSettings((current) => ({ ...current, customProjectTemplates: [copy, ...current.customProjectTemplates].slice(0, 24) }));
+  }
+
+  function archiveTemplate(template: SavedProjectTemplate) {
+    setSettings((current) => ({ ...current, customProjectTemplates: current.customProjectTemplates.map((item) => item.id === template.id ? { ...item, archived: !item.archived } : item) }));
   }
 
   return (
@@ -1775,7 +2028,7 @@ function TemplatesDesignPage({
         description="Start with a practical editing workflow, or save your own recurring setup for the next project."
         actions={
         <div className="flex flex-wrap justify-end gap-2">
-          <OwnedButton type="button" variant="outline" onClick={() => openBuilder()}>
+          <OwnedButton type="button" variant="outline" onClick={() => openBuilder()} disabled={!canManageTemplates}>
             <Plus aria-hidden="true" />
             Custom Template
           </OwnedButton>
@@ -1787,6 +2040,7 @@ function TemplatesDesignPage({
       }
       />
       <PageContent className="space-y-5">
+      {templateError && !builderOpen ? <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{templateError}</p> : null}
       <ContentSection
         title="Template library"
         metadata={<OwnedBadge variant="secondary">{templates.length} templates</OwnedBadge>}
@@ -1805,7 +2059,7 @@ function TemplatesDesignPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base font-semibold">{template.name}</h2>
                     <OwnedBadge variant="secondary" className="rounded-md text-[10px] uppercase tracking-wide">
-                      {template.custom ? "Custom" : "Built-in"}
+                      {template.archived ? "Archived" : template.custom ? "Custom" : "Built-in"}
                     </OwnedBadge>
                   </div>
                   <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">{template.description}</p>
@@ -1832,9 +2086,9 @@ function TemplatesDesignPage({
                   <span className="font-mono text-[10px] text-[var(--app-muted)]">{template.workflowStages.length} stages</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label={`${template.name} workflow stages`} role="list">
-                  {(template.workflowStages.length ? template.workflowStages : ["Add stages after creating the project"]).slice(0, 4).map((stage, index) => (
-                    <span key={`${template.id}-${stage}-${index}`} className="inline-flex items-center gap-1.5">
-                      <span role="listitem" className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground">{stage}</span>
+                  {(template.workflowStages.length ? template.workflowStages : [{ id: "empty", label: "Add stages after creating the project", purpose: "planned" as const }]).slice(0, 4).map((stage, index) => (
+                    <span key={`${template.id}-${stage.id}-${index}`} className="inline-flex items-center gap-1.5">
+                      <span role="listitem" className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground">{stage.label}</span>
                       {index < Math.min(template.workflowStages.length, 4) - 1 ? <span aria-hidden="true" className="text-[var(--app-muted)]">→</span> : null}
                     </span>
                   ))}
@@ -1852,11 +2106,16 @@ function TemplatesDesignPage({
                 variant="link"
                 className="h-auto p-0"
                 onClick={() => onUseTemplate(template)}
+                disabled={template.archived}
               >
                   Use template
                 <Plus aria-hidden="true" />
               </OwnedButton>
-              {template.custom ? (
+              <OwnedButton type="button" size="sm" variant="ghost" aria-label={`Copy ${template.name} template`} onClick={() => copyTemplate(template)} disabled={!canManageTemplates}>
+                <Copy aria-hidden="true" />
+                Copy
+              </OwnedButton>
+              {template.custom && canManageTemplates ? (
                 <div className="flex items-center gap-1">
                   <OwnedButton
                     type="button"
@@ -1868,6 +2127,7 @@ function TemplatesDesignPage({
                     <Pencil aria-hidden="true" />
                     Edit
                   </OwnedButton>
+                  <OwnedButton type="button" size="sm" variant="ghost" onClick={() => archiveTemplate(template)}>{template.archived ? "Restore" : "Archive"}</OwnedButton>
                   <OwnedButton
                     type="button"
                     size="sm"
@@ -1974,6 +2234,7 @@ function TemplatesDesignPage({
               </FieldLayout>
             </div>
 
+            {templateError ? <p role="alert" className="text-sm text-destructive">{templateError}</p> : null}
             <OwnedDialogFooter>
               <OwnedButton type="button" variant="outline" onClick={() => setBuilderOpen(false)}>
                 Cancel
@@ -1997,13 +2258,15 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const joinWorkspace = useMutation(api.team.joinWorkspace);
   const inviteMember = useMutation(api.team.inviteMember);
   const updateMemberRole = useMutation(api.team.updateMemberRole);
+  const updateMemberPermissions = useMutation(teamApi.updateMemberPermissions);
+  const transferOwnership = useMutation(teamApi.transferOwnership);
   const normalizeLegacyRoles = useMutation(api.team.normalizeLegacyRoles);
   const removeMember = useMutation(api.team.removeMember);
   const leaveWorkspace = useMutation(api.team.leaveWorkspace);
   const addProjectComment = useMutation(api.team.addProjectComment);
   const markNotificationRead = useMutation(api.team.markNotificationRead);
   const markAllNotificationsRead = useMutation(api.team.markAllNotificationsRead);
-  const [workspaceName, setWorkspaceName] = useState(settings.studioName || "Frame Desk Team");
+  const [workspaceName, setWorkspaceName] = useState(settings.studioName || "Relay Team");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "Editor" });
   const [commentBody, setCommentBody] = useState("");
@@ -2029,6 +2292,10 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const canLeaveWorkspace = Boolean(teamData && teamData.currentMember.role !== "Owner");
   const inviteCodeIsValid = TEAM_INVITE_CODE_PATTERN.test(inviteCode.trim());
   const inviteEmailIsValid = isValidEmail(inviteForm.email);
+
+  function displayTeamRole(role: string) {
+    return role === "Reviewer" ? "Viewer" : role;
+  }
 
   useEffect(() => {
     if (!teamProjects.length) {
@@ -2167,7 +2434,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
               assetKey="team"
             />
           </ContentSection>
-          <ContentSection title="Create a workspace" description="Owners can invite up to four more members. Projects, comments, notifications, activity, and chat sync through Convex.">
+          <ContentSection title="Create a workspace" description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex.">
             <FieldLayout className="mt-5" label="Workspace name" description={`${workspaceName.length}/${TEAM_WORKSPACE_NAME_LIMIT} characters`}>
               <OwnedInput
                 value={workspaceName}
@@ -2211,7 +2478,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
               ) : "Invite code is visible to team owners only."}
               actions={(
                 <div className="flex flex-wrap items-center gap-2">
-                  <OwnedBadge variant="secondary">{teamData.currentMember.role} access</OwnedBadge>
+                  <OwnedBadge variant="secondary">{displayTeamRole(teamData.currentMember.role)} access</OwnedBadge>
                   {canManageTeam ? (
                     <OwnedButton type="button" size="sm" variant="outline" onClick={() => copyInviteCode(teamData.workspace.inviteCode)}>
                       <Copy aria-hidden="true" />
@@ -2241,7 +2508,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-semibold">{member.name}</h3>
-                        <OwnedBadge variant="outline" className="rounded-md text-[10px]">{member.role}</OwnedBadge>
+                        <OwnedBadge variant="outline" className="rounded-md text-[10px]">{displayTeamRole(member.role)}</OwnedBadge>
                         <OwnedBadge
                           variant="secondary"
                           className={cn(
@@ -2261,15 +2528,44 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                         <div className="w-full sm:w-40">
                           <ProjectSelect
                             label="Role"
-                            value={member.role}
-                            options={teamRoleOptions.filter((role) => role !== "Owner")}
-                            onChange={(role) => runTeamAction("role", () => updateMemberRole({ teamId: teamData.workspace._id, memberId: member._id, role: role as "Editor" | "Reviewer" }))}
+                            value={displayTeamRole(member.role)}
+                            options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
+                            onChange={(role) => runTeamAction("role", () => updateMemberRole({ teamId: teamData.workspace._id, memberId: member._id, role: (role === "Viewer" ? "Reviewer" : role) as "Editor" | "Reviewer" }))}
                             compact
                           />
                         </div>
                       ) : Object.entries(member.permissions).filter(([, enabled]) => enabled).slice(0, 4).map(([permission]) => (
                         <OwnedBadge key={permission} variant="secondary" className="rounded-md text-[10px]">{permission}</OwnedBadge>
                       ))}
+                      {canManageTeam && member.role !== "Owner" ? (
+                        <div className="grid w-full gap-2 sm:grid-cols-2">
+                          {TEAM_MEMBER_PERMISSION_LABELS.map(([permission, label]) => (
+                            <label key={permission} className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <OwnedSwitch
+                                checked={Boolean(member.permissions[permission])}
+                                aria-label={`${label} for ${member.name}`}
+                                onCheckedChange={(checked) => runTeamAction("permission", () => updateMemberPermissions({ teamId: teamData.workspace._id, memberId: member._id, permissions: { ...member.permissions, [permission]: checked } }))}
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
+                      {canManageTeam && member.status === "active" && member.role !== "Owner" ? (
+                        <OwnedButton
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={Boolean(busyAction)}
+                          onClick={() => {
+                            if (window.confirm(`Transfer workspace ownership to ${member.name}?`)) {
+                              void runTeamAction("transfer", () => transferOwnership({ teamId: teamData.workspace._id, memberId: member._id }));
+                            }
+                          }}
+                        >
+                          Transfer ownership
+                        </OwnedButton>
+                      ) : null}
                       {canManageTeam && member.role !== "Owner" ? (
                         <OwnedButton
                           type="button"
@@ -2304,8 +2600,8 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                     <ProjectSelect
                       label="Role"
                       value={inviteForm.role}
-                      options={teamRoleOptions.filter((role) => role !== "Owner")}
-                      onChange={(value) => setInviteForm({ ...inviteForm, role: value })}
+                      options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
+                      onChange={(value) => setInviteForm({ ...inviteForm, role: value === "Viewer" ? "Reviewer" : value })}
                     />
                     <OwnedButton type="button" variant="outline" disabled={Boolean(busyAction) || !inviteEmailIsValid} onClick={() => runTeamAction("invite", async () => {
                       await inviteMember({ teamId: teamData.workspace._id, email: inviteForm.email, role: inviteForm.role as "Editor" | "Reviewer" });
@@ -2385,6 +2681,7 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
                           body: commentBody,
                           ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
                         });
+                        trackOptionalEvent("comment_added", { surface: "team" });
                         setCommentBody("");
                         setCommentTimecode("");
                       })}>
@@ -2515,27 +2812,26 @@ function TeamChatPage() {
   return (
     <WorkspacePage family="conversation" mode="fill">
       <PageHeader
-      eyebrow="Workspace / Team Chat"
       title="Team Chat"
       description="Quick handoffs, production updates, and Manage Team access for your current workspace."
       />
       <PageContent mode="fill" className="min-h-0">
       <FillViewport
         bodyLabel="Team chat workspace"
-        bodyClassName="overflow-auto rounded-xl border border-border bg-card shadow-[var(--app-shadow-1)] lg:overflow-hidden"
+        bodyClassName="overflow-auto rounded-[6px] border border-border bg-card lg:overflow-hidden"
         header={chatReady && teamData ? (
           <div data-slot="conversation-header" className="flex flex-col justify-between gap-3 border-b border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-4 sm:flex-row sm:items-center sm:px-5">
             <div>
               <h2 className="text-lg font-semibold">{teamData.workspace.name}</h2>
               <p className="mt-1 text-xs text-[var(--app-muted)]">{teamData.members.filter((member) => member.status === "active").length} active members · Use @name to notify someone</p>
             </div>
-            <OwnedBadge variant="secondary" className="self-start sm:self-auto">{teamData.currentMember.role} access</OwnedBadge>
+            <OwnedBadge variant="secondary" className="self-start sm:self-auto">{teamData.currentMember.role === "Reviewer" ? "Viewer" : teamData.currentMember.role} access</OwnedBadge>
           </div>
         ) : undefined}
         footer={chatReady && teamData ? (
           <form
             data-slot="conversation-composer"
-            className="border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
+            className="team-chat-composer border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
             onSubmit={(event) => {
               event.preventDefault();
               void submitMessage();
@@ -2565,7 +2861,7 @@ function TeamChatPage() {
                   }}
                 />
                 <OwnedButton type="submit" disabled={sending || !message.trim()} className="min-w-28">
-                  {sending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+                  {sending ? <LoaderCircle aria-hidden="true" /> : <Send aria-hidden="true" />}
                   {sending ? "Sending..." : "Send"}
                 </OwnedButton>
               </div>
@@ -2873,7 +3169,7 @@ function IntegrationsDesignPage({
 
         <ContentSection
           title="Cloudflare R2 Storage"
-          description="Upcoming. Large-file storage through Cloudflare R2 is being prepared for a future release. Project uploads currently use Frame Desk's Convex Storage."
+          description="Upcoming. Large-file storage through Cloudflare R2 is being prepared for a future release. Project uploads currently use Relay's Convex Storage."
           metadata={<Cloud aria-hidden="true" className="size-4 text-muted-foreground" />}
           actions={<OwnedBadge variant="secondary">Upcoming</OwnedBadge>}
           bodyMode="flush"
@@ -2981,7 +3277,7 @@ function IntegrationsDesignPage({
                     placeholder="#project-updates"
                   />
                 </FieldLayout>
-                <FieldLayout label="Webhook URL" description="Optional. Stored locally and never called by Frame Desk.">
+                <FieldLayout label="Webhook URL" description="Optional. Stored locally and never called by Relay.">
                   <OwnedInput
                     type="url"
                     value={integrationDialog.config.webhookUrl}
@@ -3177,7 +3473,7 @@ function IntegrationLinkManager({
               {editing ? `${hasIntegrationLink(links?.[editing.serviceId]) ? "Edit" : "Add"} ${integrationServices.find((service) => service.id === editing.serviceId)?.name} Link` : "Integration Link"}
             </OwnedDialogTitle>
             <OwnedDialogDescription>
-              Store a direct link and optional context. Frame Desk will not authenticate, browse files, sync data, or call this service.
+              Store a direct link and optional context. Relay will not authenticate, browse files, sync data, or call this service.
             </OwnedDialogDescription>
           </OwnedDialogHeader>
           <form
@@ -3236,7 +3532,18 @@ function IntegrationLinkManager({
   );
 }
 
-function SettingsDesignPage({ settings, setSettings, notify }: { settings: SettingsState; setSettings: (settings: SettingsState) => void; notify: (message: string, tone?: ToastState["tone"]) => void }) {
+function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canManageWorkspace = false }: { settings: SettingsState; setSettings: (settings: SettingsState | ((current: SettingsState) => SettingsState)) => void; notify: (message: string, tone?: ToastState["tone"]) => void; teamWorkspace?: TeamWorkspaceContract; canManageWorkspace?: boolean }) {
+  const { exportBackup, importBackup } = useData();
+  const [optionalAnalytics, setOptionalAnalytics] = useState(() => getAnalyticsConsent() === "granted");
+  const updateWorkspaceSettings = useMutation(teamApi.updateWorkspaceSettings);
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const [workspaceDraft, setWorkspaceDraft] = useState(() => ({
+    name: teamWorkspace?.name ?? settings.studioName,
+    currencyCode: teamWorkspace?.currencyCode ?? settings.currencyCode,
+    timeZone: teamWorkspace?.timeZone ?? settings.timeZone,
+    defaultWorkflowTemplateId: teamWorkspace?.defaultWorkflowTemplateId ?? "relay-default-workflow",
+    allowAllTeamProjects: teamWorkspace?.allowAllTeamProjects ?? false,
+  }));
   const [activeSection, setActiveSection] = useState<"workspace" | "workflow" | "notifications" | "permissions" | "integrations" | "appearance" | "regional">("workspace");
   const stageColors = [
     "var(--workflow-stage-1)",
@@ -3251,8 +3558,37 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   const rolePolicy = [
     { role: "Owner", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat", "Manage members and roles"] },
     { role: "Editor", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat"] },
-    { role: "Reviewer", permissions: ["View team projects", "Leave project notes", "Mention teammates", "Use team chat"] }
+    { role: "Viewer", permissions: ["View team projects", "Review assigned work", "Use team chat"] }
   ];
+  const workflowTemplateOptions = [
+    ...PROJECT_TEMPLATES,
+    ...settings.customProjectTemplates,
+  ];
+  const workflowTemplateIds = workflowTemplateOptions.map((template) => template.id);
+  const workflowTemplateLabels = Object.fromEntries(workflowTemplateOptions.map((template) => [template.id, template.name]));
+
+  useEffect(() => {
+    if (!teamWorkspace) return;
+    setWorkspaceDraft({
+      name: teamWorkspace.name,
+      currencyCode: teamWorkspace.currencyCode ?? settings.currencyCode,
+      timeZone: teamWorkspace.timeZone ?? settings.timeZone,
+      defaultWorkflowTemplateId: teamWorkspace.defaultWorkflowTemplateId ?? "relay-default-workflow",
+      allowAllTeamProjects: teamWorkspace.allowAllTeamProjects ?? false,
+    });
+  }, [settings.currencyCode, settings.timeZone, teamWorkspace]);
+
+  async function saveWorkspaceSettings(overrides: Partial<typeof workspaceDraft> = {}) {
+    if (!teamWorkspace) return;
+    const nextDraft = { ...workspaceDraft, ...overrides };
+    try {
+      await updateWorkspaceSettings({ teamId: teamWorkspace._id, ...nextDraft });
+      setSettings((current) => ({ ...current, studioName: nextDraft.name, currencyCode: nextDraft.currencyCode, timeZone: nextDraft.timeZone }));
+      notify("Workspace settings saved.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Workspace settings could not be saved.", "warning");
+    }
+  }
   const settingsNavigation = [
     { id: "workspace" as const, label: "Workspace", icon: FolderKanban },
     { id: "workflow" as const, label: "Workflow", icon: History },
@@ -3306,8 +3642,28 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   }
 
   function resetSettings() {
-    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
+    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
     notify("Settings reset to defaults.", "warning");
+  }
+
+  function downloadBackup() {
+    const url = URL.createObjectURL(new Blob([exportBackup()], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relay-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function restoreBackup(file: File) {
+    try {
+      const counts = await importBackup(await file.text());
+      notify(`Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.projectGroups} Project Groups, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Backup import failed.", "warning");
+    } finally {
+      if (backupInputRef.current) backupInputRef.current.value = "";
+    }
   }
 
   function formatTimestamp(iso: string) {
@@ -3321,7 +3677,6 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
   return (
     <WorkspacePage family="administration" mode="fill">
       <PageHeader
-        eyebrow="Workspace administration"
         title="Settings"
         description="Manage workspace identity, production defaults, and team-wide behavior."
         actions={
@@ -3347,7 +3702,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
           </OwnedSelectContent>
         </OwnedSelect>
       </PageToolbar>
-      <FillViewport bodyLabel="Settings workspace" bodyClassName="overflow-visible rounded-xl border border-border bg-muted/10 lg:overflow-hidden">
+      <FillViewport bodyLabel="Settings workspace" bodyClassName="overflow-visible rounded-[6px] border border-border bg-muted/10 lg:overflow-hidden">
       <MasterDetail
         className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
         master={(
@@ -3355,7 +3710,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
           aria-label="Settings sections"
           data-slot="settings-navigation"
           data-navigation-kind="icon-index"
-          className="hidden h-full overflow-hidden rounded-xl border bg-card text-card-foreground shadow-[var(--app-shadow-1)] lg:flex lg:flex-col"
+          className="hidden h-full overflow-hidden rounded-[6px] border bg-card text-card-foreground lg:flex lg:flex-col"
         >
           <div className="border-b border-border px-4 py-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--app-accent)]">Settings index</p>
@@ -3368,7 +3723,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                 aria-current={activeSection === id ? "page" : undefined}
                 onClick={() => setActiveSection(id)}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex min-h-11 items-center gap-3 rounded-[6px] px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   activeSection === id
                     ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
                     : "text-muted-foreground hover:bg-accent hover:text-primary",
@@ -3397,8 +3752,12 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
             <div className="grid gap-3 sm:grid-cols-2">
               <FieldLayout label="Workspace name">
                 <OwnedInput
-                  value={settings.studioName}
-                  onChange={(event) => setSettings({ ...settings, studioName: event.target.value })}
+                  value={teamWorkspace ? workspaceDraft.name : settings.studioName}
+                  disabled={Boolean(teamWorkspace) && !canManageWorkspace}
+                  onChange={(event) => teamWorkspace
+                    ? setWorkspaceDraft((current) => ({ ...current, name: event.target.value }))
+                    : setSettings({ ...settings, studioName: event.target.value })}
+                  onBlur={() => { if (teamWorkspace && canManageWorkspace) void saveWorkspaceSettings(); }}
                 />
               </FieldLayout>
               <FieldLayout label="Workspace owner">
@@ -3414,8 +3773,64 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                 />
               </FieldLayout>
             </div>
+            {teamWorkspace ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <ProjectSelect
+                  label="Workspace currency"
+                  value={workspaceDraft.currencyCode}
+                  options={["USD", "EUR", "GBP", "INR", "AED", "SAR"]}
+                  disabled={!canManageWorkspace}
+                  onChange={(value) => {
+                    setWorkspaceDraft((current) => ({ ...current, currencyCode: value }));
+                    if (canManageWorkspace) void saveWorkspaceSettings({ currencyCode: value });
+                  }}
+                />
+                <FieldLayout label="Time zone">
+                  <OwnedInput
+                    value={workspaceDraft.timeZone}
+                    disabled={!canManageWorkspace}
+                    onChange={(event) => setWorkspaceDraft((current) => ({ ...current, timeZone: event.target.value }))}
+                    onBlur={() => { if (canManageWorkspace) void saveWorkspaceSettings(); }}
+                  />
+                </FieldLayout>
+                <ProjectSelect
+                  label="Default workflow template"
+                  value={workflowTemplateIds.includes(workspaceDraft.defaultWorkflowTemplateId) ? workspaceDraft.defaultWorkflowTemplateId : workflowTemplateIds[0] ?? "relay-default-workflow"}
+                  options={workflowTemplateIds.length ? workflowTemplateIds : ["relay-default-workflow"]}
+                  labels={workflowTemplateLabels}
+                  disabled={!canManageWorkspace}
+                  onChange={(value) => {
+                    setWorkspaceDraft((current) => ({ ...current, defaultWorkflowTemplateId: value }));
+                    if (canManageWorkspace) void saveWorkspaceSettings({ defaultWorkflowTemplateId: value });
+                  }}
+                />
+                <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                  <span>
+                    <span className="block font-medium">Editors see all Team Projects</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">Otherwise Editors see owned or assigned work.</span>
+                  </span>
+                  <OwnedSwitch
+                    checked={workspaceDraft.allowAllTeamProjects}
+                    disabled={!canManageWorkspace}
+                    aria-label="Editors see all Team Projects"
+                    onCheckedChange={(checked) => {
+                      setWorkspaceDraft((current) => ({ ...current, allowAllTeamProjects: checked }));
+                      if (canManageWorkspace) void saveWorkspaceSettings({ allowAllTeamProjects: checked });
+                    }}
+                  />
+                </label>
+              </div>
+            ) : null}
           </SettingsPanel>
-          <SettingsPanel id="project-rules" title="Production defaults" subtitle="Configure project tags, salary tracking, payout value, and batch size.">
+          <SettingsPanel id="workspace-backup" title="Backup and restore" subtitle="Export local Workspace data without account or connected-service details.">
+            <div className="flex flex-wrap gap-2">
+              <OwnedButton type="button" variant="outline" onClick={downloadBackup}><Download aria-hidden="true" /> Export backup</OwnedButton>
+              <OwnedButton type="button" variant="outline" onClick={() => backupInputRef.current?.click()}><Upload aria-hidden="true" /> Import backup</OwnedButton>
+              <input ref={backupInputRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Choose Relay backup" onChange={(event) => { const file = event.target.files?.[0]; if (file) void restoreBackup(file); }} />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Import replaces Local Mode data. Cloud import works only when the Workspace has no projects, files, or Salary Batches.</p>
+          </SettingsPanel>
+          <SettingsPanel id="project-rules" title="Production defaults" subtitle="Legacy local fallback for project tags and salary batch defaults. Authenticated owners should use Salary Plans below.">
             <div className="grid gap-3">
               {settings.projectTags.map((tag, index) => (
                 <div key={`project-tag-${index}`} className="flex min-w-0 items-end gap-3">
@@ -3453,7 +3868,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                   options={settings.projectTags}
                   onChange={(value) => setSettings({ ...settings, salaryWorkType: value })}
                 />
-                <FieldLayout label="Videos per salary batch">
+                <FieldLayout label="Legacy videos per batch">
                   <OwnedInput
                     type="number"
                     value={normalizedSalaryBatchSize(settings.salaryBatchSize)}
@@ -3462,7 +3877,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
                     onChange={(event) => updateSalaryBatchSize(event.target.value)}
                   />
                 </FieldLayout>
-                <FieldLayout label="Salary per batch">
+                <FieldLayout label="Legacy salary per batch">
                   <OwnedInput
                     type="number"
                     value={normalizedSalaryBatchAmount(settings.salaryBatchAmount)}
@@ -3533,6 +3948,10 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
               </div>
             ))}
             <SettingsLink label="Toggle weekly summary" onClick={() => updateNotification("Weekly summary", !settings.notifications["Weekly summary"])} />
+            <div className="flex items-center justify-between gap-4 border-t pt-4">
+              <div><p className="text-sm font-semibold">Optional product analytics</p><p className="mt-0.5 text-xs text-muted-foreground">Anonymous feature-use events only. Work content and money never leave the privacy boundary.</p></div>
+              <OwnedSwitch checked={optionalAnalytics} aria-label="Optional product analytics" onCheckedChange={(checked) => { setOptionalAnalytics(checked); setAnalyticsConsent(checked ? "granted" : "denied"); }} />
+            </div>
           </SettingsPanel>
           ) : null}
           {activeSection === "permissions" ? (
@@ -3574,7 +3993,7 @@ function SettingsDesignPage({ settings, setSettings, notify }: { settings: Setti
           </div>
           ) : null}
           {activeSection === "appearance" ? (
-          <SettingsPanel id="appearance" title="Appearance" subtitle="Customize how Frame Desk looks and feels for your tracker.">
+          <SettingsPanel id="appearance" title="Appearance" subtitle="Customize how Relay looks and feels for your tracker.">
             <div className="grid items-end gap-5 md:grid-cols-3">
               <SegmentedSetting label="Theme" options={["Light", "Dark", "System"]} active={settings.theme} onChange={(value) => setSettings({ ...settings, theme: value })} />
               <div>
@@ -4389,72 +4808,6 @@ function profileThumbColor(index: number) {
   );
 }
 
-function ProjectStartDialog({
-  open,
-  scope,
-  returnFocusRef,
-  onClose,
-  onBlank,
-  onTemplate,
-}: {
-  open: boolean;
-  scope: "personal" | "team";
-  returnFocusRef: RefObject<HTMLElement | null>;
-  onClose: () => void;
-  onBlank: () => void;
-  onTemplate: (template: ProjectTemplate) => void;
-}) {
-  const settings = useTrackerSettings();
-  const templates = useMemo(() => [...PROJECT_TEMPLATES, ...(settings.customProjectTemplates ?? [])], [settings.customProjectTemplates]);
-  return (
-    <OwnedDialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
-      <OwnedDialogContent
-        className="max-h-[min(90dvh,760px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-3xl"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          returnFocusRef.current?.focus();
-        }}
-      >
-        <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl">Create {scope === "team" ? "Team " : ""}Project</OwnedDialogTitle>
-          <OwnedDialogDescription>Start clean or prefill a workflow you can edit immediately.</OwnedDialogDescription>
-        </OwnedDialogHeader>
-        <OwnedButton
-          type="button"
-          variant="outline"
-          onClick={onBlank}
-          className="h-auto w-full justify-start px-4 py-3"
-        >
-          <Plus aria-hidden="true" />
-          Blank project
-        </OwnedButton>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {templates.map((template) => (
-            <OwnedButton
-              key={template.id}
-              type="button"
-              variant="outline"
-              onClick={() => onTemplate(template)}
-              className="h-auto min-h-24 items-start justify-start whitespace-normal p-4 text-left"
-            >
-              <span className="grid gap-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{template.name}</span>
-                  {template.custom ? <OwnedBadge variant="secondary">Custom</OwnedBadge> : null}
-                </span>
-                <span className="text-xs leading-relaxed text-muted-foreground">{template.description}</span>
-              </span>
-            </OwnedButton>
-          ))}
-        </div>
-        <OwnedDialogFooter>
-          <OwnedButton type="button" variant="ghost" onClick={onClose}>Cancel</OwnedButton>
-        </OwnedDialogFooter>
-      </OwnedDialogContent>
-    </OwnedDialog>
-  );
-}
-
 function TimecodeChip({ value }: { value?: string | null }) {
   if (!value) return null;
   return (
@@ -4634,7 +4987,158 @@ function normalizeChecklistCompleted(items: string[] = [], completed: Record<str
   return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
 }
 
-function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
+function SubscriptionPage() {
+  const { isAuthEnabled } = useData();
+  const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
+
+  return (
+    <WorkspacePage family="administration" className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]">
+      <PageHeader
+        eyebrow="Workspace / Subscription"
+        title="Plans and billing"
+        description="Choose a plan and manage your Relay subscription through Clerk."
+        actions={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
+      />
+      <PageContent data-family-region="subscription-administration">
+        <ContentSection title="Subscription" description="Plan selection, checkout, and subscription status." bodyMode="flush">
+          {!isLoaded ? (
+            <div role="status" className="grid min-h-[220px] place-items-center p-6">
+              <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
+            </div>
+          ) : isSignedIn ? (
+            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6"><ClerkPricingPlans /></div>
+          ) : (
+            <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
+              <h2 className="text-xl font-semibold text-foreground">Account required</h2>
+              <p className="text-sm leading-6 text-muted-foreground">Sign in or create an account to view and manage a subscription.</p>
+              {isAuthEnabled ? (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <OwnedButton type="button" onClick={() => openSignUp()}>Create account</OwnedButton>
+                  <OwnedButton type="button" variant="outline" onClick={() => openSignIn()}>Sign in</OwnedButton>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </ContentSection>
+      </PageContent>
+    </WorkspacePage>
+  );
+}
+
+function AnalyticsConsentDialog({ open, onChoose }: { open: boolean; onChoose: (consent: Exclude<AnalyticsConsent, "unknown">) => void }) {
+  return (
+    <OwnedDialog open={open} onOpenChange={() => {}}>
+      <OwnedDialogContent showCloseButton={false} className="sm:max-w-md" onEscapeKeyDown={(event) => event.preventDefault()} onPointerDownOutside={(event) => event.preventDefault()}>
+        <OwnedDialogHeader>
+          <OwnedDialogTitle>Optional product analytics</OwnedDialogTitle>
+          <OwnedDialogDescription>Share anonymous feature-use events to help improve the private beta. Relay never sends client names, project names, comments, files, links, portal tokens, or money.</OwnedDialogDescription>
+        </OwnedDialogHeader>
+        <OwnedDialogFooter>
+          <OwnedButton type="button" variant="outline" onClick={() => onChoose("denied")}>No thanks</OwnedButton>
+          <OwnedButton type="button" onClick={() => onChoose("granted")}>Allow analytics</OwnedButton>
+        </OwnedDialogFooter>
+      </OwnedDialogContent>
+    </OwnedDialog>
+  );
+}
+
+function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
+  project: WorkItem;
+  projectGroup?: import("@/lib/types").ProjectGroup;
+  settings: SettingsState;
+  view: ProjectWorkspaceView;
+  canEdit: boolean;
+  canManagePayment: boolean;
+  canManagePortal: boolean;
+  canDelete: boolean;
+  canUpdateStatus: boolean;
+  canComment: boolean;
+  teamMembers: WorkspaceMemberOption[];
+  localActivity: ProjectActivityEvent[];
+  onBack: () => void;
+  onViewChange: (view: ProjectWorkspaceView) => void;
+  onEdit: (project: WorkItem) => void;
+  onDelete: (project: WorkItem) => void;
+  onStatusChange: (project: WorkItem, status: ProjectStatus) => void;
+  onPaymentChange: (project: WorkItem, paid: boolean) => void;
+}) {
+  const isClientBillable = !isSalaryWorkType(project.workType, settings) && isDoneStatus(project.status) && safeMoneyValue(project.earnings) > 0;
+  const amount = isSalaryWorkType(project.workType, settings) ? "Batch tracked" : money(project.earnings, settings.currencyCode);
+  const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
+  const lead = teamMembers.find((member) => member.userId === project.ownerUserId)?.name || settings.profileName || "You";
+  const configuredLinks = integrationServices.map((service) => ({ service, link: project.integrationLinks?.[service.id] })).filter(({ link }) => hasIntegrationLink(link));
+  const views: Array<{ id: ProjectWorkspaceView; label: string }> = [
+    { id: "overview", label: "Overview" },
+    { id: "outputs", label: "Outputs and Versions" },
+    { id: "review", label: "Client Review" },
+    { id: "files", label: "Files and Links" },
+    { id: "activity", label: "Activity" },
+  ];
+
+  return (
+    <WorkspacePage family="master-detail" mode="fill">
+      <PageHeader
+        eyebrow={`${project.client || "No Client"}${projectGroup ? ` / ${projectGroup.name}` : ""}`}
+        title={project.title}
+        description={`Due ${formatDate(project.dueDate, settings.dateFormat)} · Lead ${lead} · ${assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "No assignees"}`}
+        actions={<><OwnedButton variant="ghost" onClick={onBack}>Back to Projects</OwnedButton>{canEdit ? <OwnedButton onClick={() => { onViewChange("outputs"); window.setTimeout(() => document.getElementById("add-project-output")?.click(), 0); }}>Add Output</OwnedButton> : null}{canEdit ? <OwnedButton variant="outline" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}{canDelete ? <OwnedButton variant="ghost" className="text-destructive" onClick={() => onDelete(project)}>Delete</OwnedButton> : null}</>}
+      />
+      <PageContent mode="fill">
+        <PageToolbar
+          primary={<nav aria-label="Project workspace views" className="flex flex-wrap gap-1">{views.map((item) => <OwnedButton key={item.id} size="sm" variant={view === item.id ? "secondary" : "ghost"} aria-current={view === item.id ? "page" : undefined} onClick={() => onViewChange(item.id)}>{item.label}</OwnedButton>)}</nav>}
+          secondary={canUpdateStatus ? <ProjectSelect value={project.status} options={statusOptions} onChange={(status) => { if (status !== "Client Review") onStatusChange(project, status); }} compact /> : <ProjectStatusBadge status={project.status} />}
+        />
+
+        <SplitPane
+          ratio="inspector"
+          primary={<div className="min-h-0 overflow-y-auto">
+
+        {view === "overview" ? <div className="grid gap-4 overflow-y-auto pb-5">
+          <MetricStrip columns={4}>
+            <MetricItem label="Stage" value={project.status} />
+            <MetricItem label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
+            <MetricItem label="Value" value={amount} />
+            <MetricItem label="Payment" value={isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"} />
+          </MetricStrip>
+          <ContentSection title="Workflow" description={`${projectProgress(project.status)}% complete`}><ProjectStageTracker status={project.status} /></ContentSection>
+          <ContentSection title="Project details" actions={canEdit ? <OwnedButton size="sm" variant="ghost" onClick={() => onEdit(project)}>Edit details</OwnedButton> : null}>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><ProjectMetadataRow label="Client" value={project.client || "Not assigned"} /><ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} /><ProjectMetadataRow label="Financial type" value={project.workType} /><ProjectMetadataRow label="Created" value={project.createdAt ? formatShortDateTime(project.createdAt) : "Not recorded"} /></dl>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{project.notes || "No internal notes."}</p>
+          </ContentSection>
+          <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
+        </div> : null}
+
+        {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} canResolveComments={canComment} /> : null}
+
+        {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} /></div> : null}
+
+        {view === "files" ? <div className="grid gap-4 overflow-y-auto pb-5">
+          <ContentSection title="External links" metadata={<OwnedBadge variant="secondary">{configuredLinks.length}</OwnedBadge>}>
+            <div className="divide-y divide-border">{configuredLinks.length ? configuredLinks.map(({ service, link }) => link ? <a key={service.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 py-3 text-sm hover:underline"><span>{integrationDisplayText(link, service.name)}</span><ExternalLink className="size-4" /></a> : null) : <p className="py-6 text-center text-sm text-muted-foreground">No external links yet.</p>}</div>
+          </ContentSection>
+          <ProjectFileManager project={project} canEdit={canEdit} />
+        </div> : null}
+
+        {view === "activity" ? <ProjectActivityFeed project={project} localActivity={localActivity} /> : null}
+          </div>}
+          secondary={
+            <aside aria-label="Project context" className="rounded-[6px] bg-card p-4 text-card-foreground">
+              <h2 className="text-sm font-semibold">Project context</h2>
+              <dl className="mt-4 grid gap-3 text-sm">
+                <ProjectMetadataRow label="Client" value={project.client || "Not assigned"} />
+                <ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} />
+                <ProjectMetadataRow label="Stage" value={project.status} />
+                <ProjectMetadataRow label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
+              </dl>
+            </aside>
+          }
+        />
+      </PageContent>
+    </WorkspacePage>
+  );
+}
+
+function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canManagePayment: boolean; canManagePortal: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
   if (!project) {
     return null;
   }
@@ -4649,7 +5153,6 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
   const checklistItems = project.checklistItems ?? [];
   const checklistCompleted = normalizeChecklistCompleted(checklistItems, project.checklistCompleted);
   const checklistDone = checklistItems.filter((item, index) => checklistCompleted[checklistItemKey(item, index)]).length;
-  const deliverableTargets = project.templateDeliverables ?? [];
 
   function openLink(url: string) {
     if (typeof window === "undefined" || !isValidIntegrationUrl(url)) return;
@@ -4700,45 +5203,28 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
               </div>
               <ProjectStageTracker status={project.status} />
             </section>
-            {(checklistItems.length || deliverableTargets.length) ? (
+            {checklistItems.length ? (
               <section className="mb-4 rounded-lg border bg-card p-4 text-card-foreground">
                 <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
                     <h3 className="font-semibold">Template setup</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {checklistItems.length ? `${checklistDone}/${checklistItems.length} checklist items complete` : "Suggested deliverables for this workflow"}
+                      {`${checklistDone}/${checklistItems.length} checklist items complete`}
                     </p>
                   </div>
                   {checklistItems.length ? <OwnedBadge variant="secondary">{Math.round((checklistDone / checklistItems.length) * 100)}%</OwnedBadge> : null}
                 </div>
-                <div className={`grid gap-3 ${checklistItems.length && deliverableTargets.length ? "md:grid-cols-[minmax(0,1fr)_minmax(240px,.8fr)]" : ""}`}>
-                  {checklistItems.length ? (
-                    <div className="grid gap-2">
-                      {checklistItems.map((item, index) => {
-                        const itemKey = checklistItemKey(item, index);
-                        const checked = Boolean(checklistCompleted[itemKey]);
-                        return (
-                          <div key={itemKey} className={`flex items-center gap-3 rounded-md border p-3 ${checked ? "bg-primary/10" : "bg-muted/20"}`}>
-                            <OwnedSwitch checked={checked} disabled={!canEdit} aria-label={`${checked ? "Mark incomplete" : "Mark complete"}: ${item}`} onCheckedChange={(nextChecked) => onChecklistChange(project, itemKey, nextChecked)} />
-                            <span className={`text-sm leading-relaxed ${checked ? "text-muted-foreground line-through" : ""}`}>{item}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                  {deliverableTargets.length ? (
-                    <div className="grid gap-2">
-                      {deliverableTargets.map((deliverable, index) => (
-                        <div key={`${deliverable.title}-${index}`} className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 p-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{deliverable.title}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{deliverable.category}</p>
-                          </div>
-                          <OwnedBadge variant="outline">{APPROVAL_STATUS_LABELS[deliverable.initialStatus] ?? deliverable.initialStatus}</OwnedBadge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                <div className="grid gap-2">
+                  {checklistItems.map((item, index) => {
+                    const itemKey = checklistItemKey(item, index);
+                    const checked = Boolean(checklistCompleted[itemKey]);
+                    return (
+                      <div key={itemKey} className={`flex items-center gap-3 rounded-md border p-3 ${checked ? "bg-primary/10" : "bg-muted/20"}`}>
+                        <OwnedSwitch checked={checked} disabled={!canEdit} aria-label={`${checked ? "Mark incomplete" : "Mark complete"}: ${item}`} onCheckedChange={(nextChecked) => onChecklistChange(project, itemKey, nextChecked)} />
+                        <span className={`text-sm leading-relaxed ${checked ? "text-muted-foreground line-through" : ""}`}>{item}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             ) : null}
@@ -4771,7 +5257,7 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
                 </div>
                 <div className="flex items-center gap-3">
                   <OwnedBadge variant={project.paid ? "default" : "outline"}>{isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"}</OwnedBadge>
-                  <OwnedSwitch checked={Boolean(project.paid)} disabled={!canEdit || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />
+                  <OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />
                 </div>
               </div>
               {project.paidDate ? <p className="mt-2 text-xs text-muted-foreground">Marked paid {formatShortDateTime(project.paidDate)}.</p> : null}
@@ -4805,7 +5291,7 @@ function ProjectDetailDialog({ project, settings, canEdit, canDelete, canUpdateS
             </section>
             <ProjectFileManager project={project} canEdit={canEdit} />
             <ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} />
-            <ClientPortalManager project={project} canEdit={canEdit} />
+            <ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} />
           </div>
           <ProjectActivityFeed project={project} localActivity={localActivity} />
         </div>
@@ -4890,7 +5376,7 @@ function ProjectActivityFeed({ project, localActivity }: { project: WorkItem; lo
             last={index === events.length - 1}
           />
         )) : (
-          <ActivityFeedItem actor="Frame Desk" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
+          <ActivityFeedItem actor="Relay" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
         )}
       </div>
     </aside>
@@ -4918,23 +5404,25 @@ function ProjectStatusBadge({ status }: { status: string }) {
 }
 
 function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
+  const { has } = useAuth();
   const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const [showArchived, setShowArchived] = useState(false);
   const fileData = useQuery(
     api.projectFiles.listForProject,
-    isConvexAuthenticated ? { projectId: project.id } : "skip"
+    isConvexAuthenticated ? { projectId: project.id, includeArchived: showArchived } : "skip"
   );
   const generateUploadUrl = useMutation(api.projectFiles.generateUploadUrl);
   const saveStorageVersion = useMutation(api.projectFiles.saveStorageVersion);
   const createR2UploadUrl = useAction(api.r2.createUploadUrl);
   const completeR2Upload = useAction(api.r2.completeUpload);
   const createR2DownloadUrl = useAction(api.r2.createDownloadUrl);
-  const saveExternalVersion = useMutation(api.projectFiles.saveExternalVersion);
   const updateFile = useMutation(api.projectFiles.updateFile);
+  const archiveFile = useMutation(api.projectFiles.archiveFile);
+  const restoreFile = useMutation(api.projectFiles.restoreFile);
   const removeFile = useMutation(api.projectFiles.removeFile);
   const [view, setView] = useState<"files" | "history">("files");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [source, setSource] = useState<"upload" | "external">("upload");
   const [targetFileId, setTargetFileId] = useState<Id<"projectFiles"> | undefined>();
   const [browserFile, setBrowserFile] = useState<File | null>(null);
   const [category, setCategory] = useState<FileCategory>("Deliverable");
@@ -4942,15 +5430,19 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<FileStatus>("draft");
   const [clientVisible, setClientVisible] = useState(false);
-  const [downloadable, setDownloadable] = useState(true);
+  const [downloadable, setDownloadable] = useState(false);
   const [notes, setNotes] = useState("");
-  const [provider, setProvider] = useState<Exclude<FileProvider, "convex">>("external");
-  const [externalUrl, setExternalUrl] = useState("");
-  const [externalId, setExternalId] = useState("");
-  const [externalSize, setExternalSize] = useState(0);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const useR2Storage = R2_STORAGE_ENABLED && process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
+  const canUploadFiles = has({ plan: "creator" }) || has({ plan: "studio" });
+
+  useEffect(() => {
+    if (!fileData) return;
+    const bytes = fileData.retainedBytes;
+    const usageBucket = bytes === 0 ? "empty" : bytes < 1_000_000 ? "under_1mb" : bytes < 10_000_000 ? "under_10mb" : bytes < 50_000_000 ? "under_50mb" : bytes < 200_000_000 ? "under_200mb" : "over_200mb";
+    trackOptionalEvent("storage_consumption", { provider: useR2Storage ? "r2" : "convex", usageBucket });
+  }, [fileData, useR2Storage]);
 
   const files = fileData?.files ?? [];
   const filteredFiles = categoryFilter === "All" ? files : files.filter((file) => file.category === categoryFilter);
@@ -4963,22 +5455,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
     setDescription("");
     setStatus("draft");
     setClientVisible(false);
-    setDownloadable(true);
+    setDownloadable(false);
     setNotes("");
-    setProvider("external");
-    setExternalUrl("");
-    setExternalId("");
-    setExternalSize(0);
     setError("");
   }
 
-  function openNewFile(nextSource: "upload" | "external") {
+  function openNewFile() {
     resetForm();
-    setSource(nextSource);
     setDialogOpen(true);
   }
 
-  function openNewVersion(file: NonNullable<typeof fileData>["files"][number], nextSource: "upload" | "external") {
+  function openNewVersion(file: NonNullable<typeof fileData>["files"][number]) {
     resetForm();
     setTargetFileId(file._id);
     setCategory(file.category);
@@ -4987,7 +5474,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
     setStatus(file.status);
     setClientVisible(file.clientVisible);
     setDownloadable(file.downloadable);
-    setSource(nextSource);
     setDialogOpen(true);
   }
 
@@ -5011,10 +5497,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
         downloadable,
         notes,
       };
-      if (source === "upload") {
-        if (!browserFile) throw new Error("Choose a file to upload.");
-        const mimeType = browserFile.type || "application/octet-stream";
-        if (useR2Storage) {
+      if (!browserFile) throw new Error("Choose a file to upload.");
+      if (browserFile.size > MAX_SAFE_PROJECT_FILE_BYTES) throw new Error("Files must be 20 MB or smaller.");
+      if (fileData?.workspaceLimitBytes && fileData.retainedBytes + browserFile.size > fileData.workspaceLimitBytes) {
+        throw new Error("Workspace storage limit reached. Permanently delete archived files before uploading more.");
+      }
+      const mimeType = browserFile.type || "application/octet-stream";
+      if (useR2Storage) {
           const upload = await createR2UploadUrl({
             projectId: project.id,
             projectFileId: targetFileId,
@@ -5033,7 +5522,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             fileName: browserFile.name,
             mimeType,
           });
-        } else {
+      } else {
           const uploadUrl = await generateUploadUrl({ projectId: project.id });
           const response = await fetch(uploadUrl, {
             method: "POST",
@@ -5048,18 +5537,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             fileName: browserFile.name,
             mimeType,
           });
-        }
-      } else {
-        if (!externalUrl.trim()) throw new Error("Enter a file URL.");
-        await saveExternalVersion({
-          ...shared,
-          provider,
-          externalUrl,
-          externalId: externalId || undefined,
-          fileName: title.trim(),
-          mimeType: "application/octet-stream",
-          size: Math.max(0, externalSize),
-        });
       }
       setDialogOpen(false);
       resetForm();
@@ -5094,12 +5571,26 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   }
 
   async function deleteProjectFile(fileId: Id<"projectFiles">) {
+    if (!window.confirm("Permanently delete this file and every retained version? This frees its storage and cannot be undone.")) return;
     setBusy(`remove-${fileId}`);
     setError("");
     try {
       await removeFile({ fileId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not remove this file.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function changeArchiveState(fileId: Id<"projectFiles">, archived: boolean) {
+    setBusy(`archive-${fileId}`);
+    setError("");
+    try {
+      if (archived) await restoreFile({ fileId });
+      else await archiveFile({ fileId });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update this file.");
     } finally {
       setBusy("");
     }
@@ -5126,18 +5617,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               <OwnedBadge variant="secondary">{files.length} files</OwnedBadge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Deliverables, references, assets, uploads, and every saved version in one project model.</p>
+            {fileData?.workspaceLimitBytes ? <p className="mt-1 text-xs text-muted-foreground">{formatFileSize(fileData.retainedBytes)} retained of {formatFileSize(fileData.workspaceLimitBytes)}. Archived files still count.</p> : null}
           </div>
-          {canEdit && isConvexAuthenticated ? (
+          {canEdit && isConvexAuthenticated && canUploadFiles ? (
             <div className="flex flex-wrap gap-2">
-              <OwnedButton type="button" variant="outline" onClick={() => openNewFile("external")}>
-                <ExternalLink aria-hidden="true" />
-                Add Link
-              </OwnedButton>
-              <OwnedButton type="button" onClick={() => openNewFile("upload")}>
+              <OwnedButton type="button" onClick={openNewFile}>
                 <Upload aria-hidden="true" />
                 Upload File
               </OwnedButton>
             </div>
+          ) : canEdit && isConvexAuthenticated ? (
+            <OwnedButton asChild variant="outline"><Link href="/subscription">Upgrade to upload files</Link></OwnedButton>
           ) : null}
         </div>
 
@@ -5189,6 +5679,9 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                   {item}
                 </OwnedButton>
               ))}
+              <OwnedButton type="button" size="sm" variant={showArchived ? "secondary" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived((current) => !current)}>
+                {showArchived ? "Hide archived" : "Show archived"}
+              </OwnedButton>
             </div>
             {filteredFiles.length ? (
               <OwnedAccordion type="multiple" className="grid gap-2">
@@ -5208,6 +5701,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="truncate font-semibold">{file.title}</span>
                               <OwnedBadge variant="secondary">{file.category}</OwnedBadge>
+                              {file.archived ? <OwnedBadge variant="outline">Archived</OwnedBadge> : null}
                               {file.clientVisible ? (
                                 <OwnedBadge variant={file.status === "draft" ? "outline" : "default"}>
                                   {file.status === "draft" ? "Share when sent" : "Client visible"}
@@ -5264,15 +5758,11 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                             </div>
                           ))}
                         </div>
-                        {canEdit ? (
+                        {canEdit && canUploadFiles ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file, "upload")}>
+                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file)}>
                               <Upload aria-hidden="true" />
                               Upload Version
-                            </OwnedButton>
-                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file, "external")}>
-                              <ExternalLink aria-hidden="true" />
-                              Link Version
                             </OwnedButton>
                             {file.category === "Deliverable" ? (
                               <>
@@ -5294,16 +5784,12 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                                 </label>
                               </>
                             ) : null}
-                            <OwnedButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive sm:ml-auto"
-                              onClick={() => deleteProjectFile(file._id)}
-                              disabled={busy === `remove-${file._id}`}
-                            >
-                              Remove File
+                            <OwnedButton type="button" variant="ghost" size="sm" className="sm:ml-auto" onClick={() => void changeArchiveState(file._id, file.archived)} disabled={busy === `archive-${file._id}`}>
+                              {file.archived ? "Restore" : "Archive"}
                             </OwnedButton>
+                            {file.archived ? <OwnedButton type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => void deleteProjectFile(file._id)} disabled={busy === `remove-${file._id}`}>
+                              Delete permanently
+                            </OwnedButton> : null}
                           </div>
                         ) : null}
                       </OwnedAccordionContent>
@@ -5349,27 +5835,6 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
             <OwnedDialogDescription>Add an uploaded file or external file link while preserving its version history.</OwnedDialogDescription>
           </OwnedDialogHeader>
 
-          <div className="flex border-b" role="tablist" aria-label="File source">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === "upload"}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${source === "upload" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              onClick={() => setSource("upload")}
-            >
-              Upload
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={source === "external"}
-              className={`border-b-2 px-3 py-2 text-sm font-medium ${source === "external" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              onClick={() => setSource("external")}
-            >
-              External Link
-            </button>
-          </div>
-
           <div className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               {!targetFileId ? (
@@ -5394,36 +5859,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               </FieldLayout>
             ) : null}
 
-            {source === "upload" ? (
-              <OwnedButton asChild variant="outline" className="justify-start">
-                <label>
-                  <Upload aria-hidden="true" />
-                  {browserFile ? browserFile.name : "Choose file"}
-                  <input className="sr-only" type="file" onChange={(event) => setBrowserFile(event.target.files?.[0] ?? null)} />
-                </label>
-              </OwnedButton>
-            ) : (
-              <>
-                <ProjectSelect
-                  label="Provider"
-                  value={provider}
-                  options={externalFileProviderOptions}
-                  labels={{ external: "External URL", google_drive: "Google Drive", dropbox: "Dropbox", frame_io: "Frame.io" }}
-                  onChange={setProvider}
-                />
-                <FieldLayout label="File URL" required>
-                  <OwnedInput value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} placeholder="https://..." />
-                </FieldLayout>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FieldLayout label="Provider file ID" description="Optional. Reserved for future API synchronization.">
-                    <OwnedInput value={externalId} onChange={(event) => setExternalId(event.target.value)} />
-                  </FieldLayout>
-                  <FieldLayout label="File size (bytes)">
-                    <OwnedInput type="number" min={0} value={externalSize} onChange={(event) => setExternalSize(Math.max(0, Number(event.target.value) || 0))} />
-                  </FieldLayout>
-                </div>
-              </>
-            )}
+            <OwnedButton asChild variant="outline" className="justify-start">
+              <label>
+                <Upload aria-hidden="true" />
+                {browserFile ? browserFile.name : "Choose file"}
+                <input className="sr-only" type="file" accept=".pdf,.txt,.md,.markdown,.jpg,.jpeg,.png,.webp" onChange={(event) => setBrowserFile(event.target.files?.[0] ?? null)} />
+              </label>
+            </OwnedButton>
             <FieldLayout label="Version notes">
               <OwnedTextarea value={notes} onChange={(event) => setNotes(event.target.value)} density="compact" />
             </FieldLayout>
@@ -5459,7 +5901,7 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
 }
 
 function formatFileSize(bytes: number) {
-  if (!bytes) return "Size unavailable";
+  if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -5470,546 +5912,9 @@ function providerLabel(provider: string) {
   if (provider === "google_drive") return "Google Drive";
   if (provider === "dropbox") return "Dropbox";
   if (provider === "frame_io") return "Frame.io";
-  if (provider === "convex") return "Frame Desk Upload";
+  if (provider === "convex") return "Relay Upload";
   if (provider === "r2") return "Cloudflare R2";
   return "External Link";
-}
-
-function ClientPortalManager({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const portalData = useQuery(
-    api.clientPortals.getForProject,
-    isConvexAuthenticated ? { projectId: project.id } : "skip"
-  );
-  const publishPortal = useMutation(api.clientPortals.publish);
-  const setPortalAccessControls = useMutation(api.clientPortals.setAccessControls);
-  const regeneratePortalToken = useMutation(api.clientPortals.regenerateToken);
-  const setPortalPasswordProtection = useMutation(api.clientPortals.setPasswordProtection);
-  const removeDeliverable = useMutation(api.clientPortals.removeDeliverable);
-  const updateDeliverableStatus = useMutation(api.clientPortals.updateDeliverableStatus);
-  const updateRevisionStatus = useMutation(api.clientPortals.updateRevisionStatus);
-  const [managerOpen, setManagerOpen] = useState(false);
-  const [summary, setSummary] = useState("");
-  const [clientNotes, setClientNotes] = useState("");
-  const [estimatedCompletion, setEstimatedCompletion] = useState(project.dueDate);
-  const [revisionLimit, setRevisionLimit] = useState(2);
-  const [clientStage, setClientStage] = useState<ClientPortalStage>("Planning");
-  const [accessEnabled, setAccessEnabled] = useState(true);
-  const [expiresAt, setExpiresAt] = useState("");
-  const [portalPassword, setPortalPassword] = useState("");
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-  const portal = portalData?.portal;
-
-  function openManager() {
-    setSummary(portal?.clientSummary ?? "");
-    setClientNotes(portal?.clientNotes ?? "");
-    setEstimatedCompletion(portal?.estimatedCompletion ?? project.dueDate);
-    setRevisionLimit(portal?.revisionLimit ?? 2);
-    setClientStage(portal?.status ?? clientPortalStage(project.status));
-    setAccessEnabled(portal?.enabled ?? true);
-    setExpiresAt(toDateTimeLocal(portal?.expiresAt));
-    setPortalPassword("");
-    setError("");
-    setManagerOpen(true);
-  }
-
-  function portalUrl(token = portal?.token) {
-    if (!token || typeof window === "undefined") return "";
-    return `${window.location.origin}/client-portal/${token}`;
-  }
-
-  async function savePortal() {
-    if (!canEdit || !isConvexAuthenticated) return;
-    setBusy("publish");
-    setError("");
-    try {
-      const result = await publishPortal({
-        projectId: project.id,
-        clientSummary: summary,
-        clientNotes,
-        estimatedCompletion,
-        revisionLimit,
-        clientStage
-      });
-      if (!portal) {
-        await copyText(portalUrl(result.token));
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not publish the client portal.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function copyPortalLink() {
-    const url = portalUrl();
-    if (!url) return;
-    const copied = await copyText(url);
-    setError(copied ? "" : "Could not copy the portal link.");
-  }
-
-  async function saveAccessControls() {
-    if (!portal || !canEdit) return;
-    setBusy("access");
-    setError("");
-    try {
-      await setPortalAccessControls({
-        portalId: portal._id,
-        enabled: accessEnabled,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-      });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update portal access.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function regeneratePortalLink() {
-    if (!portal || !canEdit) return;
-    if (typeof window !== "undefined" && !window.confirm("Regenerate this portal link? The current link will stop working immediately.")) return;
-    setBusy("regenerate");
-    setError("");
-    try {
-      const result = await regeneratePortalToken({ portalId: portal._id });
-      const copied = await copyText(portalUrl(result.token));
-      if (!copied) setError("The link was regenerated, but it could not be copied.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not regenerate the portal link.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function savePortalPassword() {
-    if (!portal || !canEdit || portalPassword.length < 4) return;
-    setBusy("password");
-    setError("");
-    try {
-      await setPortalPasswordProtection({
-        portalId: portal._id,
-        password: portalPassword,
-      });
-      setPortalPassword("");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update portal protection.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function removePortalPassword() {
-    if (!portal || !canEdit) return;
-    setBusy("password-remove");
-    setError("");
-    try {
-      await setPortalPasswordProtection({ portalId: portal._id, password: null });
-      setPortalPassword("");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not remove portal protection.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function deleteDeliverable(deliverableId: Parameters<typeof removeDeliverable>[0]["deliverableId"]) {
-    setBusy(`remove-${deliverableId}`);
-    setError("");
-    try {
-      await removeDeliverable({ deliverableId });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not remove the deliverable.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function changeDeliverableStatus(deliverableId: Parameters<typeof updateDeliverableStatus>[0]["deliverableId"], status: DeliverableStatus) {
-    setBusy(`deliverable-${deliverableId}`);
-    setError("");
-    try {
-      await updateDeliverableStatus({ deliverableId, status });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update the deliverable.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function changeRevisionStatus(revisionId: Parameters<typeof updateRevisionStatus>[0]["revisionId"], status: RevisionStatus) {
-    setBusy(`revision-${revisionId}`);
-    setError("");
-    try {
-      await updateRevisionStatus({ revisionId, status });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update the revision request.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  const portalExpired = Boolean(portal?.expiresAt && Date.parse(portal.expiresAt) <= Date.now());
-  const portalAccessLabel = !portal?.enabled ? "Disabled" : portalExpired ? "Expired" : "Active";
-
-  return (
-    <>
-      <section className="mt-4 rounded-lg border bg-card p-4 text-card-foreground">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Globe2 aria-hidden="true" className="size-5 text-primary" />
-              <h3 className="font-semibold">Client Portal</h3>
-              {portal ? (
-                <OwnedBadge
-                  variant="secondary"
-                  className={portal.enabled && !portalExpired ? "border-primary/30 bg-primary/10 text-primary" : "text-muted-foreground"}
-                >
-                  {portalAccessLabel}
-                </OwnedBadge>
-              ) : null}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Share a client-safe project view without exposing internal notes, earnings, or team activity.
-            </p>
-          </div>
-          <OwnedButton type="button" variant="outline" onClick={openManager} disabled={isConvexAuthLoading || !isConvexAuthenticated}>
-            {portal ? "Manage Portal" : "Create Portal"}
-          </OwnedButton>
-        </div>
-        {!isConvexAuthLoading && !isConvexAuthenticated ? (
-          <p className="mt-2 text-sm text-muted-foreground">Sign in with cloud sync enabled to publish a shareable portal.</p>
-        ) : null}
-        {portalData === undefined && isConvexAuthenticated ? (
-          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <LoaderCircle aria-hidden="true" className="size-4 animate-spin text-primary" />
-            <span>Loading client workspace...</span>
-          </div>
-        ) : portal ? (
-          <>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <article className="rounded-md border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client Notes</p>
-                <p className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${portal.clientNotes ? "" : "text-muted-foreground"}`}>
-                  {portal.clientNotes || "No client-facing notes saved."}
-                </p>
-              </article>
-              <article className="rounded-md border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deliverables</p>
-                <p className="mt-1 text-2xl font-semibold">{portalData.deliverables.length}</p>
-                <p className="text-xs text-muted-foreground">
-                  {portalData.deliverables.filter((item) => item.status === "final_delivered").length} final · {portalData.deliverables.filter((item) => item.status === "approved").length} approved
-                </p>
-              </article>
-              <article className="rounded-md border bg-muted/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Revision History</p>
-                <p className="mt-1 text-2xl font-semibold">{portalData.revisions.length} / {portal.revisionLimit}</p>
-                <p className="text-xs text-muted-foreground">{portalData.revisions.filter((item) => item.status !== "Resolved").length} active requests</p>
-              </article>
-            </div>
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              <section className="min-w-0 rounded-md border bg-muted/30 p-3">
-                <h4 className="text-sm font-semibold">Deliverables</h4>
-                <div className="mt-2 max-h-80 divide-y overflow-y-auto">
-                  {portalData.deliverables.length ? portalData.deliverables.map((item) => (
-                    <div key={item._id} className="flex flex-col justify-between gap-2 py-3 sm:flex-row sm:items-center">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{item.title}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.detail || item.url}</p>
-                      </div>
-                      {canEdit ? (
-                        <OwnedSelect value={item.status} onValueChange={(status) => changeDeliverableStatus(item._id, status as DeliverableStatus)}>
-                          <OwnedSelectTrigger size="sm" aria-label={`Deliverable status for ${item.title}`} className="w-full sm:w-[164px]">
-                            <OwnedSelectValue>{approvalStatusLabel(item.status)}</OwnedSelectValue>
-                          </OwnedSelectTrigger>
-                          <OwnedSelectContent position="popper">
-                            {DELIVERABLE_STATUS_VALUES.map((option) => (
-                              <OwnedSelectItem key={option} value={option}>{APPROVAL_STATUS_LABELS[option] ?? option}</OwnedSelectItem>
-                            ))}
-                          </OwnedSelectContent>
-                        </OwnedSelect>
-                      ) : <OwnedBadge variant="outline">{approvalStatusLabel(item.status)}</OwnedBadge>}
-                    </div>
-                  )) : <p className="py-2 text-sm text-muted-foreground">No deliverables yet.</p>}
-                </div>
-              </section>
-              <section className="min-w-0 rounded-md border bg-muted/30 p-3">
-                <h4 className="text-sm font-semibold">Revision History</h4>
-                <div className="mt-2 max-h-80 overflow-y-auto">
-                  {portalData.revisions.length ? portalData.revisions.map((revision) => (
-                    <article key={revision._id} className="border-b py-3 last:border-b-0">
-                      <div className="flex flex-col justify-between gap-2 sm:flex-row">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{revision.clientName}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{formatShortDateTime(revision.createdAt)}</p>
-                        </div>
-                        {canEdit ? (
-                          <OwnedSelect value={revision.status} onValueChange={(status) => changeRevisionStatus(revision._id, status as RevisionStatus)}>
-                            <OwnedSelectTrigger size="sm" aria-label={`Revision status for ${revision.clientName}`} className="w-full sm:w-[130px]">
-                              <OwnedSelectValue>{revision.status}</OwnedSelectValue>
-                            </OwnedSelectTrigger>
-                            <OwnedSelectContent position="popper">
-                              {REVISION_STATUS_VALUES.map((option) => <OwnedSelectItem key={option} value={option}>{option}</OwnedSelectItem>)}
-                            </OwnedSelectContent>
-                          </OwnedSelect>
-                        ) : <OwnedBadge variant="outline">{revision.status}</OwnedBadge>}
-                      </div>
-                      {revision.timecode ? (
-                        <OwnedBadge variant="secondary" className="mt-2 gap-1 text-primary">
-                          <Clock3 aria-hidden="true" className="size-3" />
-                          {revision.timecode}
-                        </OwnedBadge>
-                      ) : null}
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{revision.message}</p>
-                    </article>
-                  )) : <p className="py-2 text-sm text-muted-foreground">No revision requests yet.</p>}
-                </div>
-              </section>
-            </div>
-          </>
-        ) : null}
-      </section>
-
-      <OwnedDialog open={managerOpen} onOpenChange={setManagerOpen}>
-        <OwnedDialogContent
-          data-testid="client-portal-manager"
-          showCloseButton={false}
-          className="flex max-h-[min(92dvh,900px)] w-[calc(100vw-2rem)] max-w-4xl flex-col gap-0 overflow-hidden border-border bg-background p-0 text-foreground"
-        >
-          <OwnedDialogHeader className="flex-row items-start justify-between gap-4 border-b px-4 py-4 text-left sm:px-6">
-            <div className="min-w-0">
-              <OwnedDialogTitle className="text-xl">Client Portal</OwnedDialogTitle>
-              <OwnedDialogDescription className="mt-1 truncate">{project.title}</OwnedDialogDescription>
-            </div>
-            <OwnedButton type="button" size="icon" variant="ghost" aria-label="Close client portal manager" onClick={() => setManagerOpen(false)}>
-              <X aria-hidden="true" />
-            </OwnedButton>
-          </OwnedDialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
-          {portalData === undefined ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-              <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-primary" />
-              <span>Loading portal settings...</span>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                <div className="flex flex-col justify-between gap-3 md:flex-row">
-                  <div>
-                    <h3 className="font-semibold">Public Link</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {portal ? "Anyone with this unguessable link can view the client-safe project snapshot." : "Publish once to generate an unguessable project link."}
-                    </p>
-                  </div>
-                  {portal ? (
-                    <div className="flex flex-wrap gap-2">
-                      <OwnedButton type="button" onClick={copyPortalLink} variant="outline">
-                        <Copy aria-hidden="true" />
-                        Copy Link
-                      </OwnedButton>
-                      <OwnedButton asChild variant="outline">
-                        <a href={portalUrl()} target="_blank" rel="noreferrer">
-                          Open
-                          <ExternalLink aria-hidden="true" />
-                        </a>
-                      </OwnedButton>
-                      <OwnedButton type="button" variant="ghost" onClick={regeneratePortalLink} disabled={!canEdit || busy === "regenerate"} className="text-destructive hover:text-destructive">
-                        <RefreshCw aria-hidden="true" className={busy === "regenerate" ? "animate-spin" : ""} />
-                        {busy === "regenerate" ? "Regenerating..." : "Regenerate Link"}
-                      </OwnedButton>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-
-              {portal ? (
-                <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                  <h3 className="font-semibold">Access Controls</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Disable access immediately or set an optional expiry for this public link.</p>
-                  <div className="mt-4 grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(220px,1fr)_auto]">
-                    <div className="flex items-center gap-3">
-                      <OwnedSwitch
-                        checked={accessEnabled}
-                        onCheckedChange={setAccessEnabled}
-                        disabled={!canEdit}
-                        aria-label="Portal access"
-                      />
-                      <div>
-                        <p className="text-sm font-medium">Portal access</p>
-                        <p className="text-xs text-muted-foreground">{accessEnabled ? "Anyone with the current link can access it." : "The public link is blocked."}</p>
-                      </div>
-                    </div>
-                    <FieldLayout label="Expires" description="Optional. Uses your local time." disabled={!canEdit}>
-                      <OwnedInput type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
-                    </FieldLayout>
-                    <OwnedButton type="button" variant="outline" onClick={saveAccessControls} disabled={!canEdit || busy === "access"}>
-                      {busy === "access" ? "Saving..." : "Save Access"}
-                    </OwnedButton>
-                  </div>
-                </section>
-              ) : null}
-
-              {portal ? (
-                <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <LockKeyhole aria-hidden="true" className="size-5 text-primary" />
-                    <h3 className="font-semibold">PIN Or Password</h3>
-                    <OwnedBadge variant={portal.passwordProtected ? "secondary" : "outline"}>
-                      {portal.passwordProtected ? "Protected" : "Not protected"}
-                    </OwnedBadge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Optional. The credential is hashed before storage and cannot be viewed after saving.
-                  </p>
-                  <div className="mt-4 grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                    <FieldLayout
-                      label={portal.passwordProtected ? "New PIN or password" : "PIN or password"}
-                      description="4-128 characters. Leave blank to keep the current setting."
-                      disabled={!canEdit}
-                    >
-                      <OwnedInput
-                        type="password"
-                        value={portalPassword}
-                        onChange={(event) => setPortalPassword(event.target.value)}
-                        minLength={4}
-                        maxLength={128}
-                        autoComplete="new-password"
-                      />
-                    </FieldLayout>
-                    <OwnedButton type="button" variant="outline" onClick={savePortalPassword} disabled={!canEdit || portalPassword.length < 4 || busy === "password"} className="sm:mt-6">
-                      {busy === "password" ? "Saving..." : portal.passwordProtected ? "Update" : "Enable"}
-                    </OwnedButton>
-                    {portal.passwordProtected ? (
-                      <OwnedButton type="button" variant="ghost" onClick={removePortalPassword} disabled={!canEdit || busy === "password-remove"} className="text-destructive hover:text-destructive sm:mt-6">
-                        {busy === "password-remove" ? "Removing..." : "Remove"}
-                      </OwnedButton>
-                    ) : null}
-                  </div>
-                </section>
-              ) : null}
-
-              <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                <h3 className="font-semibold">Client-Facing Project Details</h3>
-                <div className="mt-4 grid gap-4">
-                  <FieldLayout label="Project summary" description={`${summary.length}/800 characters`} disabled={!canEdit}>
-                    <OwnedTextarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} maxLength={800} />
-                  </FieldLayout>
-                  <FieldLayout label="Client-facing notes" description="Only notes entered here are visible. Internal project notes are never copied." disabled={!canEdit}>
-                    <OwnedTextarea value={clientNotes} onChange={(event) => setClientNotes(event.target.value)} rows={3} maxLength={2000} />
-                  </FieldLayout>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <FieldLayout label="Estimated completion" disabled={!canEdit}>
-                      <OwnedInput type="date" value={estimatedCompletion} onChange={(event) => setEstimatedCompletion(event.target.value)} />
-                    </FieldLayout>
-                    <FieldLayout label="Included revisions" disabled={!canEdit}>
-                      <OwnedInput
-                        type="number"
-                        value={revisionLimit}
-                        min={0}
-                        max={20}
-                        onChange={(event) => setRevisionLimit(Math.max(0, Math.min(20, Number(event.target.value) || 0)))}
-                      />
-                    </FieldLayout>
-                    <OwnedSelect value={clientStage} onValueChange={(value) => setClientStage(value as ClientPortalStage)} disabled={!canEdit}>
-                      <FieldLayout label="Client workflow stage" disabled={!canEdit}>
-                        <OwnedSelectTrigger className="w-full">
-                          <OwnedSelectValue>{clientStage}</OwnedSelectValue>
-                        </OwnedSelectTrigger>
-                      </FieldLayout>
-                      <OwnedSelectContent position="popper">
-                        {CLIENT_PORTAL_STAGE_VALUES.map((option) => <OwnedSelectItem key={option} value={option}>{option}</OwnedSelectItem>)}
-                      </OwnedSelectContent>
-                    </OwnedSelect>
-                  </div>
-                  <OwnedButton type="button" onClick={savePortal} disabled={!canEdit || busy === "publish"} className="justify-self-start">
-                    {busy === "publish" ? "Saving..." : portal ? "Update Portal" : "Publish Portal"}
-                  </OwnedButton>
-                </div>
-              </section>
-
-              {portal ? (
-                <>
-                  <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                    <h3 className="font-semibold">Legacy Deliverable Links</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">New deliverables are managed in Project Files. Existing portal links remain editable here for backward compatibility.</p>
-                    {portalData.deliverables.length ? (
-                      <div className="mt-4 divide-y">
-                        {portalData.deliverables.map((item) => (
-                          <div key={item._id} className="flex flex-col justify-between gap-3 py-3 sm:flex-row sm:items-center">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{item.title}</p>
-                              <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.detail || item.url}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {canEdit ? (
-                                <OwnedSelect value={item.status} onValueChange={(status) => changeDeliverableStatus(item._id, status as DeliverableStatus)}>
-                                  <OwnedSelectTrigger size="sm" aria-label={`Deliverable status for ${item.title}`} className="w-[164px] max-w-full">
-                                    <OwnedSelectValue>{approvalStatusLabel(item.status)}</OwnedSelectValue>
-                                  </OwnedSelectTrigger>
-                                  <OwnedSelectContent position="popper">
-                                    {DELIVERABLE_STATUS_VALUES.map((option) => (
-                                      <OwnedSelectItem key={option} value={option}>{APPROVAL_STATUS_LABELS[option] ?? option}</OwnedSelectItem>
-                                    ))}
-                                  </OwnedSelectContent>
-                                </OwnedSelect>
-                              ) : <OwnedBadge variant="outline">{approvalStatusLabel(item.status)}</OwnedBadge>}
-                              {canEdit ? (
-                                <OwnedButton type="button" variant="ghost" size="sm" onClick={() => deleteDeliverable(item._id)} disabled={busy === `remove-${item._id}`} className="text-destructive hover:text-destructive">
-                                  {busy === `remove-${item._id}` ? "Removing..." : "Remove"}
-                                </OwnedButton>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="mt-4 text-sm text-muted-foreground">No legacy deliverable links remain. Use Project Files for all new deliverables.</p>}
-                  </section>
-
-                  <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                    <h3 className="font-semibold">Client Revision Requests</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">Requests submitted through the public link appear here in real time.</p>
-                    {portalData.revisions.length ? (
-                      <div className="mt-4 grid gap-3">
-                        {portalData.revisions.map((revision) => (
-                          <article key={revision._id} className="rounded-md border bg-muted/30 p-3">
-                            <div className="flex flex-col justify-between gap-3 sm:flex-row">
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">{revision.clientName}</p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">{formatShortDateTime(revision.createdAt)}</p>
-                              </div>
-                              {canEdit ? (
-                                <OwnedSelect value={revision.status} onValueChange={(status) => changeRevisionStatus(revision._id, status as RevisionStatus)}>
-                                  <OwnedSelectTrigger size="sm" aria-label={`Revision status for ${revision.clientName}`} className="w-full sm:w-[150px]">
-                                    <OwnedSelectValue>{revision.status}</OwnedSelectValue>
-                                  </OwnedSelectTrigger>
-                                  <OwnedSelectContent position="popper">
-                                    {REVISION_STATUS_VALUES.map((option) => <OwnedSelectItem key={option} value={option}>{option}</OwnedSelectItem>)}
-                                  </OwnedSelectContent>
-                                </OwnedSelect>
-                              ) : <OwnedBadge variant="outline">{revision.status}</OwnedBadge>}
-                            </div>
-                            {revision.timecode ? (
-                              <OwnedBadge variant="secondary" className="mt-2 gap-1 text-primary">
-                                <Clock3 aria-hidden="true" className="size-3" />
-                                {revision.timecode}
-                              </OwnedBadge>
-                            ) : null}
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{revision.message}</p>
-                          </article>
-                        ))}
-                      </div>
-                    ) : <p className="mt-4 text-sm text-muted-foreground">No revision requests have been submitted.</p>}
-                  </section>
-                </>
-              ) : null}
-              {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-            </div>
-          )}
-          </div>
-        </OwnedDialogContent>
-      </OwnedDialog>
-    </>
-  );
 }
 
 function clientPortalStage(status: string) {
@@ -6055,6 +5960,7 @@ function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: {
         body: commentBody,
         ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
       });
+      trackOptionalEvent("comment_added", { surface: "team" });
       setCommentBody("");
       setCommentTimecode("");
     } catch (error) {
@@ -6194,10 +6100,11 @@ function ProjectDialog({
             value={form.client || ""}
             options={clientOptions}
             onChange={(client) => setForm({ ...form, client })}
+            disabled={Boolean(form.salaryPlanId)}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <ProjectSelect label="Status" value={form.status} options={statusOptions} onChange={(value) => setForm({ ...form, status: value })} />
-            <ProjectSelect label="Tag" value={selectedWorkType} options={workTypeOptions} onChange={(value) => setForm({ ...form, workType: value, earnings: 0 })} />
+            <ProjectSelect label="Tag" value={selectedWorkType} options={workTypeOptions} disabled={Boolean(form.salaryPlanId)} onChange={(value) => setForm({ ...form, workType: value, earnings: 0 })} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <ProjectDatePicker label="Start date" value={form.startDate} settings={settings} onChange={(value) => setForm({ ...form, startDate: value })} />
@@ -6205,10 +6112,10 @@ function ProjectDialog({
           </div>
           <FieldLayout
             label="Earnings"
-            disabled={typeConfig.earningsMode === "batch"}
-            description={typeConfig.earningsMode === "batch" ? `${settings.salaryWorkType} earnings are batch tracked in settings.` : undefined}
+            disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"}
+            description={form.salaryPlanId ? "This Salary Plan fixes the Client and tracks money only when a full batch completes." : typeConfig.earningsMode === "batch" ? `${settings.salaryWorkType} earnings are batch tracked in settings.` : undefined}
           >
-            <OwnedInput type="number" value={form.earnings} onChange={(event) => setForm({ ...form, earnings: Number(event.target.value || 0) })} />
+            <OwnedInput type="number" disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"} value={form.earnings} onChange={(event) => setForm({ ...form, earnings: Number(event.target.value || 0) })} />
           </FieldLayout>
           <FieldLayout label="Notes">
             <OwnedTextarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} density="comfortable" />
@@ -6240,13 +6147,13 @@ function ProjectDialog({
   );
 }
 
-function ProjectClientCombobox({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+function ProjectClientCombobox({ value, options, onChange, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout label="Client" description={clientSuggestionText(value, options)}>
-        <OwnedPopoverTrigger asChild>
-          <OwnedButton type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+      <FieldLayout label="Client" disabled={disabled} description={disabled ? "Fixed by the selected Salary Plan." : clientSuggestionText(value, options)}>
+          <OwnedPopoverTrigger asChild>
+            <OwnedButton type="button" variant="outline" role="combobox" disabled={disabled} aria-expanded={open} className="w-full justify-between font-normal">
             <span className={value ? "truncate" : "truncate text-muted-foreground"}>{value || (options.length ? "Choose existing or type new client" : "Type a new client name")}</span>
             <ChevronsUpDown className="opacity-50" aria-hidden="true" />
           </OwnedButton>
@@ -6358,10 +6265,10 @@ function TemplateSetupEditor({
         </FieldLayout>
         <FieldLayout label="Workflow stages" description="One stage per line.">
           <OwnedTextarea
-          value={(form.workflowStages ?? []).join("\n")}
+          value={(form.workflowStages ?? []).map((stage) => stage.label).join("\n")}
           onChange={(event) => setForm({
             ...form,
-            workflowStages: event.target.value.split("\n").slice(0, 12),
+            workflowStages: workflowStagesFromLabels(event.target.value.split("\n").slice(0, 12), form.workflowStages),
           })}
           density="comfortable"
           />
@@ -6688,24 +6595,18 @@ function getTypeConfig(label: string, settings: SettingsState) {
 
 function applyRootThemeVariables(settings: SettingsState) {
   if (typeof document === "undefined") return;
-  const { vars, isDark } = themeVariables(settings);
+  const isDark = themeIsDark(settings);
   const root = document.documentElement;
-  Object.entries(vars).forEach(([key, value]) => root.style.setProperty(key, value));
   root.style.colorScheme = isDark ? "dark" : "light";
   root.dataset.theme = isDark ? "dark" : "light";
   root.classList.toggle("dark", isDark);
-  root.classList.toggle("cutlab-density-compact", settings.density === "Compact");
-  root.classList.toggle("cutlab-density-comfortable", settings.density !== "Compact");
+  root.classList.toggle("relay-density-compact", settings.density === "Compact");
+  root.classList.toggle("relay-density-balanced", settings.density !== "Compact");
 }
 
-function themeVariables(settings: SettingsState) {
+function themeIsDark(settings: SettingsState) {
   const prefersDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  const isDark = settings.theme === "Dark" || (settings.theme === "System" && prefersDark);
-
-  return {
-    isDark,
-    vars: cutlabThemeVariables(settings.accentColor || defaultAccent)
-  };
+  return settings.theme === "Dark" || (settings.theme === "System" && prefersDark);
 }
 
 function defaultProjectNotes(settings: SettingsState) {

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Frame Desk",
-    short_name: "Frame Desk",
+    name: "Relay",
+    short_name: "Relay",
     description: "A focused production workspace for video editors and small teams.",
     start_url: "/",
     display: "standalone",

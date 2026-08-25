@@ -28,7 +28,7 @@ export function ContentSection({
     <section
       data-slot="content-section"
       className={cn(
-        "min-w-0 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm shadow-black/[0.02]",
+        "min-w-0 overflow-hidden rounded-[6px] bg-card text-card-foreground",
         className,
       )}
       {...props}
@@ -36,7 +36,7 @@ export function ContentSection({
       {hasHeader ? (
         <header
           data-slot="content-section-header"
-          className="flex min-h-14 flex-col justify-center gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+          className="flex min-h-12 flex-col justify-center gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">

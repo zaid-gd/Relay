@@ -1,5 +1,4 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHmac } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -13,7 +12,6 @@ loadEnvConfig(process.cwd());
 
 const startupTimeoutMs = 30_000;
 const configuredBaseUrl = process.env.CUTLAB_UI_URL;
-const verificationAccessPassword = process.env.ACCESS_WALL_PASSWORD || "frame-desk-local-verification-only";
 const workspaceRoutes = [
   ["/", "Good to see you, Jordan.", "data-index"],
   ["/projects", "Projects", "data-index"],
@@ -40,7 +38,7 @@ if (!baseUrl) {
   const port = await getOpenPort();
   baseUrl = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, [join("node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], {
-    env: { ...process.env, ACCESS_WALL_PASSWORD: verificationAccessPassword, PORT: String(port) },
+    env: { ...process.env, PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -64,20 +62,6 @@ async function withPage(
   { seedWorkspace = true, projectCount = 1, clientCount = Math.min(projectCount, 12) } = {},
 ) {
   const context = await browser.newContext({ viewport, reducedMotion: "no-preference" });
-  if (verificationAccessPassword) {
-    const expiresAt = Math.floor(Date.now() / 1000) + (60 * 60);
-    const payload = `v1.${expiresAt}`;
-    const signature = createHmac("sha256", verificationAccessPassword)
-      .update(payload)
-      .digest("base64url");
-    await context.addCookies([{
-      name: "cutlab_access",
-      value: `${payload}.${signature}`,
-      url: baseUrl,
-      httpOnly: true,
-      sameSite: "Strict",
-    }]);
-  }
   if (seedWorkspace) await context.addInitScript(({ clientCount, projectCount }) => {
     const clientNames = Array.from(
       { length: clientCount },
@@ -85,7 +69,7 @@ async function withPage(
     );
     localStorage.setItem("cutlab-studio:auth-mode:v1", "local");
     localStorage.setItem("video-editing-work-tracker:settings:v1", JSON.stringify({
-      studioName: "Frame Desk",
+      studioName: "Relay",
       profileName: "Jordan Lee",
       profileTitle: "Editor",
       profileImageUrl: "",
@@ -186,10 +170,10 @@ async function assertWorkspaceGeometry(page, route, expectedFamily) {
   if (geometry.documentWidth > geometry.viewportWidth + 1) {
     throw new Error(`${route} has document-level horizontal overflow.`);
   }
-  const expectedWidth = Math.min(geometry.mainClientWidth, 1920);
-  const expectedLeft = geometry.mainClientLeft + ((geometry.mainClientWidth - expectedWidth) / 2);
+  const expectedWidth = geometry.mainClientWidth;
+  const expectedLeft = geometry.mainClientLeft;
   if (Math.abs(geometry.pageRoot.width - expectedWidth) > 1 || Math.abs(geometry.pageRoot.left - expectedLeft) > 1) {
-    throw new Error(`${route} does not follow the shared 1920px workspace width contract.`);
+    throw new Error(`${route} does not use the full workspace width.`);
   }
   const leftGutter = geometry.header.left - geometry.pageRoot.left;
   const rightGutter = geometry.pageRoot.right - geometry.header.right;
@@ -400,10 +384,10 @@ try {
   await withPage({ width: 1440, height: 1000 }, async (page) => {
     console.log("Verifying first-value onboarding and sample isolation...");
     await page.goto(`${baseUrl}/?onboarding=v2`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("heading", { name: "See how a real project moves through Frame Desk" }).waitFor();
+    await page.getByRole("heading", { name: "Choose how to use Relay" }).waitFor();
     const initialProjectData = await page.evaluate(() => localStorage.getItem("video-editing-work-tracker:v1"));
     if (initialProjectData !== null) throw new Error("Fresh onboarding unexpectedly created project storage.");
-    await page.getByRole("link", { name: "Explore a sample studio" }).click();
+    await page.getByRole("link", { name: "Open Sample Workspace" }).click();
     await page.waitForURL(/\/sample-studio$/);
     await page.getByRole("complementary", { name: "Sample studio mode" }).waitFor();
     await page.getByRole("heading", { name: "Good to see you, Maya." }).waitFor();
@@ -414,20 +398,20 @@ try {
     const sampleProjectData = await page.evaluate(() => localStorage.getItem("video-editing-work-tracker:v1"));
     if (sampleProjectData !== null) throw new Error("The sample studio wrote project records to local storage.");
     await page.getByRole("link", { name: "Exit sample" }).click();
-    await page.getByRole("heading", { name: "See how a real project moves through Frame Desk" }).waitFor();
-    await page.getByRole("button", { name: "Try on this device" }).click();
+    await page.getByRole("heading", { name: "Choose how to use Relay" }).waitFor();
+    await page.getByRole("button", { name: "Use Local Mode" }).click();
     await page.getByRole("heading", { name: "Turn one active edit into a clear production plan" }).waitFor();
     await page.getByRole("button", { name: "Show all tools" }).click();
     await page.getByRole("link", { name: "Clients" }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: "Create first project" }).click();
-    await page.getByRole("heading", { name: "Create Project" }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "New Project" }).waitFor({ state: "visible" });
   }, { seedWorkspace: false });
 
   await withPage({ width: 390, height: 844 }, async (page) => {
     console.log("Verifying mobile first-value onboarding...");
     await page.goto(`${baseUrl}/?onboarding=v2`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("heading", { name: "See how a real project moves through Frame Desk" }).waitFor();
-    await page.getByRole("link", { name: "Explore a sample studio" }).click({ force: true });
+    await page.getByRole("heading", { name: "Choose how to use Relay" }).waitFor();
+    await page.getByRole("link", { name: "Open Sample Workspace" }).click({ force: true });
     await page.getByRole("complementary", { name: "Sample studio mode" }).waitFor();
     const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     if (hasOverflow) throw new Error("Mobile sample studio has document-level horizontal overflow.");
@@ -464,7 +448,7 @@ try {
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Good to see you, Jordan." }).waitFor();
     await page.getByRole("button", { name: "New project" }).click();
-    await page.getByRole("heading", { name: "Create Project" }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "New Project" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await page.getByTestId("mobile-project-row").first().click();
     await page.getByRole("dialog", { name: "Project details" }).waitFor({ state: "visible" });

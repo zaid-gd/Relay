@@ -7,6 +7,7 @@ import {
   CheckSquare2,
   ChevronDown,
   CircleUserRound,
+  CreditCard,
   FileText,
   FolderKanban,
   Images,
@@ -35,6 +36,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useData } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { SettingsState } from "@/lib/types";
+import type { SearchRecord } from "@/features/workspace-discovery/workspace-discovery";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +69,7 @@ type ShellPage =
   | "clients"
   | "timeline"
   | "calendar"
+  | "files"
   | "media"
   | "resources"
   | "feedback"
@@ -77,6 +80,7 @@ type ShellPage =
   | "team-chat"
   | "settings"
   | "account"
+  | "subscription"
   | "profile"
   | "profile-edit"
   | "organization-profile";
@@ -109,6 +113,7 @@ const routeGroups: RouteGroup[] = [
       { page: "projects", label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "G P" },
       { page: "clients", label: "Clients", href: "/clients", icon: UsersRound },
       { page: "feedback", label: "Reviews", href: "/feedback", icon: MessageSquareText },
+      { page: "files", label: "Files", href: "/files", icon: FileText },
       { page: "media", label: "Media", href: "/media", icon: Images },
       { page: "templates", label: "Templates", href: "/templates", icon: CheckSquare2 },
     ],
@@ -146,6 +151,8 @@ const shellTransition = {
   ease: [0.22, 1, 0.36, 1] as const,
 };
 
+let desktopSidebarCollapsed = false;
+
 const quickRouteShortcuts: Record<string, string> = {
   d: "/",
   c: "/calendar",
@@ -176,7 +183,9 @@ export function WorkspaceShell({
   onNewProject,
   canCreateProject,
   starterNavigation = false,
+  showTeamNavigation = false,
   notificationSlot,
+  searchRecords = [],
   children,
 }: {
   page: ShellPage;
@@ -184,7 +193,9 @@ export function WorkspaceShell({
   onNewProject: () => void;
   canCreateProject: boolean;
   starterNavigation?: boolean;
+  showTeamNavigation?: boolean;
   notificationSlot?: ReactNode;
+  searchRecords?: readonly SearchRecord[];
   children: ReactNode;
 }) {
   const [commandOpen, setCommandOpen] = useState(false);
@@ -192,8 +203,13 @@ export function WorkspaceShell({
   const goChordRef = useRef(false);
   const goChordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useHydratedReducedMotion();
+  const { isSignedIn } = useOptionalAuth();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsedState] = useState(desktopSidebarCollapsed);
+  const setCollapsed = (next: boolean) => {
+    desktopSidebarCollapsed = next;
+    setCollapsedState(next);
+  };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -239,7 +255,7 @@ export function WorkspaceShell({
   }, [router]);
 
   const title = useMemo(
-    () => allRoutes.find((route) => route.page === page)?.label ?? "Frame Desk",
+    () => page === "subscription" ? "Subscription" : allRoutes.find((route) => route.page === page)?.label ?? "Relay",
     [page],
   );
 
@@ -249,54 +265,49 @@ export function WorkspaceShell({
         page={page}
         settings={settings}
         starterNavigation={starterNavigation}
+        showTeamNavigation={showTeamNavigation}
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
+        onSearch={() => setCommandOpen(true)}
       />
 
       <div
         className={cn(
           "min-h-dvh transition-[padding] ease-[cubic-bezier(0.22,1,0.36,1)]",
           reduceMotion ? "duration-0" : "duration-300",
-          collapsed ? "lg:pl-[60px]" : "lg:pl-[224px]",
+          collapsed ? "lg:pl-14" : "lg:pl-60",
         )}
       >
         <header
           className={cn(
             "fixed inset-x-0 top-0 z-30 flex h-12 items-center bg-[var(--app-sidebar)] px-2.5 transition-[left] ease-[cubic-bezier(0.22,1,0.36,1)] lg:justify-between lg:px-3",
             reduceMotion ? "duration-0" : "duration-300",
-            collapsed ? "lg:left-[60px]" : "lg:left-[224px]",
+            collapsed ? "lg:left-14" : "lg:left-60",
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
             <div className="flex items-center gap-2 lg:hidden">
               <span className="font-display text-lg font-bold tracking-[-0.045em]">
-                Frame <span className="text-[var(--app-accent)]">Desk</span>
+                Relay
               </span>
             </div>
             <p className="truncate text-sm font-semibold lg:hidden">{title}</p>
             <p className="hidden items-center gap-1.5 text-xs lg:flex" aria-label={`Current location: ${title}`}>
-              <span className="font-medium text-[var(--app-subtle)]">Frame Desk</span>
+              <span className="font-medium text-[var(--app-subtle)]">Relay</span>
               <span aria-hidden="true" className="text-[var(--app-border)]">/</span>
               <span className="font-medium text-[var(--app-ink)]">{title}</span>
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            className={cn(
-              "hidden h-8 w-[min(38vw,440px)] justify-start border-[var(--app-border)] bg-[var(--app-control)] px-2.5 text-xs text-[var(--app-muted)] shadow-none transition-[left,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[var(--app-strong-border)] hover:bg-[var(--app-soft-panel)] hover:shadow-[0_1px_2px_color-mix(in_srgb,var(--app-ink)_8%,transparent)] lg:absolute lg:left-1/2 lg:flex lg:-translate-x-1/2",
-            )}
-            onClick={() => setCommandOpen(true)}
-            aria-label="Search pages and workspace actions (Ctrl K)"
-          >
-            <Search className="size-3.5" />
-            <span className="truncate">Search pages and workspace actions</span>
-            <kbd className="ml-auto rounded border border-[var(--app-border)] bg-[var(--app-soft-panel)] px-1.5 py-px font-mono text-[9px] text-[var(--app-muted)]">
-              Ctrl K
-            </kbd>
-          </Button>
-
           <div className="ml-3 flex items-center gap-1.5 lg:ml-0">
+            {isSignedIn ? (
+              <Button asChild variant={page === "subscription" ? "secondary" : "outline"} className="h-8 px-2.5 text-xs shadow-none">
+                <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined}>
+                  <CreditCard className="size-3.5" />
+                  <span className="hidden sm:inline">Plans & billing</span>
+                </Link>
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -313,13 +324,13 @@ export function WorkspaceShell({
               className="hidden sm:block"
             >
               <Button
-                aria-label="New Project"
+                aria-label="Quick create project"
                 className="h-8 bg-[var(--app-accent)] px-3 text-xs text-[var(--app-accent-foreground)] shadow-none hover:bg-[var(--app-highlight)]"
                 onClick={onNewProject}
                 disabled={!canCreateProject}
               >
                 <Plus className="size-3.5" />
-                New project
+                Quick create
               </Button>
             </motion.div>
             {notificationSlot ?? (
@@ -329,6 +340,7 @@ export function WorkspaceShell({
                 </Button>
               </motion.div>
             )}
+            <ProfileMenu settings={settings} compact page={page} />
           </div>
         </header>
 
@@ -337,9 +349,9 @@ export function WorkspaceShell({
           data-testid="workspace-content-surface"
           tabIndex={-1}
           className={cn(
-            "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-xl lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-md lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
             reduceMotion ? "lg:duration-0" : "lg:duration-300",
-            collapsed ? "lg:left-[66px]" : "lg:left-[230px]",
+            collapsed ? "lg:left-[62px]" : "lg:left-[246px]",
           )}
         >
           <div className="min-h-full lg:h-full">
@@ -361,8 +373,8 @@ export function WorkspaceShell({
         </motion.button>
       ) : null}
 
-      <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} />
-      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} />
+      <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} showTeamNavigation={showTeamNavigation} />
+      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} showTeamNavigation={showTeamNavigation} searchRecords={searchRecords} />
     </div>
   );
 }
@@ -371,25 +383,35 @@ function DesktopSidebar({
   page,
   settings,
   starterNavigation,
+  showTeamNavigation,
   collapsed,
   onCollapsedChange,
+  onSearch,
 }: {
   page: ShellPage;
   settings: SettingsState;
   starterNavigation: boolean;
+  showTeamNavigation: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  onSearch: () => void;
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const [showAllTools, setShowAllTools] = useState(false);
+  const availableGroups = routeGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
+    }))
+    .filter((group) => group.items.length);
   const visibleGroups = starterNavigation && !showAllTools
-    ? routeGroups.map((group) => ({ ...group, items: group.items.filter((item) => starterPages.has(item.page) || item.page === page) })).filter((group) => group.items.length)
-    : routeGroups;
+    ? availableGroups.map((group) => ({ ...group, items: group.items.filter((item) => starterPages.has(item.page) || item.page === page) })).filter((group) => group.items.length)
+    : availableGroups;
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 60 : 224 }}
+      animate={{ width: collapsed ? 56 : 240 }}
       transition={reduceMotion ? { duration: 0 } : shellTransition}
       className="fixed inset-y-0 left-0 z-40 hidden overflow-hidden bg-[var(--app-sidebar)] lg:flex lg:flex-col"
     >
@@ -407,26 +429,19 @@ function DesktopSidebar({
         >
           <motion.div
             initial={false}
-            animate={{
-              opacity: collapsed ? 0.88 : 1,
-              height: collapsed ? 26 : 48,
-              width: collapsed ? 26 : 127,
-            }}
+            animate={{ opacity: collapsed ? 0.88 : 1 }}
             transition={reduceMotion ? { duration: 0 } : shellTransition}
             className={cn(
-              "relative shrink-0 overflow-hidden",
+              "relative size-[26px] shrink-0 overflow-hidden",
               collapsed ? "mx-auto" : "mr-auto",
             )}
           >
             <img
-              src={collapsed ? "/brand/favicon.png" : "/brand/logo-mark.png"}
-              alt="Frame Desk"
+              src="/brand/favicon.png"
+              alt="Relay"
               width={160}
               height={160}
-              className={cn(
-                "brand-logo-light h-full w-full",
-                collapsed ? "object-contain" : "object-cover",
-              )}
+              className="brand-logo-light h-full w-full object-contain"
             />
             <img
               src="/brand/app-icon-dark.svg"
@@ -441,7 +456,27 @@ function DesktopSidebar({
 
       </div>
 
-      <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-1.5 py-2">
+      <div className="px-1.5 pb-1.5">
+        <Button
+          variant="outline"
+          className={cn(
+            "h-8 border-[var(--app-border)] bg-[var(--app-control)] px-2 text-xs text-[var(--app-muted)] shadow-none hover:bg-[var(--app-hover)]",
+            collapsed ? "w-full justify-center" : "w-full justify-start",
+          )}
+          onClick={onSearch}
+          aria-label="Quick Search (Ctrl K)"
+        >
+          <Search className="size-3.5 shrink-0" />
+          {!collapsed ? (
+            <>
+              <span className="truncate">Quick Search</span>
+              <kbd className="ml-auto font-mono text-[9px] text-[var(--app-subtle)]">Ctrl K</kbd>
+            </>
+          ) : null}
+        </Button>
+      </div>
+
+      <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1">
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.label} className="mb-2.5">
             {!collapsed ? (
@@ -484,10 +519,21 @@ function DesktopSidebar({
       </nav>
 
       <div className="border-t border-[var(--app-border)] p-1.5">
+        {!collapsed ? (
+          <footer className="mb-2 border-b border-[var(--app-border)] px-2 pb-2 text-[11px] leading-5 text-[var(--app-subtle)]">
+            <nav aria-label="Support and legal" className="flex flex-wrap gap-x-3 gap-y-1">
+              <Link className="hover:text-[var(--app-ink)]" href="/contact">Contact</Link>
+              <Link className="hover:text-[var(--app-ink)]" href="/privacy">Privacy</Link>
+              <Link className="hover:text-[var(--app-ink)]" href="/terms">Terms</Link>
+              <Link className="hover:text-[var(--app-ink)]" href="/accessibility">Accessibility</Link>
+            </nav>
+            <p className="mt-1">© {new Date().getFullYear()} Relay</p>
+          </footer>
+        ) : null}
         <button
           type="button"
           className={cn(
-            "mb-1 flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
+            "flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
             collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
           )}
           onClick={() => onCollapsedChange(!collapsed)}
@@ -497,18 +543,6 @@ function DesktopSidebar({
           {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           {!collapsed ? <span>Collapse sidebar</span> : null}
         </button>
-        <ProfileMenu settings={settings} collapsed={collapsed} page={page} />
-        {!collapsed ? (
-          <footer className="mt-2 border-t border-[var(--app-border)] px-2 pt-2 text-[11px] leading-5 text-[var(--app-subtle)]">
-            <nav aria-label="Support and legal" className="flex flex-wrap gap-x-3 gap-y-1">
-              <Link className="hover:text-[var(--app-ink)]" href="/contact">Contact</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/privacy">Privacy</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/terms">Terms</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/accessibility">Accessibility</Link>
-            </nav>
-            <p className="mt-1">© {new Date().getFullYear()} Frame Desk</p>
-          </footer>
-        ) : null}
       </div>
     </motion.aside>
   );
@@ -527,6 +561,15 @@ function SidebarRoute({
   reduceMotion: boolean | null;
 }) {
   const Icon = item.icon;
+  const [showPass, setShowPass] = useState(false);
+
+  useEffect(() => {
+    if (!active || reduceMotion) return;
+    setShowPass(true);
+    const timer = window.setTimeout(() => setShowPass(false), 520);
+    return () => window.clearTimeout(timer);
+  }, [active, reduceMotion]);
+
   const link = (
     <Link
       href={item.href}
@@ -536,15 +579,16 @@ function SidebarRoute({
         "group relative flex h-8 items-center overflow-hidden rounded text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
         collapsed ? "mx-auto w-9 justify-center px-0" : "gap-2.5 px-2.5",
         active
-          ? "text-[var(--app-highlight)]"
+          ? "bg-[var(--app-active)] text-[var(--app-ink)]"
           : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]",
       )}
     >
-      {active ? (
+      {showPass ? (
         <motion.span
-          layoutId="sidebar-active-route"
-          transition={reduceMotion ? { duration: 0 } : shellTransition}
-          className="absolute inset-0 rounded bg-[var(--app-active)]"
+          initial={{ x: "-110%", opacity: 0 }}
+          animate={{ x: "110%", opacity: [0, 0.7, 0] }}
+          transition={{ duration: 0.52, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent"
         />
       ) : null}
       <motion.span
@@ -576,7 +620,7 @@ function SidebarRoute({
   );
 }
 
-function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; collapsed: boolean; page: ShellPage }) {
+function ProfileMenu({ settings, collapsed = false, compact = false, page }: { settings: SettingsState; collapsed?: boolean; compact?: boolean; page: ShellPage }) {
   const { isAuthEnabled } = useData();
   const { isSignedIn, openSignIn, openSignUp, signOut } = useOptionalAuth();
   const [open, setOpen] = useState(false);
@@ -594,7 +638,7 @@ function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; c
           transition={{ duration: 0.12 }}
           className={cn(
             "flex w-full items-center rounded-md text-left outline-none transition-[background-color,box-shadow] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-            collapsed ? "justify-center p-1" : "gap-2.5 p-2",
+            compact || collapsed ? "justify-center p-1" : "gap-2.5 p-2",
           )}
           aria-label="Open profile menu"
         >
@@ -604,7 +648,7 @@ function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; c
               {initials(name)}
             </AvatarFallback>
           </Avatar>
-          {!collapsed ? (
+          {!collapsed && !compact ? (
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-semibold">{name}</span>
@@ -621,7 +665,7 @@ function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; c
           ) : null}
         </motion.button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side={collapsed ? "right" : "top"} align="start" className="w-64">
+      <DropdownMenuContent side={compact ? "bottom" : collapsed ? "right" : "top"} align={compact ? "end" : "start"} className="w-64">
         <DropdownMenuLabel>
           <p className="text-sm font-semibold">{name}</p>
           <p className="text-xs font-normal text-muted-foreground">{handle}</p>
@@ -629,6 +673,9 @@ function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; c
         <DropdownMenuSeparator />
         {!isSignedIn ? (
           <>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              Local Workspace · stored in this browser
+            </DropdownMenuLabel>
             <DropdownMenuItem
               disabled={!isAuthEnabled}
               onSelect={() => openSignIn()}
@@ -641,6 +688,13 @@ function ProfileMenu({ settings, collapsed, page }: { settings: SettingsState; c
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
+        ) : null}
+        {isSignedIn ? (
+          <DropdownMenuItem asChild>
+            <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined} className={cn(page === "subscription" && "bg-accent")}>
+              <CreditCard /> Plans & billing
+            </Link>
+          </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
           <Link
@@ -711,10 +765,14 @@ function WorkspaceCommand({
   open,
   onOpenChange,
   onNewProject,
+  showTeamNavigation,
+  searchRecords,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
+  showTeamNavigation: boolean;
+  searchRecords: readonly SearchRecord[];
 }) {
   const reduceMotion = useHydratedReducedMotion();
 
@@ -742,7 +800,24 @@ function WorkspaceCommand({
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
-              {routeGroups.map((group) => (
+              {searchRecords.length ? (
+                <CommandGroup heading="Workspace records">
+                  {searchRecords.filter((record) => record.kind !== "action").map((record) => (
+                    <CommandItem key={`${record.kind}:${record.id}`} asChild value={`${record.title} ${record.detail} ${record.keywords ?? ""}`}>
+                      <Link href={record.href ?? "/"} onClick={() => onOpenChange(false)}>
+                        <FileText />
+                        <span className="min-w-0 flex-1 truncate">{record.title}</span>
+                        <span className="text-xs text-muted-foreground">{record.detail}</span>
+                      </Link>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
+              {searchRecords.length ? <CommandSeparator /> : null}
+              {routeGroups.map((group) => ({
+                ...group,
+                items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
+              })).filter((group) => group.items.length).map((group) => (
                 <CommandGroup key={group.label} heading={group.label}>
                   {group.items.map((item) => {
                     const Icon = item.icon;
@@ -771,11 +846,13 @@ function MobileNavigation({
   open,
   onOpenChange,
   starterNavigation,
+  showTeamNavigation,
 }: {
   page: ShellPage;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   starterNavigation: boolean;
+  showTeamNavigation: boolean;
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const primaryRoutes = starterNavigation
@@ -837,7 +914,10 @@ function MobileNavigation({
             <SheetTitle>Workspace</SheetTitle>
           </SheetHeader>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            {allRoutes.filter((route) => !primaryRoutes.some((mobile) => mobile.page === route.page)).map((item) => {
+            {allRoutes
+              .filter((route) => !primaryRoutes.some((mobile) => mobile.page === route.page))
+              .filter((route) => showTeamNavigation || (route.page !== "team" && route.page !== "team-chat"))
+              .map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -866,7 +946,7 @@ function MobileNavigation({
               <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/terms" onClick={() => onOpenChange(false)}>Terms</Link>
               <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/accessibility" onClick={() => onOpenChange(false)}>Accessibility</Link>
             </div>
-            <p className="mt-3 px-1 text-xs text-[var(--app-subtle)]">© {new Date().getFullYear()} Frame Desk</p>
+            <p className="mt-3 px-1 text-xs text-[var(--app-subtle)]">© {new Date().getFullYear()} Relay</p>
           </div>
         </SheetContent>
       </Sheet>

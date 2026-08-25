@@ -1,3 +1,5 @@
+import { trackOptionalEvent } from "./telemetry";
+
 const variantKey = "cutlab-studio:onboarding-variant:v2";
 
 export type OnboardingVariant = "control" | "v2";
@@ -25,7 +27,9 @@ export function trackOnboardingEvent(
   event: OnboardingEvent,
   properties: { variant: OnboardingVariant; entrySource?: string; mode?: "local" | "account"; elapsedMs?: number },
 ) {
-  // Analytics are intentionally disabled until a provider is selected.
-  void event;
-  void properties;
+  trackOptionalEvent("activation", {
+    milestone: event,
+    variant: properties.variant,
+    ...(properties.mode ? { mode: properties.mode } : {}),
+  });
 }

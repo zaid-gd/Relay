@@ -1,35 +1,64 @@
-# Frame Desk glossary
+# Relay
+
+Relay is a video-workflow workspace for freelance editors and small post-production teams.
 
 ## Product
 
-**Frame Desk** — A work hub for freelance video editors and small editing teams. Use this name for the app and product.
+**Relay**:
+The product and app name.
+_Avoid_: Frame Desk, CutLab
 
-**Workspace** — The signed-in work area that groups projects, clients, files, schedules, reports, people, and settings. Do not use workspace as a synonym for a single project.
+**Workspace**:
+One work area owned by an account. It starts solo and becomes a Team workspace when the Owner invites another person.
 
-**Project** — A tracked editing job with a client, owner, status, dates, money, progress, files, and review work.
+**Client**:
+A durable record for the person or company that commissions work. A Client is separate from Team membership.
 
-**Client** — The person or company that commissions projects and may receive review or delivery access.
+**Project Group**:
+An optional group of related Projects for one Client, such as a retainer, campaign, or production run. It is not a unit of delivery or salary progress.
 
-**Team member** — A person who works inside the workspace. A client is not a team member unless the same person also has an internal role.
+**Project**:
+One tracked video job. A Project is the unit of workflow, delivery, earnings, reporting, and Salary Plan progress.
 
-**Review** — A feedback cycle tied to a project or media version. Use review for the whole cycle and comment for one note inside it.
+**Project Output**:
+One promised result inside a Project, such as a main video, short cut, thumbnail, captions, or document.
+_Avoid_: Deliverable target, task
 
-**Media version** — One uploaded or linked version of a project file that people can review or deliver.
+**Media Version**:
+One linked or uploaded version of a Project Output. A Project Output has one current Media Version and may retain older versions.
 
-**Resource** — A saved link or reference item used by the team. A media version is not a resource.
+**Review**:
+A feedback cycle for a Media Version. A Comment is one note within a Review.
 
-**Template** — A reusable starting set of project details and work items.
+**Workflow Template**:
+A reusable Project setup containing workflow stages, starter Project Outputs, relative deadlines, roles, and Client Portal defaults. Relay copies it into a new Project.
+_Avoid_: Template
 
-**Work item** — One unit of tracked work inside a project. Use task only in general UI copy where the shorter term helps.
+**Salary Plan**:
+A Client-specific contract that defines how many delivered Projects complete a batch and the amount due for that batch.
 
-**Client portal** — The client-facing, token-based area for review and delivery. It stays separate from the internal workspace.
+**Salary Batch**:
+An immutable record of a completed Salary Plan batch, including the copied terms and Projects that completed it.
 
-**Public profile** — The public page that presents an editor or studio. It does not expose workspace data.
+**Team Member**:
+A person with Owner, Editor, or Viewer access inside a Workspace.
+
+**Client Portal**:
+A token-based, Project-specific page for client review and delivery. It exposes only content selected for that portal.
+
+**Public Profile**:
+A public page containing only the identity, work, links, and stats its owner chose to publish.
+
+**Resource**:
+A saved external link or reference used by the Team. It is not a Project Output, Media Version, or Project file.
 
 ## Interface
 
-**App shell** — The shared sidebar, top bar, mobile navigation, and content frame around internal routes.
+**App Shell**:
+The shared sidebar, top bar, mobile navigation, and content frame around internal routes.
 
-**Page system** — The shared page headers, toolbars, sections, metric strips, tables, empty states, and pane layouts used inside the app shell.
+**Page System**:
+The shared page headers, toolbars, sections, metric strips, tables, empty states, and pane layouts used inside the App Shell.
 
-**Density** — The spacing and control-size setting for repeated work. It must change space without hiding features.
+**Density**:
+The spacing and control-size setting for repeated work. It changes space without hiding features.

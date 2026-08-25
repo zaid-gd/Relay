@@ -466,6 +466,73 @@ describe("salary payout reporting", () => {
 });
 
 describe("team workspace permissions and synchronization", () => {
+  test("workspace settings and member access stay owner-controlled", async () => {
+    const { t, teamId, owner, editor } = await setupTeam();
+    const editorMemberId = await t.run(async (ctx) => {
+      const member = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_teamId_and_userId", (q) => q.eq("teamId", teamId).eq("userId", "editor"))
+        .unique();
+      if (!member) throw new Error("Editor missing");
+      return member._id;
+    });
+
+    await owner.mutation(api.team.updateWorkspaceSettings, {
+      teamId,
+      name: "Updated Workspace",
+      currencyCode: "AED",
+      timeZone: "Asia/Dubai",
+      defaultWorkflowTemplateId: "relay-default-workflow",
+      allowAllTeamProjects: true,
+    });
+    await expect(editor.mutation(api.team.updateWorkspaceSettings, {
+      teamId,
+      name: "Nope",
+      currencyCode: "USD",
+      timeZone: "UTC",
+      allowAllTeamProjects: false,
+    })).rejects.toThrow("Workspace Owner");
+    await owner.mutation(api.team.updateMemberPermissions, {
+      teamId,
+      memberId: editorMemberId,
+      permissions: { manageFinance: true, managePortal: false },
+    });
+    const workspace = await owner.query(api.team.getMyWorkspace, {});
+    expect(workspace?.workspace).toMatchObject({
+      name: "Updated Workspace",
+      currencyCode: "AED",
+      timeZone: "Asia/Dubai",
+      defaultWorkflowTemplateId: "relay-default-workflow",
+      allowAllTeamProjects: true,
+    });
+    expect(workspace?.members.find((member) => member._id === editorMemberId)?.permissions).toMatchObject({
+      manageFinance: true,
+      managePortal: false,
+    });
+  });
+
+  test("free workspaces stop at one owner plus two members and transfer ownership before leave", async () => {
+    const { t, teamId, owner, editor } = await setupTeam();
+    await expect(owner.mutation(api.team.inviteMember, {
+      teamId,
+      email: "extra@example.com",
+      role: "Reviewer",
+    })).rejects.toThrow("one Owner and two invited members");
+    const editorMemberId = await t.run(async (ctx) => {
+      const member = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_teamId_and_userId", (q) => q.eq("teamId", teamId).eq("userId", "editor"))
+        .unique();
+      if (!member) throw new Error("Editor missing");
+      return member._id;
+    });
+    await owner.mutation(api.team.transferOwnership, { teamId, memberId: editorMemberId });
+    await expect(owner.mutation(api.team.leaveWorkspace, { teamId })).resolves.toBeUndefined();
+    const nextOwner = await editor.query(api.team.getMyWorkspace, {});
+    expect(nextOwner?.workspace.ownerUserId).toBe("editor");
+    expect(nextOwner?.currentMember.role).toBe("Owner");
+  });
+
   test("project template catalog creates editable projects without client-specific data", async () => {
     expect(PROJECT_TEMPLATES).toHaveLength(8);
     expect(new Set(PROJECT_TEMPLATES.map((template) => template.id)).size).toBe(8);
@@ -506,7 +573,7 @@ describe("team workspace permissions and synchronization", () => {
     });
     await owner.mutation(api.workItems.replaceAll, {
       deleteMissing: false,
-      items: [{ ...templated, id: "template-product-ad" }],
+      items: [{ ...templated, workflowStages: templated.workflowStages?.map((stage) => stage.label), id: "template-product-ad" }],
     });
 
     const created = (await owner.query(api.workItems.list, {})).find((item) => item.id === "template-product-ad");
@@ -515,7 +582,7 @@ describe("team workspace permissions and synchronization", () => {
       templateProjectType: "Commercial",
       title: "Product Ad",
       client: "",
-      workflowStages: template.workflowStages,
+      workflowStages: template.workflowStages.map((stage) => stage.label),
       templateDeliverables: template.deliverables,
       checklistItems: template.checklistItems,
     });

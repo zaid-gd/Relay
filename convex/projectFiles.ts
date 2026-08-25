@@ -10,6 +10,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { recordProjectActivity } from "./projectActivity";
+import { getPublicPortalAccess } from "./projectPortals";
 import {
   fileCategoryValidator,
   fileProviderValidator,
@@ -17,6 +18,7 @@ import {
 } from "./domainValidators";
 import {
   approvalStatusLabel,
+  isClientSafeApprovalStatus,
   normalizeFileStatus,
 } from "../src/lib/domain-values";
 import type {
@@ -26,11 +28,26 @@ import type {
   ProjectActivityKind,
   TeamActivityKind,
 } from "../src/lib/domain-values";
+import { planIncludesFileUploads } from "../src/lib/subscription-entitlements";
 
 const MAX_PROJECT_FILES = 100;
 const MAX_PROJECT_VERSIONS = 500;
 const MAX_VERSIONS_PER_FILE = 20;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_WORKSPACE_BYTES = 200 * 1024 * 1024;
 type FileActivityKind = ProjectActivityKind & TeamActivityKind;
+
+type ProjectRecord =
+  | Pick<Doc<"projects">, "_id" | "id" | "ownerUserId" | "teamId">
+  | Pick<Doc<"workItems">, "_id" | "id" | "userId" | "ownerUserId" | "teamId">;
+
+function projectOwnerId(project: ProjectRecord) {
+  return "userId" in project ? project.ownerUserId ?? project.userId : project.ownerUserId;
+}
+
+function legacyProject(project: ProjectRecord): project is Pick<Doc<"workItems">, "_id" | "id" | "userId" | "ownerUserId" | "teamId"> {
+  return "userId" in project;
+}
 
 async function requireIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -44,14 +61,13 @@ async function requireProjectAccess(
   permission: "viewProjects" | "editProjects"
 ) {
   const identity = await requireIdentity(ctx);
-  const project = await ctx.db
-    .query("workItems")
-    .withIndex("by_workItemId", (q) => q.eq("id", projectId))
-    .unique();
+  const project =
+    (await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", projectId)).unique()) ??
+    (await ctx.db.query("workItems").withIndex("by_workItemId", (q) => q.eq("id", projectId)).unique());
   if (!project) throw new Error("Project not found");
   if (!project.teamId) {
-    if (project.userId !== identity.tokenIdentifier) throw new Error("Project access required");
-    return { identity, project };
+    if (projectOwnerId(project) !== identity.tokenIdentifier) throw new Error("Project access required");
+    return { identity, project, legacy: legacyProject(project) };
   }
   const member = await ctx.db
     .query("teamMembers")
@@ -62,7 +78,13 @@ async function requireProjectAccess(
   if (!member || member.status !== "active" || !member.permissions[permission]) {
     throw new Error("Project access required");
   }
-  return { identity, project };
+  return { identity, project, legacy: legacyProject(project) };
+}
+
+function requireFileUploadPlan(identity: Awaited<ReturnType<typeof requireIdentity>>) {
+  if (!planIncludesFileUploads(identity.pla)) {
+    throw new Error("File uploads require a Creator or Studio plan. External links remain available on Free.");
+  }
 }
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
@@ -82,6 +104,64 @@ function validExternalUrl(value: string) {
   }
 }
 
+const SAFE_FILE_TYPES: Record<string, readonly string[]> = {
+  "application/pdf": ["pdf"],
+  "text/plain": ["txt"],
+  "text/markdown": ["md", "markdown"],
+  "text/x-markdown": ["md", "markdown"],
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/png": ["png"],
+  "image/webp": ["webp"],
+};
+
+function validateSafeFile(fileName: string, mimeType: string, size: number, legacy: boolean) {
+  if (legacy) return;
+  if (!Number.isFinite(size) || size < 0 || size > MAX_FILE_BYTES) {
+    throw new Error("Files must be 20 MB or smaller");
+  }
+  const normalizedMime = mimeType.trim().toLowerCase();
+  const extension = fileName.trim().split(".").pop()?.toLowerCase();
+  if (!extension || !SAFE_FILE_TYPES[normalizedMime]?.includes(extension)) {
+    throw new Error("Only PDF, text, Markdown, JPEG, PNG, and WebP files are accepted");
+  }
+}
+
+async function validateProjectOutput(
+  ctx: QueryCtx | MutationCtx,
+  projectId: string,
+  projectOutputId: Id<"projectOutputs"> | null | undefined,
+) {
+  if (!projectOutputId) return;
+  const output = await ctx.db.get(projectOutputId);
+  if (!output || output.projectId !== projectId || output.archived) {
+    throw new Error("Project Output not found");
+  }
+}
+
+async function workspaceUsage(ctx: QueryCtx | MutationCtx, project: ProjectRecord) {
+  if (legacyProject(project)) return 0;
+  const projects = project.teamId
+    ? await ctx.db.query("projects").withIndex("by_teamId", (q) => q.eq("teamId", project.teamId)).collect()
+    : await ctx.db.query("projects").withIndex("by_ownerUserId_and_teamId", (q) =>
+        q.eq("ownerUserId", project.ownerUserId).eq("teamId", undefined),
+      ).collect();
+  let total = 0;
+  for (const candidate of projects) {
+    const versions = await ctx.db
+      .query("projectFileVersions")
+      .withIndex("by_projectId_and_uploadedAt", (q) => q.eq("projectId", candidate.id))
+      .collect();
+    total += versions.reduce((sum, version) => sum + version.size, 0);
+  }
+  return total;
+}
+
+async function requireWorkspaceCapacity(ctx: QueryCtx | MutationCtx, project: ProjectRecord, incomingBytes = 0) {
+  if (!legacyProject(project) && (await workspaceUsage(ctx, project)) + incomingBytes > MAX_WORKSPACE_BYTES) {
+    throw new Error("Workspace storage limit reached. Permanently delete archived files before uploading more.");
+  }
+}
+
 async function requireEditableFile(ctx: MutationCtx, fileId: Id<"projectFiles">) {
   const file = await ctx.db.get(fileId);
   if (!file) throw new Error("Project file not found");
@@ -91,7 +171,7 @@ async function requireEditableFile(ctx: MutationCtx, fileId: Id<"projectFiles">)
 
 async function logFileActivity(
   ctx: MutationCtx,
-  project: Doc<"workItems">,
+  project: ProjectRecord,
   identity: Awaited<ReturnType<typeof requireIdentity>>,
   kind: FileActivityKind,
   message: string,
@@ -99,7 +179,11 @@ async function logFileActivity(
 ) {
   const name = actorName(identity);
   await recordProjectActivity(ctx, {
-    project,
+    project: {
+      id: project.id,
+      userId: projectOwnerId(project),
+      teamId: project.teamId,
+    },
     actorUserId: identity.tokenIdentifier,
     actorName: name,
     kind,
@@ -132,9 +216,11 @@ async function nextVersionNumber(ctx: MutationCtx, fileId: Id<"projectFiles">) {
 async function insertVersion(
   ctx: MutationCtx,
   args: {
-    project: Doc<"workItems">;
+    project: ProjectRecord;
     identity: Awaited<ReturnType<typeof requireIdentity>>;
+    legacy: boolean;
     projectFileId?: Id<"projectFiles">;
+    projectOutputId?: Id<"projectOutputs">;
     category: FileCategory;
     title: string;
     description: string;
@@ -153,6 +239,9 @@ async function insertVersion(
   }
 ) {
   const now = new Date().toISOString();
+  validateSafeFile(args.fileName, args.mimeType, args.size, args.legacy);
+  await validateProjectOutput(ctx, args.project.id, args.projectOutputId);
+  await requireWorkspaceCapacity(ctx, args.project, Math.max(0, Math.floor(args.size)));
   const projectVersions = await ctx.db
     .query("projectFileVersions")
     .withIndex("by_projectId_and_uploadedAt", (q) => q.eq("projectId", args.project.id))
@@ -183,7 +272,11 @@ async function insertVersion(
   if (fileId) {
     const existing = await ctx.db.get(fileId);
     if (!existing || existing.projectId !== args.project.id) throw new Error("Project file not found");
+    if (existing.archived) throw new Error("Restore this file before adding another version");
     previousStatus = normalizeFileStatus(existing.status);
+    if (args.projectOutputId !== undefined && args.projectOutputId !== null) {
+      await ctx.db.patch(fileId, { projectOutputId: args.projectOutputId });
+    }
   } else {
     const existingFiles = await ctx.db
       .query("projectFiles")
@@ -192,7 +285,8 @@ async function insertVersion(
     if (existingFiles.length >= MAX_PROJECT_FILES) throw new Error("This project has reached its 100-file limit");
     fileId = await ctx.db.insert("projectFiles", {
       projectId: args.project.id,
-      ownerUserId: args.project.userId,
+      projectOutputId: args.projectOutputId,
+      ownerUserId: projectOwnerId(args.project),
       teamId: args.project.teamId,
       category: args.category,
       title: cleanText(args.title, 160) || cleanText(args.fileName, 160),
@@ -200,6 +294,7 @@ async function insertVersion(
       status: args.status,
       clientVisible: args.clientVisible && args.category === "Deliverable",
       downloadable: args.downloadable,
+      archived: false,
       createdByUserId: args.identity.tokenIdentifier,
       createdByName: actorName(args.identity),
       createdAt: now,
@@ -253,9 +348,9 @@ async function insertVersion(
 }
 
 export const listForProject = query({
-  args: { projectId: v.string() },
+  args: { projectId: v.string(), includeArchived: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    await requireProjectAccess(ctx, args.projectId, "viewProjects");
+    const { project } = await requireProjectAccess(ctx, args.projectId, "viewProjects");
     const [files, versions] = await Promise.all([
       ctx.db
         .query("projectFiles")
@@ -268,6 +363,7 @@ export const listForProject = query({
         .order("desc")
         .take(MAX_PROJECT_VERSIONS),
     ]);
+    const visibleFiles = args.includeArchived ? files : files.filter((file) => !file.archived);
     const versionsWithUrls = await Promise.all(
       versions.map(async (version) => ({
         _id: version._id,
@@ -286,7 +382,9 @@ export const listForProject = query({
       }))
     );
     return {
-      files: files.map((file) => ({
+      retainedBytes: await workspaceUsage(ctx, project),
+      workspaceLimitBytes: legacyProject(project) ? null : MAX_WORKSPACE_BYTES,
+      files: visibleFiles.map((file) => ({
         _id: file._id,
         category: file.category,
         title: file.title,
@@ -294,6 +392,8 @@ export const listForProject = query({
         status: normalizeFileStatus(file.status),
         clientVisible: file.clientVisible,
         downloadable: file.downloadable,
+        projectOutputId: file.projectOutputId,
+        archived: file.archived ?? false,
         createdByName: file.createdByName,
         createdAt: file.createdAt,
         updatedAt: file.updatedAt,
@@ -304,10 +404,54 @@ export const listForProject = query({
   },
 });
 
+/** Return only explicitly visible, client-safe latest file versions for an active portal. */
+export const listForPortal = query({
+  args: { token: v.string(), pin: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const access = await getPublicPortalAccess(ctx, args.token, args.pin);
+    if (!access.portal) return { access: access.access, files: [] };
+    const files = await ctx.db
+      .query("projectFiles")
+      .withIndex("by_projectId_and_category_and_clientVisible_and_createdAt", (q) =>
+        q.eq("projectId", access.portal.projectId).eq("category", "Deliverable").eq("clientVisible", true),
+      )
+      .order("desc")
+      .take(MAX_PROJECT_FILES);
+    const visible = [];
+    for (const file of files) {
+      if (file.archived) continue;
+      const status = normalizeFileStatus(file.status);
+      if (!isClientSafeApprovalStatus(status)) continue;
+      const version = await ctx.db
+        .query("projectFileVersions")
+        .withIndex("by_projectFileId_and_versionNumber", (q) => q.eq("projectFileId", file._id))
+        .order("desc")
+        .first();
+      if (!version) continue;
+      const url = version.storageId ? await ctx.storage.getUrl(version.storageId) : version.externalUrl ?? null;
+      if (!url) continue;
+      visible.push({
+        id: file._id,
+        title: file.title,
+        description: file.description,
+        status,
+        url,
+        downloadable: file.downloadable,
+        fileName: version.fileName,
+        mimeType: version.mimeType,
+        updatedAt: version.uploadedAt,
+      });
+    }
+    return { access: "active" as const, files: visible };
+  },
+});
+
 export const generateUploadUrl = mutation({
   args: { projectId: v.string() },
   handler: async (ctx, args) => {
-    await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    requireFileUploadPlan(identity);
+    await requireWorkspaceCapacity(ctx, project);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -320,6 +464,8 @@ export const createR2UploadSession = internalMutation({
   },
   handler: async (ctx, args) => {
     const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    requireFileUploadPlan(identity);
+    await requireWorkspaceCapacity(ctx, project);
     const safeName = cleanText(args.fileName, 160).replace(/[^a-zA-Z0-9._-]+/g, "-") || "file";
     const key = `projects/${encodeURIComponent(project.id)}/files/${crypto.randomUUID()}-${safeName}`;
     const now = new Date().toISOString();
@@ -366,6 +512,7 @@ export const finalizeR2Upload = internalMutation({
     sessionId: v.id("r2UploadSessions"),
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
+    projectOutputId: v.optional(v.id("projectOutputs")),
     category: fileCategoryValidator,
     title: v.string(),
     description: v.string(),
@@ -378,7 +525,8 @@ export const finalizeR2Upload = internalMutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { identity, project, legacy } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    requireFileUploadPlan(identity);
     const session = await ctx.db.get(args.sessionId);
     if (!session || session.projectId !== args.projectId || session.uploaderUserId !== identity.tokenIdentifier) {
       throw new Error("R2 upload session not found");
@@ -391,7 +539,9 @@ export const finalizeR2Upload = internalMutation({
     const fileId = await insertVersion(ctx, {
       project: project,
       identity,
+      legacy,
       projectFileId: args.projectFileId ?? session.projectFileId,
+      projectOutputId: args.projectOutputId,
       category: args.category,
       title: args.title,
       description: args.description,
@@ -414,6 +564,7 @@ export const saveStorageVersion = mutation({
   args: {
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
+    projectOutputId: v.optional(v.id("projectOutputs")),
     storageId: v.id("_storage"),
     category: fileCategoryValidator,
     title: v.string(),
@@ -426,13 +577,15 @@ export const saveStorageVersion = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { identity, project, legacy } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    requireFileUploadPlan(identity);
     const metadata = await ctx.db.system.get(args.storageId);
     if (!metadata) throw new Error("Uploaded file not found");
     return await insertVersion(ctx, {
       ...args,
       project,
       identity,
+      legacy,
       provider: "convex",
       size: metadata.size,
       mimeType: args.mimeType || metadata.contentType || "application/octet-stream",
@@ -444,6 +597,7 @@ export const saveExternalVersion = mutation({
   args: {
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
+    projectOutputId: v.optional(v.id("projectOutputs")),
     category: fileCategoryValidator,
     title: v.string(),
     description: v.string(),
@@ -461,14 +615,15 @@ export const saveExternalVersion = mutation({
   handler: async (ctx, args) => {
     if (args.provider === "convex") throw new Error("Use the upload flow for Convex storage");
     if (!validExternalUrl(args.externalUrl)) throw new Error("Enter a valid http or https file URL");
-    const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
-    return await insertVersion(ctx, { ...args, project, identity });
+    const { identity, project, legacy } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    return await insertVersion(ctx, { ...args, project, identity, legacy });
   },
 });
 
 export const updateFile = mutation({
   args: {
     fileId: v.id("projectFiles"),
+    projectOutputId: v.optional(v.union(v.id("projectOutputs"), v.null())),
     category: fileCategoryValidator,
     title: v.string(),
     description: v.string(),
@@ -478,6 +633,7 @@ export const updateFile = mutation({
   },
   handler: async (ctx, args) => {
     const { file, identity, project } = await requireEditableFile(ctx, args.fileId);
+    await validateProjectOutput(ctx, file.projectId, args.projectOutputId);
     const title = cleanText(args.title, 160);
     if (!title) throw new Error("File title is required");
     const previousStatus = normalizeFileStatus(file.status);
@@ -495,6 +651,7 @@ export const updateFile = mutation({
       status: args.status,
       clientVisible: args.clientVisible && args.category === "Deliverable",
       downloadable: args.downloadable,
+      ...(args.projectOutputId === undefined ? {} : { projectOutputId: args.projectOutputId ?? undefined }),
       updatedAt: new Date().toISOString(),
     });
     if (latestVersion) {
@@ -514,10 +671,37 @@ export const updateFile = mutation({
   },
 });
 
-export const removeFile = mutation({
+export const archiveFile = mutation({
   args: { fileId: v.id("projectFiles") },
   handler: async (ctx, args) => {
     const { file, identity, project } = await requireEditableFile(ctx, args.fileId);
+    if (file.archived) return null;
+    await ctx.db.patch(args.fileId, {
+      archived: true,
+      clientVisible: false,
+      updatedAt: new Date().toISOString(),
+    });
+    await logFileActivity(ctx, project, identity, "project_file_updated", `${file.title} was archived.`);
+    return null;
+  },
+});
+
+export const restoreFile = mutation({
+  args: { fileId: v.id("projectFiles") },
+  handler: async (ctx, args) => {
+    const { file, identity, project } = await requireEditableFile(ctx, args.fileId);
+    if (!file.archived) return null;
+    await ctx.db.patch(args.fileId, { archived: false, updatedAt: new Date().toISOString() });
+    await logFileActivity(ctx, project, identity, "project_file_updated", `${file.title} was restored.`);
+    return null;
+  },
+});
+
+export const removeFile = mutation({
+  args: { fileId: v.id("projectFiles") },
+  handler: async (ctx, args) => {
+    const { file, identity, project, legacy } = await requireEditableFile(ctx, args.fileId);
+    if (!legacy && !file.archived) throw new Error("Archive this file before deleting it permanently");
     const versions = await ctx.db
       .query("projectFileVersions")
       .withIndex("by_projectFileId_and_versionNumber", (q) => q.eq("projectFileId", args.fileId))

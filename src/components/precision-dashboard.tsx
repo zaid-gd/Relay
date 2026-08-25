@@ -92,6 +92,8 @@ type DashboardProps = {
     active: number;
     unpaid: number;
     earned: number;
+    collected: number;
+    outstanding: number;
     salaryEdits: number;
     salaryBatchProgress: number;
   };
@@ -151,7 +153,7 @@ const statusOptions: Array<ProjectStatus | "All"> = [
 const easing = [0.16, 1, 0.3, 1] as const;
 
 const surface =
-  "rounded-[10px] border border-[var(--app-border)] bg-[var(--app-panel)] transition-[box-shadow,border-color,transform] duration-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]";
+  "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] transition-colors duration-150";
 
 function AnimatedNumber({
   value,
@@ -339,11 +341,12 @@ export function PrecisionDashboard(props: DashboardProps) {
         .filter((project) => daysFromToday(project.dueDate) >= 0)
         .sort((a, b) => daysFromToday(a.dueDate) - daysFromToday(b.dueDate))
         .slice(0, 6),
+      waitingReviews: activeProjects.filter(reviewProject),
       blockers: activeProjects
         .filter((project) => reviewProject(project) || daysFromToday(project.dueDate) < 0 || /missing|waiting|blocked/i.test(project.notes)),
     };
   }, [props.projects]);
-  const { overdue, dueThisWeek, dueSoon, blockers } = projectSummary;
+  const { overdue, dueThisWeek, dueSoon, waitingReviews, blockers } = projectSummary;
   const salarySize = Math.max(1, Number(props.settings.salaryBatchSize) || 20);
   const pendingSalaryBatch = useMemo(
     () => props.salaryBatches
@@ -608,7 +611,7 @@ export function PrecisionDashboard(props: DashboardProps) {
           </>}
         />}
       />
-      <PageContent>
+      <PageContent className="flex flex-col gap-4 space-y-0">
       <AnimatePresence initial={false}>
         {showFilters ? (
           <motion.div
@@ -653,6 +656,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </AnimatePresence>
 
       <motion.div
+        className="order-2"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.04, duration: reduceMotion ? 0 : 0.5, ease: easing }}
@@ -677,27 +681,27 @@ export function PrecisionDashboard(props: DashboardProps) {
           </div>
         </div>
         <div className="bg-[var(--app-panel)] px-4 py-3">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">Needs attention</p>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">Waiting reviews</p>
           <div className="mt-1 flex items-baseline gap-2">
             <p className={cn(
               "text-xl font-semibold tracking-[-0.04em] tabular-nums",
-              blockers.length ? "text-[var(--app-danger)]" : "text-[var(--app-ink)]",
+              waitingReviews.length ? "text-[var(--app-warning)]" : "text-[var(--app-ink)]",
             )}>
-              <AnimatedNumber value={blockers.length} />
+              <AnimatedNumber value={waitingReviews.length} />
             </p>
-            <span className="text-[10px] text-[var(--app-muted)]">late, blocked, or in review</span>
+            <span className="text-[10px] text-[var(--app-muted)]">awaiting client action</span>
           </div>
         </div>
         <div className="bg-[var(--app-panel)] px-4 py-3">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">Earned</p>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">Collected</p>
           <div className="mt-1 flex items-baseline gap-2">
             <p className="truncate text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
               <AnimatedNumber
-                value={props.stats.earned}
+                value={props.stats.collected}
                 format={(value) => formatMoney(value, props.settings.currencyCode)}
               />
             </p>
-            <span className="shrink-0 text-[10px] text-[var(--app-muted)]">{props.stats.unpaid} unpaid</span>
+            <span className="shrink-0 text-[10px] text-[var(--app-muted)]">{formatMoney(props.stats.outstanding, props.settings.currencyCode)} due</span>
           </div>
         </div>
         {showSalaryBatch ? (
@@ -738,6 +742,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </motion.div>
 
       <motion.div
+        className="order-3"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.08, duration: reduceMotion ? 0 : 0.55, ease: easing }}
@@ -939,6 +944,7 @@ export function PrecisionDashboard(props: DashboardProps) {
       </motion.div>
 
       <motion.section
+        className="order-1"
         initial={entry.initial}
         animate={entry.animate}
         transition={{ delay: reduceMotion ? 0 : 0.12, duration: reduceMotion ? 0 : 0.55, ease: easing }}

@@ -124,13 +124,34 @@ async function setupProject(team = false) {
   }));
   return {
     t,
-    owner: t.withIdentity({ tokenIdentifier: "owner", name: "Owner User", email: "owner@example.com" }),
-    editor: t.withIdentity({ tokenIdentifier: "editor", name: "Editor User", email: "editor@example.com" }),
+    owner: t.withIdentity({ tokenIdentifier: "owner", name: "Owner User", email: "owner@example.com", pla: "u:creator" }),
+    editor: t.withIdentity({ tokenIdentifier: "editor", name: "Editor User", email: "editor@example.com", pla: "u:creator" }),
     reviewer: t.withIdentity({ tokenIdentifier: "reviewer", name: "Review User", email: "reviewer@example.com" }),
   };
 }
 
 describe("project file management", () => {
+  test("blocks Free users from creating or saving uploads", async () => {
+    const { t } = await setupProject();
+    const freeOwner = t.withIdentity({ tokenIdentifier: "owner", pla: "u:free" });
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob(["blocked"])));
+
+    await expect(freeOwner.mutation(api.projectFiles.generateUploadUrl, { projectId: "project-files" })).rejects.toThrow("Creator or Studio");
+    await expect(freeOwner.mutation(api.projectFiles.saveStorageVersion, {
+      projectId: "project-files",
+      storageId,
+      category: "Asset",
+      title: "Blocked upload",
+      description: "",
+      status: "draft",
+      clientVisible: false,
+      downloadable: false,
+      fileName: "blocked.txt",
+      mimeType: "text/plain",
+      notes: "",
+    })).rejects.toThrow("Creator or Studio");
+  });
+
   test("rejects unknown file categories, statuses, and providers", async () => {
     const { owner } = await setupProject();
     const validVersion = {
