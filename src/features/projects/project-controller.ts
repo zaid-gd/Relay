@@ -109,6 +109,7 @@ export function useProjectController(options: ProjectControllerOptions) {
           stageId,
           result.completedAt ?? new Date().toISOString()
         );
+        options.projects.replace(updated);
         onStatusChanged(updated, project.status);
         const resultMessage =
           result.kind === "salary" && result.batchCreated
