@@ -17,17 +17,27 @@ const STORED_PROJECT_STATUS_VALUES = [
   ...LEGACY_PROJECT_STATUS_VALUES,
 ] as const;
 
-export function isStoredProjectStatus(value: unknown): value is StoredProjectStatus {
-  return typeof value === "string" &&
-    (STORED_PROJECT_STATUS_VALUES as readonly string[]).includes(value);
+export function isStoredProjectStatus(
+  value: unknown
+): value is StoredProjectStatus {
+  return (
+    typeof value === "string" &&
+    (STORED_PROJECT_STATUS_VALUES as readonly string[]).includes(value)
+  );
 }
 
-export function normalizeStoredProjectStatus(value: unknown): StoredProjectStatus {
+export function normalizeStoredProjectStatus(
+  value: unknown
+): StoredProjectStatus {
   const normalized = typeof value === "string" ? value.trim() : "";
   return isStoredProjectStatus(normalized) ? normalized : "Planned";
 }
 
-export const FILE_CATEGORY_VALUES = ["Deliverable", "Reference", "Asset"] as const;
+export const FILE_CATEGORY_VALUES = [
+  "Deliverable",
+  "Reference",
+  "Asset",
+] as const;
 export type FileCategory = (typeof FILE_CATEGORY_VALUES)[number];
 
 export const APPROVAL_STATUS_VALUES = [
@@ -78,7 +88,14 @@ export function isClientSafeApprovalStatus(value: unknown) {
   return normalizeFileStatus(value) !== "draft";
 }
 
-export const FILE_PROVIDER_VALUES = ["convex", "r2", "external", "google_drive", "dropbox", "frame_io"] as const;
+export const FILE_PROVIDER_VALUES = [
+  "convex",
+  "r2",
+  "external",
+  "google_drive",
+  "dropbox",
+  "frame_io",
+] as const;
 export type FileProvider = (typeof FILE_PROVIDER_VALUES)[number];
 
 export const TEAM_ROLE_VALUES = ["Owner", "Editor", "Reviewer"] as const;
@@ -92,7 +109,12 @@ export type SettingsTeamRole = StoredTeamRole | "";
 export const MEMBER_STATUS_VALUES = ["invited", "active"] as const;
 export type MemberStatus = (typeof MEMBER_STATUS_VALUES)[number];
 
-export const CLIENT_PORTAL_STAGE_VALUES = ["Planning", "In Progress", "Review", "Delivered"] as const;
+export const CLIENT_PORTAL_STAGE_VALUES = [
+  "Planning",
+  "In Progress",
+  "Review",
+  "Delivered",
+] as const;
 export type ClientPortalStage = (typeof CLIENT_PORTAL_STAGE_VALUES)[number];
 
 export const DELIVERABLE_STATUS_VALUES = APPROVAL_STATUS_VALUES;
@@ -104,8 +126,10 @@ export const LEGACY_DELIVERABLE_STATUS_VALUES = [
   "Ready",
   "Delivered",
 ] as const;
-export type LegacyDeliverableStatus = (typeof LEGACY_DELIVERABLE_STATUS_VALUES)[number];
-export type StoredDeliverableStatus = DeliverableStatus | LegacyDeliverableStatus;
+export type LegacyDeliverableStatus =
+  (typeof LEGACY_DELIVERABLE_STATUS_VALUES)[number];
+export type StoredDeliverableStatus =
+  DeliverableStatus | LegacyDeliverableStatus;
 
 export function normalizeDeliverableStatus(value: unknown): DeliverableStatus {
   if (typeof value !== "string") return "draft";
@@ -118,7 +142,11 @@ export function normalizeDeliverableStatus(value: unknown): DeliverableStatus {
   return "draft";
 }
 
-export const REVISION_STATUS_VALUES = ["Submitted", "In Review", "Resolved"] as const;
+export const REVISION_STATUS_VALUES = [
+  "Submitted",
+  "In Review",
+  "Resolved",
+] as const;
 export type RevisionStatus = (typeof REVISION_STATUS_VALUES)[number];
 
 export const NOTIFICATION_KIND_VALUES = [

@@ -30,7 +30,7 @@ This index defines the unified UI contract for the Frame Desk workspace. It keep
 - [Profiles and portals](features/profiles-portals.md)
 - [Access and support](features/access-support.md)
 
-The research basis is [frontend UI best practices](../research/frontend-ui-best-practices-2026.md), [competitor UI patterns](../research/competitor-ui-patterns-2026.md), and the [current frontend audit](current-frontend-audit.md). The implementation order and acceptance gates live in [.scratch/unified-frontend-redesign/spec.md](../../.scratch/unified-frontend-redesign/spec.md).
+The research basis is [frontend UI best practices](../research/frontend-ui-best-practices-2026.md), [competitor UI patterns](../research/competitor-ui-patterns-2026.md), and the [current frontend audit](current-frontend-audit.md). The current implementation order and acceptance gates live in the [legacy retirement spec](../../.scratch/legacy-retirement/spec.md).
 
 ---
 
@@ -83,9 +83,9 @@ Related destinations remain addressable routes but appear as contextual navigati
 
 ## Shared Components
 
-- `CutLabMark` and `CutLabLockup` provide the product identity.
+- `CutLabLockup` provides the product identity.
 - The `workspace-page` module provides headers, toolbars, sections, metrics, tables, pane layouts, and empty states.
-- Owned shadcn/Radix components under `src/components/ui/` provide controls, menus, dialogs, sheets, tabs, tooltips, and feedback.
+- Owned shadcn/Radix components under `src/components/ui/` provide controls, menus, dialogs, sheets, tooltips, and feedback.
 - Feature modules compose these shared parts without route-local color or spacing systems.
 
 New routes should reuse these foundations before introducing route-specific styling.

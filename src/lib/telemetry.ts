@@ -22,7 +22,13 @@ export type AnalyticsEventProperties = {
   salary_batch_used: { action: "received" | "unreceived" | "correction_note" };
   storage_consumption: {
     provider: "local" | "convex" | "r2";
-    usageBucket: "empty" | "under_1mb" | "under_10mb" | "under_50mb" | "under_200mb" | "over_200mb";
+    usageBucket:
+      | "empty"
+      | "under_1mb"
+      | "under_10mb"
+      | "under_50mb"
+      | "under_200mb"
+      | "over_200mb";
   };
 };
 
@@ -37,12 +43,16 @@ export type TelemetryEnvelope = {
   sentAt: string;
 };
 
-export type TelemetryTransport = (payload: TelemetryEnvelope) => void | Promise<void>;
+export type TelemetryTransport = (
+  payload: TelemetryEnvelope
+) => void | Promise<void>;
 
 const CONSENT_KEY = "relay:analytics-consent:v1";
 const INSTALLATION_KEY = "relay:analytics-installation:v1";
-const FORBIDDEN_KEY = /client|project|comment|file|link|url|token|money|amount|earning|salary|note|body|name|email|phone|path|stack|message/i;
-const FORBIDDEN_VALUE = /https?:\/\/|www\.|bearer\s|token|password|[€£$]\s?\d|\b\d+(?:\.\d{2})?\s?(?:usd|eur|gbp|inr|aed|sar)\b/i;
+const FORBIDDEN_KEY =
+  /client|project|comment|file|link|url|token|money|amount|earning|salary|note|body|name|email|phone|path|stack|message/i;
+const FORBIDDEN_VALUE =
+  /https?:\/\/|www\.|bearer\s|token|password|[€£$]\s?\d|\b\d+(?:\.\d{2})?\s?(?:usd|eur|gbp|inr|aed|sar)\b/i;
 
 let runtimeConsent: AnalyticsConsent = "unknown";
 let runtimeInstallationId = "";
@@ -58,7 +68,8 @@ function browserStorage() {
 }
 
 function randomId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    return crypto.randomUUID();
   return `relay-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
@@ -105,14 +116,19 @@ export function optionalAnalyticsEnabled() {
  */
 export function redactTelemetry(value: unknown, key = ""): unknown {
   if (FORBIDDEN_KEY.test(key)) return "[redacted]";
-  if (typeof value === "string") return FORBIDDEN_VALUE.test(value) ? "[redacted]" : value.slice(0, 160);
-  if (typeof value === "number" || typeof value === "boolean" || value === null) return value;
+  if (typeof value === "string")
+    return FORBIDDEN_VALUE.test(value) ? "[redacted]" : value.slice(0, 160);
+  if (typeof value === "number" || typeof value === "boolean" || value === null)
+    return value;
   if (Array.isArray(value)) return value.map((item) => redactTelemetry(item));
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([entryKey]) => !FORBIDDEN_KEY.test(entryKey))
-        .map(([entryKey, entryValue]) => [entryKey, redactTelemetry(entryValue, entryKey)]),
+        .map(([entryKey, entryValue]) => [
+          entryKey,
+          redactTelemetry(entryValue, entryKey),
+        ])
     );
   }
   return undefined;
@@ -120,26 +136,38 @@ export function redactTelemetry(value: unknown, key = ""): unknown {
 
 function safeProperties(value: Record<string, string | number | boolean>) {
   const redacted = redactTelemetry(value);
-  if (!redacted || typeof redacted !== "object" || Array.isArray(redacted)) return {};
+  if (!redacted || typeof redacted !== "object" || Array.isArray(redacted))
+    return {};
   return Object.fromEntries(
-    Object.entries(redacted).map(([key, entryValue]) => [key, String(entryValue)]),
+    Object.entries(redacted).map(([key, entryValue]) => [
+      key,
+      String(entryValue),
+    ])
   );
 }
 
 function endpoint(channel: TelemetryEnvelope["channel"]) {
-  const configured = channel === "analytics"
-    ? process.env.NEXT_PUBLIC_RELAY_ANALYTICS_ENDPOINT
-    : process.env.NEXT_PUBLIC_RELAY_ERROR_ENDPOINT;
+  const configured =
+    channel === "analytics"
+      ? process.env.NEXT_PUBLIC_RELAY_ANALYTICS_ENDPOINT
+      : process.env.NEXT_PUBLIC_RELAY_ERROR_ENDPOINT;
   if (!configured) return null;
   try {
     const url = new URL(configured);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.toString()
+      : null;
   } catch {
     return null;
   }
 }
 
-function dispatch(channel: TelemetryEnvelope["channel"], event: string, properties: Record<string, string | number | boolean>, includeInstallationId: boolean) {
+function dispatch(
+  channel: TelemetryEnvelope["channel"],
+  event: string,
+  properties: Record<string, string | number | boolean>,
+  includeInstallationId: boolean
+) {
   const payload: TelemetryEnvelope = {
     version: 1,
     channel,
@@ -161,20 +189,34 @@ function dispatch(channel: TelemetryEnvelope["channel"], event: string, properti
   if (!target || typeof window === "undefined") return;
   const body = JSON.stringify(payload);
   try {
-    if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon(target, new Blob([body], { type: "application/json" }))) return;
+    if (
+      typeof navigator.sendBeacon === "function" &&
+      navigator.sendBeacon(
+        target,
+        new Blob([body], { type: "application/json" })
+      )
+    )
+      return;
   } catch {
     // Fall through to fetch when Beacon is unavailable.
   }
-  void fetch(target, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+  void fetch(target, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
-export function setTelemetryTransport(transport: TelemetryTransport | undefined) {
+export function setTelemetryTransport(
+  transport: TelemetryTransport | undefined
+) {
   telemetryTransport = transport;
 }
 
 export function trackOptionalEvent<EventName extends AnalyticsEventName>(
   event: EventName,
-  properties: AnalyticsEventProperties[EventName],
+  properties: AnalyticsEventProperties[EventName]
 ) {
   if (!optionalAnalyticsEnabled()) return;
   dispatch("analytics", event, properties, true);
@@ -182,7 +224,14 @@ export function trackOptionalEvent<EventName extends AnalyticsEventName>(
 
 function safeErrorType(error: unknown) {
   const name = error instanceof Error ? error.name : "UnknownError";
-  return ["Error", "TypeError", "RangeError", "AbortError", "ConvexError", "NetworkError"].includes(name)
+  return [
+    "Error",
+    "TypeError",
+    "RangeError",
+    "AbortError",
+    "ConvexError",
+    "NetworkError",
+  ].includes(name)
     ? name
     : "UnknownError";
 }
