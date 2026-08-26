@@ -383,7 +383,22 @@ async function assertInnerWorkspaceScroll(page, route, heading, scrollLabel) {
   await page.goto(`${baseUrl}${route}`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { level: 1, name: heading }).waitFor();
   await page.locator(`[aria-label="${scrollLabel}"]`).first().waitFor();
-  await page.waitForTimeout(350);
+  await page
+    .waitForFunction(
+      (label) =>
+        Array.from(
+          document.querySelectorAll(`[aria-label="${CSS.escape(label)}"]`)
+        ).some((element) => {
+          const style = getComputedStyle(element);
+          return (
+            ["auto", "scroll"].includes(style.overflowY) &&
+            element.scrollHeight > element.clientHeight + 8
+          );
+        }),
+      scrollLabel,
+      { timeout: 3_000 }
+    )
+    .catch(() => undefined);
 
   const result = await page.evaluate((label) => {
     const main = document.getElementById("main-content");
@@ -665,7 +680,7 @@ try {
   });
 
   await withPage({ width: 390, height: 844 }, async (page) => {
-    console.log("Verifying mobile navigation and project inspector...");
+    console.log("Verifying mobile navigation and full-page Project route...");
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page
       .getByRole("heading", { name: "Good to see you, Jordan." })
@@ -676,10 +691,11 @@ try {
       .waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await page.getByTestId("mobile-project-row").first().click();
+    await page.waitForURL("**/projects/**");
     await page
-      .getByRole("dialog", { name: "Project details" })
-      .waitFor({ state: "visible" });
-    await page.keyboard.press("Escape");
+      .getByRole("heading", { name: "Interaction test edit" })
+      .waitFor();
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: /more workspace pages/i }).click();
     await page.getByRole("dialog").waitFor({ state: "visible" });
     await page.keyboard.press("Escape");

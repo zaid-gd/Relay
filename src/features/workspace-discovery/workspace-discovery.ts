@@ -1,4 +1,5 @@
 import type { Client, ProjectGroup, WorkItem } from "@/lib/types";
+import { projectHref } from "@/features/projects/project-view";
 
 export type WorkspaceOutput = {
   id: string;
@@ -261,7 +262,7 @@ export function buildWorkspaceSearchIndex(
       kind: "project",
       title: project.title,
       detail: `${project.client || "No client"} · ${project.status}`,
-      href: `/projects/${encodeURIComponent(project.id)}`,
+      href: projectHref({ projectId: project.id }),
       keywords: `${project.notes} ${project.workType}`,
       archived: project.archived,
     });
@@ -273,7 +274,7 @@ export function buildWorkspaceSearchIndex(
       kind: "output",
       title: output.title,
       detail: "Project Output",
-      href: `/projects/${encodeURIComponent(output.projectId)}?view=outputs`,
+      href: projectHref({ projectId: output.projectId, view: "outputs" }),
       keywords: output.reviewState,
       archived: output.archived,
     });
@@ -285,7 +286,7 @@ export function buildWorkspaceSearchIndex(
       kind: "file",
       title: file.title,
       detail: `${file.category} · ${file.fileName ?? "file"}`,
-      href: `/projects/${encodeURIComponent(file.projectId)}?view=files`,
+      href: projectHref({ projectId: file.projectId, view: "files" }),
       keywords: `${file.status} ${file.fileName}`,
       archived: file.archived,
     });

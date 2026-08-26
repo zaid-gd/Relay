@@ -1,5 +1,5 @@
-import { TrackerApp } from "../tracker-app";
+import { ProjectsApplication } from "@/features/projects/projects-application";
 
 export default function ProjectsRoute() {
-  return <TrackerApp page="projects" />;
+  return <ProjectsApplication />;
 }

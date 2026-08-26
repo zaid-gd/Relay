@@ -1,5 +1,5 @@
 import { DataProvider } from "@/lib/data-context";
-import { TrackerApp } from "../../../tracker-app";
+import { ProjectsApplication } from "@/features/projects/projects-application";
 
 export default async function SampleProjectRoute({
   params,
@@ -12,11 +12,10 @@ export default async function SampleProjectRoute({
   const { view } = await searchParams;
   return (
     <DataProvider mode="sample">
-      <TrackerApp
-        page="project"
+      <ProjectsApplication
         projectId={projectId}
         projectView={Array.isArray(view) ? view[0] : view}
-        experienceMode="sample"
+        sample
       />
     </DataProvider>
   );
