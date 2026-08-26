@@ -108,6 +108,25 @@ import {
 } from "@/components/workspace-page";
 import { PrecisionDashboard } from "@/components/precision-dashboard";
 import { PrecisionProjects } from "@/components/precision-projects";
+import { ProjectWorkspace } from "@/features/projects/project-workspace";
+import {
+  DeleteProjectDialog,
+  ProjectDialog,
+} from "@/features/projects/project-dialogs";
+import { createProjectPort } from "@/features/projects/project-port";
+import {
+  canDeleteProject as projectCanBeDeleted,
+  resolveProjectPermissions,
+} from "@/features/projects/project-permissions";
+import {
+  projectHref,
+  type ProjectActivityEvent,
+} from "@/features/projects/project-view";
+import {
+  useProjectsApplicationState,
+  type DueFilter,
+  type ProjectDashboardActivity as DashboardActivity,
+} from "@/features/projects/use-projects-application-state";
 import {
   PrecisionCalendar,
   PrecisionTimeline,
@@ -270,6 +289,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { ProjectSelect } from "@/features/projects/project-select";
 
 const defaultProjectTags = ["Job / Salary", "Freelance", "Personal Channel"];
 const defaultSalaryWorkType = "Job / Salary";
@@ -324,14 +344,6 @@ type PageKey =
   | "profile"
   | "profile-edit"
   | "organization-profile";
-type ProjectKind = string;
-type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
-type SortKey =
-  | "createdAt_desc"
-  | "createdAt_asc"
-  | "dueDate_asc"
-  | "earnings_desc"
-  | "earnings_asc";
 type TeamMember = {
   id: string;
   name: string;
@@ -347,23 +359,6 @@ type TeamWorkspaceContract = {
   currencyCode?: string;
   timeZone?: string;
   defaultWorkflowTemplateId?: string;
-};
-type ProjectWorkspaceView =
-  "overview" | "outputs" | "review" | "files" | "activity";
-
-function projectWorkspaceView(value: string | null): ProjectWorkspaceView {
-  return value === "overview" ||
-    value === "review" ||
-    value === "files" ||
-    value === "activity"
-    ? value
-    : "outputs";
-}
-type WorkspaceMemberOption = {
-  userId: string;
-  name: string;
-  email: string;
-  role: string;
 };
 type SettingsState = {
   studioName: string;
@@ -404,23 +399,6 @@ type SettingsState = {
 type ToastState = {
   message: string;
   tone: "success" | "info" | "warning";
-};
-type DashboardActivity = {
-  id: string;
-  kind: "created" | "updated" | "status" | "delivered" | "team";
-  message: string;
-  projectId?: string;
-  actor?: string;
-  createdAt: string;
-};
-type ProjectActivityEvent = {
-  id: string;
-  projectId: string;
-  actorName: string;
-  kind: string;
-  message: string;
-  detail?: string;
-  createdAt: string;
 };
 
 const profile = getProfile(DEFAULT_PROFILE_ID);
@@ -615,21 +593,13 @@ export function TrackerApp({
     updateSalaryBatchPayment,
   } = useData();
   const workflow = useProjectWorkflow();
+  const projectPort = useMemo(() => createProjectPort(setItems), [setItems]);
   const {
     groups: projectGroups,
     saveGroup: saveProjectGroup,
     setGroupArchived,
   } = useProjectGroups();
   const router = useRouter();
-  const [activeProjectView, setActiveProjectView] =
-    useState<ProjectWorkspaceView>(() =>
-      projectWorkspaceView(
-        projectView ??
-          (typeof window === "undefined"
-            ? null
-            : window.localStorage.getItem("relay:last-project-workspace-view"))
-      )
-    );
   const { openSignIn, openSignUp } = useOptionalAuth();
   const isSample = experienceMode === "sample";
   const {
@@ -647,72 +617,62 @@ export function TrackerApp({
     workspaceDiscoveryApi.list,
     shouldLoadTeamPermissions ? {} : "skip"
   );
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [newProjectTemplateId, setNewProjectTemplateId] = useState(
-    "relay-default-workflow"
-  );
-  const [projectGroupsOpen, setProjectGroupsOpen] = useState(false);
-  const [projectGroupsScope, setProjectGroupsScope] = useState<
-    "personal" | "team"
-  >("personal");
-  const [projectStartScope, setProjectStartScope] = useState<
-    "personal" | "team"
-  >("personal");
-  const [editingId, setEditingId] = useState("");
-  const [detailProjectId, setDetailProjectId] = useState(projectId ?? "");
-  const [deleteTarget, setDeleteTarget] = useState<WorkItem | null>(null);
-  const [form, setForm] = useState<WorkItem>(emptyForm);
-  const [formError, setFormError] = useState("");
+  const {
+    activeProjectView,
+    setActiveProjectView,
+    dialogOpen,
+    setDialogOpen,
+    newProjectOpen,
+    setNewProjectOpen,
+    newProjectTemplateId,
+    setNewProjectTemplateId,
+    projectGroupsOpen,
+    setProjectGroupsOpen,
+    projectGroupsScope,
+    setProjectGroupsScope,
+    projectStartScope,
+    setProjectStartScope,
+    editingId,
+    setEditingId,
+    detailProjectId,
+    setDetailProjectId,
+    deleteTarget,
+    setDeleteTarget,
+    form,
+    setForm,
+    formError,
+    setFormError,
+    projectLauncherTriggerRef,
+    query,
+    setQuery,
+    statusFilter,
+    setStatusFilter,
+    kindFilter,
+    setKindFilter,
+    clientFilter,
+    setClientFilter,
+    dueFilter,
+    setDueFilter,
+    billingFilter,
+    setBillingFilter,
+    sortKey,
+    setSortKey,
+    dashboardActivity,
+    setDashboardActivity,
+    localProjectActivity,
+    setLocalProjectActivity,
+  } = useProjectsApplicationState({
+    projectId,
+    projectView,
+    sample: isSample,
+    activityStorageKey: LOCAL_PROJECT_ACTIVITY_STORAGE_KEY,
+    createEmptyForm: emptyForm,
+  });
   const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
   const [analyticsConsentOpen, setAnalyticsConsentOpen] = useState(false);
   const [onboardingVariant, setOnboardingVariant] =
     useState<OnboardingVariant>("v2");
   const onboardingStartedAt = useRef(Date.now());
-  const projectLauncherTriggerRef = useRef<HTMLElement | null>(null);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "All">(
-    "All"
-  );
-  const [kindFilter, setKindFilter] = useState<ProjectKind>("ALL");
-  const [clientFilter, setClientFilter] = useState("ALL");
-  const [dueFilter, setDueFilter] = useState<DueFilter>("ALL");
-  const [billingFilter, setBillingFilter] = useState<"ALL" | "Paid" | "Unpaid">(
-    "ALL"
-  );
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt_desc");
-  const [dashboardActivity, setDashboardActivity] = useState<
-    DashboardActivity[]
-  >([]);
-  const [localProjectActivity, setLocalProjectActivity] = useState<
-    ProjectActivityEvent[]
-  >(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const value = JSON.parse(
-        window.localStorage.getItem(LOCAL_PROJECT_ACTIVITY_STORAGE_KEY) ?? "[]"
-      );
-      return Array.isArray(value) ? value.slice(0, 500) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    if (projectId) setDetailProjectId(projectId);
-  }, [projectId]);
-
-  useEffect(() => {
-    setActiveProjectView(
-      projectWorkspaceView(
-        projectView ??
-          (typeof window === "undefined"
-            ? null
-            : window.localStorage.getItem("relay:last-project-workspace-view"))
-      )
-    );
-  }, [projectId, projectView]);
-
   useEffect(() => {
     applyRootThemeVariables(settings);
   }, [settings]);
@@ -728,14 +688,6 @@ export function TrackerApp({
     }
     setOnboardingVariant(resolveOnboardingVariant());
   }, [isSample]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || isSample) return;
-    window.localStorage.setItem(
-      LOCAL_PROJECT_ACTIVITY_STORAGE_KEY,
-      JSON.stringify(localProjectActivity.slice(0, 500))
-    );
-  }, [isSample, localProjectActivity]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !isAuthLoaded || isSample) return;
@@ -813,37 +765,23 @@ export function TrackerApp({
       ).length,
     };
   }, [settings, teamProjects]);
-  const projectPermissions = teamData?.currentMember.permissions;
-  const canCreateTeamProjects =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : Boolean(teamData && projectPermissions?.createProjects);
-  const canCreateProjects = !isSample;
-  const canEditProjects =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : !teamData || Boolean(projectPermissions?.editProjects);
-  const canUpdateProjectStatus =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : !teamData || Boolean(projectPermissions?.updateStatus);
-  const canCommentProjects =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : !teamData || Boolean(projectPermissions?.commentProjects);
-  const canManagePortals =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : !teamData ||
-        (projectPermissions?.managePortal ??
-          teamData.currentMember.role === "Owner");
-  const canManageFinance =
-    teamSyncUnavailable || teamDataLoading
-      ? false
-      : !teamData ||
-        (projectPermissions?.manageFinance ??
-          teamData.currentMember.role === "Owner");
-  const canManageTeamProjects = Boolean(projectPermissions?.manageTeam);
+  const {
+    canCreateTeamProjects,
+    canCreateProjects,
+    canEditProjects,
+    canUpdateProjectStatus,
+    canCommentProjects,
+    canManagePortals,
+    canManageFinance,
+    canManageTeamProjects,
+  } = resolveProjectPermissions({
+    sample: isSample,
+    teamConnected: Boolean(teamData),
+    loading: teamDataLoading,
+    unavailable: teamSyncUnavailable,
+    role: teamData?.currentMember.role,
+    permissions: teamData?.currentMember.permissions,
+  });
 
   useEffect(() => {
     if (!teamWorkspace) return;
@@ -1206,19 +1144,16 @@ export function TrackerApp({
         entrySource: "sample_dashboard",
       });
     }
-    router.push(
-      `${isSample ? "/sample-studio" : ""}/projects/${encodeURIComponent(item.id)}`
-    );
+    router.push(projectHref({ projectId: item.id, sample: isSample }));
   }
 
   function canDeleteProject(project: WorkItem | null) {
-    if (!project) return false;
-    if (!project.teamId) return true;
-    return (
-      (canEditProjects || canManageTeamProjects) &&
-      (project.ownerUserId === teamData?.currentMember.userId ||
-        canManageTeamProjects)
-    );
+    return projectCanBeDeleted({
+      project,
+      currentUserId: teamData?.currentMember.userId,
+      canEdit: canEditProjects,
+      canManageTeam: canManageTeamProjects,
+    });
   }
 
   function requestDeleteProject(id: string) {
@@ -1234,7 +1169,7 @@ export function TrackerApp({
   }
 
   const { archiveProject, updateProjectStatus } = useProjectController({
-    setProjects: setItems,
+    projects: projectPort,
     canEditTeamProjects: canEditProjects,
     canUpdateTeamStatus: canUpdateProjectStatus,
     salaryWorkType: settings.salaryWorkType,
@@ -1281,7 +1216,7 @@ export function TrackerApp({
     scope: projectStartScope,
     teamId: currentTeamId,
     ownerUserId: teamData?.currentMember.userId,
-    setProjects: setItems,
+    projects: projectPort,
     notify,
     onCreated: (project) => {
       const activity: DashboardActivity = {
@@ -1305,7 +1240,7 @@ export function TrackerApp({
       });
       setNewProjectOpen(false);
       notify("Project created.");
-      router.push(`/projects/${encodeURIComponent(project.id)}`);
+      router.push(projectHref({ projectId: project.id }));
     },
   });
 
@@ -1322,11 +1257,7 @@ export function TrackerApp({
       return;
     }
     const paidDate = paid ? new Date().toISOString() : "";
-    setItems((current) =>
-      current.map((item) =>
-        item.id === project.id ? { ...item, paid, paidDate } : item
-      )
-    );
+    projectPort.update(project.id, (item) => ({ ...item, paid, paidDate }));
     logLocalProjectActivity({
       projectId: project.id,
       kind: "project_updated",
@@ -1337,9 +1268,7 @@ export function TrackerApp({
 
   function confirmDeleteProject() {
     if (!deleteTarget) return;
-    setItems((current) =>
-      current.filter((item) => item.id !== deleteTarget.id)
-    );
+    projectPort.remove(deleteTarget.id);
     setLocalProjectActivity((current) =>
       current.filter((event) => event.projectId !== deleteTarget.id)
     );
@@ -1421,11 +1350,8 @@ export function TrackerApp({
         clients: [...current.clients, clientRecord],
       }));
     }
-    setItems((current) =>
-      editingId
-        ? current.map((item) => (item.id === editingId ? payload : item))
-        : [payload, ...current]
-    );
+    if (editingId) projectPort.replace(payload);
+    else projectPort.add(payload);
     if (!editingId) {
       trackOnboardingEvent("first_project_created", {
         variant: onboardingVariant,
@@ -1457,7 +1383,7 @@ export function TrackerApp({
     setEditingId("");
     setForm(emptyForm());
     notify(editingId ? "Project updated." : "Project created.");
-    if (!editingId) router.push(`/projects/${encodeURIComponent(payload.id)}`);
+    if (!editingId) router.push(projectHref({ projectId: payload.id }));
   }
 
   function handleAddClient(
@@ -1493,13 +1419,7 @@ export function TrackerApp({
         record.id === client.id ? client : record
       ),
     }));
-    setItems((current) =>
-      current.map((project) =>
-        project.clientId === client.id
-          ? { ...project, client: client.name }
-          : project
-      )
-    );
+    projectPort.renameClient(client.id, client.name);
     notify(
       client.archived
         ? `Client "${client.name}" archived.`
@@ -1542,7 +1462,11 @@ export function TrackerApp({
               view
             );
             router.replace(
-              `${isSample ? "/sample-studio" : ""}/projects/${encodeURIComponent(detailProject.id)}?view=${view}`
+              projectHref({
+                projectId: detailProject.id,
+                view,
+                sample: isSample,
+              })
             );
           }}
           onEdit={openEditProject}
@@ -1802,7 +1726,7 @@ export function TrackerApp({
         editing={Boolean(editingId)}
         returnFocusRef={projectLauncherTriggerRef}
         form={form}
-        setForm={(next) => {
+        onFormChange={(next) => {
           setForm(next);
           if (formError) setFormError("");
         }}
@@ -1810,6 +1734,18 @@ export function TrackerApp({
         workTypeOptions={projectTagOptions}
         settings={settings}
         teamMembers={activeTeamMembers}
+        integrationEditor={
+          <IntegrationLinkManager
+            title="Project Integrations"
+            subtitle="Attach service links that belong only to this project."
+            links={form.integrationLinks}
+            emptyTitle="No project links"
+            emptyBody="Add links to this project's folders, reviews, channels, or calendar events."
+            onChange={(integrationLinks) =>
+              setForm({ ...form, integrationLinks })
+            }
+          />
+        }
         formError={formError}
         onClose={() => setDialogOpen(false)}
         onSave={saveProject}
@@ -7928,1373 +7864,6 @@ function AnalyticsConsentDialog({
   );
 }
 
-function ProjectWorkspace({
-  project,
-  projectGroup,
-  settings,
-  view,
-  canEdit,
-  canManagePayment,
-  canManagePortal,
-  canDelete,
-  canUpdateStatus,
-  canComment,
-  teamMembers,
-  localActivity,
-  onBack,
-  onViewChange,
-  onEdit,
-  onDelete,
-  onStatusChange,
-  onPaymentChange,
-}: {
-  project: WorkItem;
-  projectGroup?: import("@/lib/types").ProjectGroup;
-  settings: SettingsState;
-  view: ProjectWorkspaceView;
-  canEdit: boolean;
-  canManagePayment: boolean;
-  canManagePortal: boolean;
-  canDelete: boolean;
-  canUpdateStatus: boolean;
-  canComment: boolean;
-  teamMembers: WorkspaceMemberOption[];
-  localActivity: ProjectActivityEvent[];
-  onBack: () => void;
-  onViewChange: (view: ProjectWorkspaceView) => void;
-  onEdit: (project: WorkItem) => void;
-  onDelete: (project: WorkItem) => void;
-  onStatusChange: (project: WorkItem, status: ProjectStatus) => void;
-  onPaymentChange: (project: WorkItem, paid: boolean) => void;
-}) {
-  const isClientBillable =
-    !isSalaryWorkType(project.workType, settings) &&
-    isDoneStatus(project.status) &&
-    safeMoneyValue(project.earnings) > 0;
-  const amount = isSalaryWorkType(project.workType, settings)
-    ? "Batch tracked"
-    : money(project.earnings, settings.currencyCode);
-  const assignedMembers = teamMembers.filter((member) =>
-    (project.assigneeUserIds ?? []).includes(member.userId)
-  );
-  const lead =
-    teamMembers.find((member) => member.userId === project.ownerUserId)?.name ||
-    settings.profileName ||
-    "You";
-  const configuredLinks = integrationServices
-    .map((service) => ({
-      service,
-      link: project.integrationLinks?.[service.id],
-    }))
-    .filter(({ link }) => hasIntegrationLink(link));
-  const views: Array<{ id: ProjectWorkspaceView; label: string }> = [
-    { id: "overview", label: "Overview" },
-    { id: "outputs", label: "Outputs and Versions" },
-    { id: "review", label: "Client Review" },
-    { id: "files", label: "Files and Links" },
-    { id: "activity", label: "Activity" },
-  ];
-
-  return (
-    <WorkspacePage family="master-detail" mode="fill">
-      <PageHeader
-        eyebrow={`${project.client || "No Client"}${projectGroup ? ` / ${projectGroup.name}` : ""}`}
-        title={project.title}
-        description={`Due ${formatDate(project.dueDate, settings.dateFormat)} · Lead ${lead} · ${assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "No assignees"}`}
-        actions={
-          <>
-            <OwnedButton variant="ghost" onClick={onBack}>
-              Back to Projects
-            </OwnedButton>
-            {canEdit ? (
-              <OwnedButton
-                onClick={() => {
-                  onViewChange("outputs");
-                  window.setTimeout(
-                    () =>
-                      document.getElementById("add-project-output")?.click(),
-                    0
-                  );
-                }}
-              >
-                Add Output
-              </OwnedButton>
-            ) : null}
-            {canEdit ? (
-              <OwnedButton variant="outline" onClick={() => onEdit(project)}>
-                Edit
-              </OwnedButton>
-            ) : null}
-            {canDelete ? (
-              <OwnedButton
-                variant="ghost"
-                className="text-destructive"
-                onClick={() => onDelete(project)}
-              >
-                Delete
-              </OwnedButton>
-            ) : null}
-          </>
-        }
-      />
-      <PageContent mode="fill">
-        <PageToolbar
-          primary={
-            <nav
-              aria-label="Project workspace views"
-              className="flex flex-wrap gap-1"
-            >
-              {views.map((item) => (
-                <OwnedButton
-                  key={item.id}
-                  size="sm"
-                  variant={view === item.id ? "secondary" : "ghost"}
-                  aria-current={view === item.id ? "page" : undefined}
-                  onClick={() => onViewChange(item.id)}
-                >
-                  {item.label}
-                </OwnedButton>
-              ))}
-            </nav>
-          }
-          secondary={
-            canUpdateStatus ? (
-              <ProjectSelect
-                value={project.status}
-                options={statusOptions}
-                onChange={(status) => {
-                  if (status !== "Client Review")
-                    onStatusChange(project, status);
-                }}
-                compact
-              />
-            ) : (
-              <ProjectStatusBadge status={project.status} />
-            )
-          }
-        />
-
-        <SplitPane
-          ratio="inspector"
-          primary={
-            <div className="min-h-0 overflow-y-auto">
-              {view === "overview" ? (
-                <div className="grid gap-4 overflow-y-auto pb-5">
-                  <MetricStrip columns={4}>
-                    <MetricItem label="Stage" value={project.status} />
-                    <MetricItem
-                      label="Due"
-                      value={formatDate(project.dueDate, settings.dateFormat)}
-                    />
-                    <MetricItem label="Value" value={amount} />
-                    <MetricItem
-                      label="Payment"
-                      value={
-                        isClientBillable
-                          ? project.paid
-                            ? "Paid"
-                            : "Unpaid"
-                          : "Not billable"
-                      }
-                    />
-                  </MetricStrip>
-                  <ContentSection
-                    title="Workflow"
-                    description={`${projectProgress(project.status)}% complete`}
-                  >
-                    <ProjectStageTracker status={project.status} />
-                  </ContentSection>
-                  <ContentSection
-                    title="Project details"
-                    actions={
-                      canEdit ? (
-                        <OwnedButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onEdit(project)}
-                        >
-                          Edit details
-                        </OwnedButton>
-                      ) : null
-                    }
-                  >
-                    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <ProjectMetadataRow
-                        label="Client"
-                        value={project.client || "Not assigned"}
-                      />
-                      <ProjectMetadataRow
-                        label="Project Group"
-                        value={projectGroup?.name || "None"}
-                      />
-                      <ProjectMetadataRow
-                        label="Financial type"
-                        value={project.workType}
-                      />
-                      <ProjectMetadataRow
-                        label="Created"
-                        value={
-                          project.createdAt
-                            ? formatShortDateTime(project.createdAt)
-                            : "Not recorded"
-                        }
-                      />
-                    </dl>
-                    <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                      {project.notes || "No internal notes."}
-                    </p>
-                  </ContentSection>
-                  <ContentSection
-                    title="Client payment"
-                    actions={
-                      <OwnedSwitch
-                        checked={Boolean(project.paid)}
-                        disabled={!canManagePayment || !isClientBillable}
-                        aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`}
-                        onCheckedChange={(paid) =>
-                          onPaymentChange(project, paid)
-                        }
-                      />
-                    }
-                  >
-                    <p className="text-sm text-muted-foreground">
-                      {isClientBillable
-                        ? project.paid
-                          ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.`
-                          : "Delivered and outstanding."
-                        : "Payment tracking starts after delivery for client-priced work."}
-                    </p>
-                  </ContentSection>
-                </div>
-              ) : null}
-
-              {view === "outputs" ? (
-                <ProjectOutputsPanel
-                  project={project}
-                  canEdit={canEdit}
-                  canResolveComments={canComment}
-                />
-              ) : null}
-
-              {view === "review" ? (
-                <div className="grid gap-4 overflow-y-auto pb-5">
-                  <ProjectDetailCollaborationPanel
-                    project={project}
-                    teamMembers={teamMembers}
-                    canComment={canComment}
-                  />
-                  <ProjectPortalPanel
-                    project={project}
-                    canEdit={canEdit && canManagePortal}
-                  />
-                </div>
-              ) : null}
-
-              {view === "files" ? (
-                <div className="grid gap-4 overflow-y-auto pb-5">
-                  <ContentSection
-                    title="External links"
-                    metadata={
-                      <OwnedBadge variant="secondary">
-                        {configuredLinks.length}
-                      </OwnedBadge>
-                    }
-                  >
-                    <div className="divide-y divide-border">
-                      {configuredLinks.length ? (
-                        configuredLinks.map(({ service, link }) =>
-                          link ? (
-                            <a
-                              key={service.id}
-                              href={link.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center justify-between gap-3 py-3 text-sm hover:underline"
-                            >
-                              <span>
-                                {integrationDisplayText(link, service.name)}
-                              </span>
-                              <ExternalLink className="size-4" />
-                            </a>
-                          ) : null
-                        )
-                      ) : (
-                        <p className="py-6 text-center text-sm text-muted-foreground">
-                          No external links yet.
-                        </p>
-                      )}
-                    </div>
-                  </ContentSection>
-                  <ProjectFileManager project={project} canEdit={canEdit} />
-                </div>
-              ) : null}
-
-              {view === "activity" ? (
-                <ProjectActivityFeed
-                  project={project}
-                  localActivity={localActivity}
-                />
-              ) : null}
-            </div>
-          }
-          secondary={
-            <aside
-              aria-label="Project context"
-              className="rounded-[6px] bg-card p-4 text-card-foreground"
-            >
-              <h2 className="text-sm font-semibold">Project context</h2>
-              <dl className="mt-4 grid gap-3 text-sm">
-                <ProjectMetadataRow
-                  label="Client"
-                  value={project.client || "Not assigned"}
-                />
-                <ProjectMetadataRow
-                  label="Project Group"
-                  value={projectGroup?.name || "None"}
-                />
-                <ProjectMetadataRow label="Stage" value={project.status} />
-                <ProjectMetadataRow
-                  label="Due"
-                  value={formatDate(project.dueDate, settings.dateFormat)}
-                />
-              </dl>
-            </aside>
-          }
-        />
-      </PageContent>
-    </WorkspacePage>
-  );
-}
-
-function ProjectStageTracker({ status }: { status: string }) {
-  const stages = ["Planned", "In Progress", "Review", "Delivered"];
-  const currentStage = clientPortalStage(status);
-  const currentIndex = stages.indexOf(currentStage);
-
-  return (
-    <div>
-      <OwnedProgress
-        value={Math.max(8, ((currentIndex + 1) / stages.length) * 100)}
-        aria-label="Project workflow progress"
-      />
-      <div className="mt-2 grid grid-cols-4 gap-2">
-        {stages.map((stage, index) => (
-          <span
-            key={stage}
-            className={`text-xs ${index <= currentIndex ? "text-foreground" : "text-muted-foreground"} ${index === currentIndex ? "font-semibold" : ""} ${index === 0 ? "text-left" : index === stages.length - 1 ? "text-right" : "text-center"}`}
-          >
-            {stage}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProjectMetadataRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex justify-between gap-4 py-2 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium [overflow-wrap:anywhere]">
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function ProjectActivityFeed({
-  project,
-  localActivity,
-}: {
-  project: WorkItem;
-  localActivity: ProjectActivityEvent[];
-}) {
-  const {
-    isAuthenticated: isConvexAuthenticated,
-    isLoading: isConvexAuthLoading,
-  } = useConvexAuth();
-  const events = useQuery(
-    api.projectActivity.listForProject,
-    isConvexAuthenticated ? { projectId: project.id } : "skip"
-  );
-
-  return (
-    <aside className="min-h-0 overflow-y-auto border-t bg-muted/20 p-4 lg:border-l lg:border-t-0 md:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold">Project Activity</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Automatic history across the project lifecycle.
-          </p>
-        </div>
-        <History className="size-5 text-primary" aria-hidden="true" />
-      </div>
-      <div className="mt-5">
-        {isConvexAuthLoading ? (
-          <p className="text-sm text-muted-foreground">
-            Connecting activity history...
-          </p>
-        ) : !isConvexAuthenticated ? (
-          localActivity.length ? (
-            localActivity.map((event, index) => (
-              <ActivityFeedItem
-                key={event.id}
-                actor={event.actorName}
-                message={event.message}
-                detail={event.detail}
-                createdAt={event.createdAt}
-                last={index === localActivity.length - 1}
-              />
-            ))
-          ) : (
-            <ActivityFeedItem
-              actor="Local workspace"
-              message={`${project.title} is ready for its first update.`}
-              createdAt={project.createdAt ?? new Date().toISOString()}
-              last
-            />
-          )
-        ) : events === undefined ? (
-          <div className="grid gap-2">
-            <OwnedSkeleton className="h-20" />
-            <OwnedSkeleton className="h-20" />
-          </div>
-        ) : events.length ? (
-          events.map((event, index) => (
-            <ActivityFeedItem
-              key={event._id}
-              actor={event.actorName}
-              message={event.message}
-              detail={event.detail}
-              createdAt={event.createdAt}
-              last={index === events.length - 1}
-            />
-          ))
-        ) : (
-          <ActivityFeedItem
-            actor="Relay"
-            message={`${project.title} is ready for its first update.`}
-            createdAt={project.createdAt ?? new Date().toISOString()}
-            last
-          />
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function ActivityFeedItem({
-  actor,
-  message,
-  detail,
-  createdAt,
-  last,
-}: {
-  actor: string;
-  message: string;
-  detail?: string;
-  createdAt: string;
-  last?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[18px_minmax(0,1fr)] gap-x-2">
-      <div className="relative flex justify-center">
-        <span className="z-10 mt-1 size-2.5 rounded-full border-2 border-background bg-primary ring-1 ring-primary" />
-        {!last ? (
-          <span className="absolute bottom-[-4px] top-4 w-px bg-border" />
-        ) : null}
-      </div>
-      <div className={last ? "" : "pb-5"}>
-        <p className="text-sm leading-relaxed">{message}</p>
-        {detail ? (
-          <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-            {detail}
-          </p>
-        ) : null}
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {actor} · {formatShortDateTime(createdAt)}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ProjectStatusBadge({ status }: { status: string }) {
-  return (
-    <OwnedBadge
-      variant="outline"
-      className={projectStatusTone(isDoneStatus(status) ? "Delivered" : status)}
-    >
-      {status}
-    </OwnedBadge>
-  );
-}
-
-function ProjectFileManager({
-  project,
-  canEdit,
-}: {
-  project: WorkItem;
-  canEdit: boolean;
-}) {
-  const { has } = useAuth();
-  const {
-    isAuthenticated: isConvexAuthenticated,
-    isLoading: isConvexAuthLoading,
-  } = useConvexAuth();
-  const [showArchived, setShowArchived] = useState(false);
-  const fileData = useQuery(
-    api.projectFiles.listForProject,
-    isConvexAuthenticated
-      ? { projectId: project.id, includeArchived: showArchived }
-      : "skip"
-  );
-  const generateUploadUrl = useMutation(api.projectFiles.generateUploadUrl);
-  const saveStorageVersion = useMutation(api.projectFiles.saveStorageVersion);
-  const createR2UploadUrl = useAction(api.r2.createUploadUrl);
-  const completeR2Upload = useAction(api.r2.completeUpload);
-  const createR2DownloadUrl = useAction(api.r2.createDownloadUrl);
-  const updateFile = useMutation(api.projectFiles.updateFile);
-  const archiveFile = useMutation(api.projectFiles.archiveFile);
-  const restoreFile = useMutation(api.projectFiles.restoreFile);
-  const removeFile = useMutation(api.projectFiles.removeFile);
-  const [view, setView] = useState<"files" | "history">("files");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [targetFileId, setTargetFileId] = useState<
-    Id<"projectFiles"> | undefined
-  >();
-  const [browserFile, setBrowserFile] = useState<File | null>(null);
-  const [category, setCategory] = useState<FileCategory>("Deliverable");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<FileStatus>("draft");
-  const [clientVisible, setClientVisible] = useState(false);
-  const [downloadable, setDownloadable] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-  const useR2Storage =
-    R2_STORAGE_ENABLED &&
-    process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
-  const canUploadFiles = has({ plan: "creator" }) || has({ plan: "studio" });
-
-  useEffect(() => {
-    if (!fileData) return;
-    const bytes = fileData.retainedBytes;
-    const usageBucket =
-      bytes === 0
-        ? "empty"
-        : bytes < 1_000_000
-          ? "under_1mb"
-          : bytes < 10_000_000
-            ? "under_10mb"
-            : bytes < 50_000_000
-              ? "under_50mb"
-              : bytes < 200_000_000
-                ? "under_200mb"
-                : "over_200mb";
-    trackOptionalEvent("storage_consumption", {
-      provider: useR2Storage ? "r2" : "convex",
-      usageBucket,
-    });
-  }, [fileData, useR2Storage]);
-
-  const files = fileData?.files ?? [];
-  const filteredFiles =
-    categoryFilter === "All"
-      ? files
-      : files.filter((file) => file.category === categoryFilter);
-
-  function resetForm() {
-    setTargetFileId(undefined);
-    setBrowserFile(null);
-    setCategory("Deliverable");
-    setTitle("");
-    setDescription("");
-    setStatus("draft");
-    setClientVisible(false);
-    setDownloadable(false);
-    setNotes("");
-    setError("");
-  }
-
-  function openNewFile() {
-    resetForm();
-    setDialogOpen(true);
-  }
-
-  function openNewVersion(file: NonNullable<typeof fileData>["files"][number]) {
-    resetForm();
-    setTargetFileId(file._id);
-    setCategory(file.category);
-    setTitle(file.title);
-    setDescription(file.description);
-    setStatus(file.status);
-    setClientVisible(file.clientVisible);
-    setDownloadable(file.downloadable);
-    setDialogOpen(true);
-  }
-
-  async function saveFileVersion() {
-    if (!canEdit || !isConvexAuthenticated) return;
-    if (!title.trim()) {
-      setError("File title is required.");
-      return;
-    }
-    setBusy("save");
-    setError("");
-    try {
-      const shared = {
-        projectId: project.id,
-        projectFileId: targetFileId,
-        category,
-        title,
-        description,
-        status,
-        clientVisible: category === "Deliverable" && clientVisible,
-        downloadable,
-        notes,
-      };
-      if (!browserFile) throw new Error("Choose a file to upload.");
-      if (browserFile.size > MAX_SAFE_PROJECT_FILE_BYTES)
-        throw new Error("Files must be 20 MB or smaller.");
-      if (
-        fileData?.workspaceLimitBytes &&
-        fileData.retainedBytes + browserFile.size > fileData.workspaceLimitBytes
-      ) {
-        throw new Error(
-          "Workspace storage limit reached. Permanently delete archived files before uploading more."
-        );
-      }
-      const mimeType = browserFile.type || "application/octet-stream";
-      if (useR2Storage) {
-        const upload = await createR2UploadUrl({
-          projectId: project.id,
-          projectFileId: targetFileId,
-          fileName: browserFile.name,
-          mimeType,
-        });
-        const response = await fetch(upload.url, {
-          method: "PUT",
-          headers: { "Content-Type": mimeType },
-          body: browserFile,
-        });
-        if (!response.ok) throw new Error("R2 file upload failed.");
-        await completeR2Upload({
-          ...shared,
-          sessionId: upload.sessionId,
-          fileName: browserFile.name,
-          mimeType,
-        });
-      } else {
-        const uploadUrl = await generateUploadUrl({ projectId: project.id });
-        const response = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": mimeType },
-          body: browserFile,
-        });
-        if (!response.ok) throw new Error("File upload failed.");
-        const payload = (await response.json()) as {
-          storageId: Id<"_storage">;
-        };
-        await saveStorageVersion({
-          ...shared,
-          storageId: payload.storageId,
-          fileName: browserFile.name,
-          mimeType,
-        });
-      }
-      setDialogOpen(false);
-      resetForm();
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not save this file."
-      );
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function changeFileMetadata(
-    file: NonNullable<typeof fileData>["files"][number],
-    overrides: Partial<{
-      status: FileStatus;
-      clientVisible: boolean;
-      downloadable: boolean;
-    }>
-  ) {
-    setBusy(`status-${file._id}`);
-    setError("");
-    try {
-      await updateFile({
-        fileId: file._id,
-        category: file.category,
-        title: file.title,
-        description: file.description,
-        status: overrides.status ?? file.status,
-        clientVisible: overrides.clientVisible ?? file.clientVisible,
-        downloadable: overrides.downloadable ?? file.downloadable,
-      });
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not update file status."
-      );
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function deleteProjectFile(fileId: Id<"projectFiles">) {
-    if (
-      !window.confirm(
-        "Permanently delete this file and every retained version? This frees its storage and cannot be undone."
-      )
-    )
-      return;
-    setBusy(`remove-${fileId}`);
-    setError("");
-    try {
-      await removeFile({ fileId });
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not remove this file."
-      );
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function changeArchiveState(
-    fileId: Id<"projectFiles">,
-    archived: boolean
-  ) {
-    setBusy(`archive-${fileId}`);
-    setError("");
-    try {
-      if (archived) await restoreFile({ fileId });
-      else await archiveFile({ fileId });
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not update this file."
-      );
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function openVersion(
-    version: NonNullable<typeof fileData>["uploadHistory"][number]
-  ) {
-    try {
-      const url =
-        version.url ??
-        (version.provider === "r2"
-          ? await createR2DownloadUrl({ versionId: version._id })
-          : null);
-      if (!url) throw new Error("This file is no longer available.");
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not open this file."
-      );
-    }
-  }
-
-  return (
-    <>
-      <section className="mt-4 rounded-lg border bg-card p-4 text-card-foreground">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <FileText className="size-5 text-primary" aria-hidden="true" />
-              <h3 className="font-semibold">Project Files</h3>
-              <OwnedBadge variant="secondary">{files.length} files</OwnedBadge>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Deliverables, references, assets, uploads, and every saved version
-              in one project model.
-            </p>
-            {fileData?.workspaceLimitBytes ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {formatFileSize(fileData.retainedBytes)} retained of{" "}
-                {formatFileSize(fileData.workspaceLimitBytes)}. Archived files
-                still count.
-              </p>
-            ) : null}
-          </div>
-          {canEdit && isConvexAuthenticated && canUploadFiles ? (
-            <div className="flex flex-wrap gap-2">
-              <OwnedButton type="button" onClick={openNewFile}>
-                <Upload aria-hidden="true" />
-                Upload File
-              </OwnedButton>
-            </div>
-          ) : canEdit && isConvexAuthenticated ? (
-            <OwnedButton asChild variant="outline">
-              <Link href="/subscription">Upgrade to upload files</Link>
-            </OwnedButton>
-          ) : null}
-        </div>
-
-        <div
-          className="mt-4 flex border-b"
-          role="tablist"
-          aria-label="Project file view"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "files"}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${view === "files" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setView("files")}
-          >
-            Files
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "history"}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${view === "history" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setView("history")}
-          >
-            Upload History
-          </button>
-        </div>
-
-        {isConvexAuthLoading ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <span
-              className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-              aria-hidden="true"
-            />
-            Connecting project files...
-          </div>
-        ) : !isConvexAuthenticated ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Sign in to upload and synchronize project files. Existing
-            integration links remain available above.
-          </p>
-        ) : fileData === undefined ? (
-          <div className="mt-4 grid gap-2">
-            <OwnedSkeleton className="h-20 rounded-md" />
-            <OwnedSkeleton className="h-20 rounded-md" />
-          </div>
-        ) : view === "files" ? (
-          <>
-            <div
-              className="my-4 flex flex-wrap gap-2"
-              aria-label="Filter project files by category"
-            >
-              {["All", ...FILE_CATEGORY_VALUES].map((item) => (
-                <OwnedButton
-                  key={item}
-                  type="button"
-                  size="sm"
-                  variant={categoryFilter === item ? "secondary" : "outline"}
-                  aria-pressed={categoryFilter === item}
-                  onClick={() => setCategoryFilter(item)}
-                >
-                  {item}
-                </OwnedButton>
-              ))}
-              <OwnedButton
-                type="button"
-                size="sm"
-                variant={showArchived ? "secondary" : "outline"}
-                aria-pressed={showArchived}
-                onClick={() => setShowArchived((current) => !current)}
-              >
-                {showArchived ? "Hide archived" : "Show archived"}
-              </OwnedButton>
-            </div>
-            {filteredFiles.length ? (
-              <OwnedAccordion type="multiple" className="grid gap-2">
-                {filteredFiles.map((file) => {
-                  const latest = file.versions[0];
-                  return (
-                    <OwnedAccordionItem
-                      key={file._id}
-                      value={file._id}
-                      data-testid="project-file-card"
-                      data-file-title={file.title}
-                      className="rounded-md border bg-muted/20 px-3 last:border-b"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <OwnedAccordionTrigger className="min-w-0 flex-1 py-3 hover:no-underline">
-                          <div className="min-w-0 text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate font-semibold">
-                                {file.title}
-                              </span>
-                              <OwnedBadge variant="secondary">
-                                {file.category}
-                              </OwnedBadge>
-                              {file.archived ? (
-                                <OwnedBadge variant="outline">
-                                  Archived
-                                </OwnedBadge>
-                              ) : null}
-                              {file.clientVisible ? (
-                                <OwnedBadge
-                                  variant={
-                                    file.status === "draft"
-                                      ? "outline"
-                                      : "default"
-                                  }
-                                >
-                                  {file.status === "draft"
-                                    ? "Share when sent"
-                                    : "Client visible"}
-                                </OwnedBadge>
-                              ) : null}
-                            </div>
-                            <p className="mt-1 truncate text-xs font-normal text-muted-foreground">
-                              {latest
-                                ? `${latest.fileName} · v${latest.versionNumber} · ${formatFileSize(latest.size)} · ${latest.uploadedByName}`
-                                : "No versions"}
-                            </p>
-                          </div>
-                        </OwnedAccordionTrigger>
-                        <div
-                          className="flex items-center gap-2 pb-3 sm:pb-0"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {canEdit ? (
-                            <OwnedSelect
-                              value={file.status}
-                              onValueChange={(nextStatus) =>
-                                changeFileMetadata(file, {
-                                  status: nextStatus as FileStatus,
-                                })
-                              }
-                            >
-                              <OwnedSelectTrigger
-                                size="sm"
-                                aria-label={`Approval state for ${file.title}`}
-                                className="w-[164px] max-w-full"
-                              >
-                                <OwnedSelectValue>
-                                  {approvalStatusLabel(file.status)}
-                                </OwnedSelectValue>
-                              </OwnedSelectTrigger>
-                              <OwnedSelectContent position="popper">
-                                {FILE_STATUS_VALUES.map((option) => (
-                                  <OwnedSelectItem key={option} value={option}>
-                                    {APPROVAL_STATUS_LABELS[option] ?? option}
-                                  </OwnedSelectItem>
-                                ))}
-                              </OwnedSelectContent>
-                            </OwnedSelect>
-                          ) : (
-                            <OwnedBadge variant="outline">
-                              {approvalStatusLabel(file.status)}
-                            </OwnedBadge>
-                          )}
-                          {latest &&
-                          (latest.url || latest.provider === "r2") ? (
-                            <OwnedButton
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => void openVersion(latest)}
-                              aria-label={`Open ${file.title}`}
-                            >
-                              <Download aria-hidden="true" />
-                            </OwnedButton>
-                          ) : null}
-                        </div>
-                      </div>
-                      <OwnedAccordionContent className="pb-3">
-                        {file.description ? (
-                          <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
-                            {file.description}
-                          </p>
-                        ) : null}
-                        <div className="grid">
-                          {file.versions.map((version) => (
-                            <div
-                              key={version._id}
-                              className="flex flex-col justify-between gap-2 border-t py-3 sm:flex-row"
-                            >
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">
-                                  Version {version.versionNumber} ·{" "}
-                                  {version.fileName}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {providerLabel(version.provider)} ·{" "}
-                                  {formatFileSize(version.size)} ·{" "}
-                                  {formatShortDateTime(version.uploadedAt)} ·{" "}
-                                  {version.uploadedByName}
-                                </p>
-                                <p
-                                  className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}
-                                >
-                                  {version.status
-                                    ? approvalStatusLabel(version.status)
-                                    : "Approval state not recorded"}
-                                </p>
-                                {version.notes ? (
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {version.notes}
-                                  </p>
-                                ) : null}
-                              </div>
-                              {version.url || version.provider === "r2" ? (
-                                <OwnedButton
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="self-start sm:self-center"
-                                  onClick={() => void openVersion(version)}
-                                >
-                                  Open
-                                  <ExternalLink aria-hidden="true" />
-                                </OwnedButton>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                        {canEdit && canUploadFiles ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <OwnedButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openNewVersion(file)}
-                            >
-                              <Upload aria-hidden="true" />
-                              Upload Version
-                            </OwnedButton>
-                            {file.category === "Deliverable" ? (
-                              <>
-                                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <OwnedSwitch
-                                    checked={file.clientVisible}
-                                    onCheckedChange={(checked) =>
-                                      changeFileMetadata(file, {
-                                        clientVisible: checked,
-                                      })
-                                    }
-                                    aria-label={
-                                      file.status === "draft"
-                                        ? "Share when sent"
-                                        : "Client visible"
-                                    }
-                                  />
-                                  {file.status === "draft"
-                                    ? "Share when sent"
-                                    : "Client visible"}
-                                </label>
-                                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <OwnedSwitch
-                                    checked={file.downloadable}
-                                    onCheckedChange={(checked) =>
-                                      changeFileMetadata(file, {
-                                        downloadable: checked,
-                                      })
-                                    }
-                                    aria-label="Downloadable"
-                                  />
-                                  Downloadable
-                                </label>
-                              </>
-                            ) : null}
-                            <OwnedButton
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="sm:ml-auto"
-                              onClick={() =>
-                                void changeArchiveState(file._id, file.archived)
-                              }
-                              disabled={busy === `archive-${file._id}`}
-                            >
-                              {file.archived ? "Restore" : "Archive"}
-                            </OwnedButton>
-                            {file.archived ? (
-                              <OwnedButton
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => void deleteProjectFile(file._id)}
-                                disabled={busy === `remove-${file._id}`}
-                              >
-                                Delete permanently
-                              </OwnedButton>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </OwnedAccordionContent>
-                    </OwnedAccordionItem>
-                  );
-                })}
-              </OwnedAccordion>
-            ) : (
-              <p className="py-2 text-sm text-muted-foreground">
-                No{" "}
-                {categoryFilter === "All"
-                  ? "project files"
-                  : `${categoryFilter.toLowerCase()} files`}{" "}
-                yet.
-              </p>
-            )}
-          </>
-        ) : (
-          <div className="mt-4 grid">
-            {fileData.uploadHistory.length ? (
-              fileData.uploadHistory.map((version) => {
-                const file = files.find(
-                  (item) => item._id === version.projectFileId
-                );
-                return (
-                  <div
-                    key={version._id}
-                    className="flex gap-3 border-b py-3 last:border-b-0"
-                  >
-                    <History
-                      className="mt-0.5 size-5 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">
-                        {file?.title ?? version.fileName} · Version{" "}
-                        {version.versionNumber}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {version.fileName} · {formatFileSize(version.size)} ·
-                        uploaded by {version.uploadedByName} ·{" "}
-                        {formatShortDateTime(version.uploadedAt)}
-                      </p>
-                      <p
-                        className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}
-                      >
-                        {version.status
-                          ? approvalStatusLabel(version.status)
-                          : "Approval state not recorded"}
-                      </p>
-                    </div>
-                    {version.url || version.provider === "r2" ? (
-                      <OwnedButton
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => void openVersion(version)}
-                        aria-label={`Open ${file?.title ?? version.fileName} version ${version.versionNumber}`}
-                      >
-                        <ExternalLink aria-hidden="true" />
-                      </OwnedButton>
-                    ) : null}
-                  </div>
-                );
-              })
-            ) : (
-              <p className="py-2 text-sm text-muted-foreground">
-                Upload history will appear after the first file or linked
-                version is added.
-              </p>
-            )}
-          </div>
-        )}
-        {error && !dialogOpen ? (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-      </section>
-
-      <OwnedDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!open && !busy) setDialogOpen(false);
-        }}
-      >
-        <OwnedDialogContent className="max-h-[min(92dvh,760px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-xl">
-          <OwnedDialogHeader>
-            <OwnedDialogTitle>
-              {targetFileId ? "Add File Version" : "Add Project File"}
-            </OwnedDialogTitle>
-            <OwnedDialogDescription>
-              Add an uploaded file or external file link while preserving its
-              version history.
-            </OwnedDialogDescription>
-          </OwnedDialogHeader>
-
-          <div className="grid gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!targetFileId ? (
-                <ProjectSelect
-                  label="Category"
-                  value={category}
-                  options={FILE_CATEGORY_VALUES}
-                  onChange={(value) => {
-                    setCategory(value);
-                    if (value !== "Deliverable") setClientVisible(false);
-                  }}
-                />
-              ) : null}
-              <ProjectSelect
-                label="Approval state"
-                value={status}
-                options={FILE_STATUS_VALUES}
-                labels={APPROVAL_STATUS_LABELS}
-                onChange={setStatus}
-              />
-            </div>
-            <FieldLayout label="File title" required>
-              <OwnedInput
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                disabled={Boolean(targetFileId)}
-              />
-            </FieldLayout>
-            {!targetFileId ? (
-              <FieldLayout label="Description">
-                <OwnedTextarea
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  density="compact"
-                />
-              </FieldLayout>
-            ) : null}
-
-            <OwnedButton asChild variant="outline" className="justify-start">
-              <label>
-                <Upload aria-hidden="true" />
-                {browserFile ? browserFile.name : "Choose file"}
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept=".pdf,.txt,.md,.markdown,.jpg,.jpeg,.png,.webp"
-                  onChange={(event) =>
-                    setBrowserFile(event.target.files?.[0] ?? null)
-                  }
-                />
-              </label>
-            </OwnedButton>
-            <FieldLayout label="Version notes">
-              <OwnedTextarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                density="compact"
-              />
-            </FieldLayout>
-            {!targetFileId && category === "Deliverable" ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <OwnedSwitch
-                    checked={clientVisible}
-                    onCheckedChange={setClientVisible}
-                    aria-label={
-                      status === "draft"
-                        ? "Share when sent"
-                        : "Show in Client Portal"
-                    }
-                  />
-                  {status === "draft"
-                    ? "Share when sent"
-                    : "Show in Client Portal"}
-                </label>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <OwnedSwitch
-                    checked={downloadable}
-                    onCheckedChange={setDownloadable}
-                    aria-label="Allow download"
-                  />
-                  Allow download
-                </label>
-              </div>
-            ) : null}
-            {error ? (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </div>
-
-          <OwnedDialogFooter>
-            <OwnedButton
-              type="button"
-              variant="ghost"
-              onClick={() => setDialogOpen(false)}
-              disabled={Boolean(busy)}
-            >
-              Cancel
-            </OwnedButton>
-            <OwnedButton
-              type="button"
-              onClick={saveFileVersion}
-              disabled={Boolean(busy)}
-            >
-              {busy ? "Saving..." : targetFileId ? "Add Version" : "Save File"}
-            </OwnedButton>
-          </OwnedDialogFooter>
-        </OwnedDialogContent>
-      </OwnedDialog>
-    </>
-  );
-}
-
-function formatFileSize(bytes: number) {
-  if (!bytes) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function providerLabel(provider: string) {
-  if (provider === "google_drive") return "Google Drive";
-  if (provider === "dropbox") return "Dropbox";
-  if (provider === "frame_io") return "Frame.io";
-  if (provider === "convex") return "Relay Upload";
-  if (provider === "r2") return "Cloudflare R2";
-  return "External Link";
-}
-
-function clientPortalStage(status: string) {
-  const normalized = status.trim().toLowerCase();
-  if (
-    normalized.includes("deliver") ||
-    normalized.includes("complete") ||
-    normalized === "done"
-  )
-    return "Delivered";
-  if (
-    normalized.includes("review") ||
-    normalized.includes("revision") ||
-    normalized.includes("feedback")
-  )
-    return "Review";
-  if (
-    normalized.includes("progress") ||
-    normalized.includes("editing") ||
-    normalized.includes("active")
-  )
-    return "In Progress";
-  return "Planning";
-}
-
-function formatShortDateTime(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -9303,939 +7872,6 @@ function toDateTimeLocal(value?: string | null) {
     date.getTime() - date.getTimezoneOffset() * 60_000
   );
   return localTime.toISOString().slice(0, 16);
-}
-
-function ProjectDetailCollaborationPanel({
-  project,
-  teamMembers,
-  canComment,
-}: {
-  project: WorkItem;
-  teamMembers: WorkspaceMemberOption[];
-  canComment: boolean;
-}) {
-  const {
-    isAuthenticated: isConvexAuthenticated,
-    isLoading: isConvexAuthLoading,
-  } = useConvexAuth();
-  const addProjectComment = useMutation(api.team.addProjectComment);
-  const [commentBody, setCommentBody] = useState("");
-  const [commentTimecode, setCommentTimecode] = useState("");
-  const [commentError, setCommentError] = useState("");
-  const projectComments = useQuery(
-    api.team.listProjectComments,
-    isConvexAuthenticated && project.teamId
-      ? { teamId: project.teamId, projectId: project.id }
-      : "skip"
-  );
-  const assignedMembers = teamMembers.filter((member) =>
-    (project.assigneeUserIds ?? []).includes(member.userId)
-  );
-
-  async function postComment() {
-    if (!isConvexAuthenticated || !project.teamId || !commentBody.trim())
-      return;
-    setCommentError("");
-    try {
-      const normalizedTimecode = normalizeOptionalTimecode(commentTimecode);
-      await addProjectComment({
-        teamId: project.teamId,
-        projectId: project.id,
-        body: commentBody,
-        ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
-      });
-      trackOptionalEvent("comment_added", { surface: "team" });
-      setCommentBody("");
-      setCommentTimecode("");
-    } catch (error) {
-      setCommentError(
-        error instanceof Error ? error.message : "Could not post comment."
-      );
-    }
-  }
-
-  if (!project.teamId) {
-    return null;
-  }
-
-  return (
-    <section className="mt-4 rounded-lg border bg-card p-4 text-card-foreground">
-      <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row">
-        <div>
-          <h3 className="font-semibold">Team Collaboration</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Assignments and project comments sync to the team workspace.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 md:justify-end">
-          {assignedMembers.length ? (
-            assignedMembers.map((member) => (
-              <OwnedBadge key={member.userId} variant="secondary">
-                {member.name || member.email}
-              </OwnedBadge>
-            ))
-          ) : (
-            <OwnedBadge variant="outline">Unassigned</OwnedBadge>
-          )}
-        </div>
-      </div>
-
-      <div className="mb-4 grid max-h-72 gap-2 overflow-y-auto pr-1">
-        {isConvexAuthLoading ? (
-          <p className="text-sm text-muted-foreground">
-            Connecting Team comments...
-          </p>
-        ) : !isConvexAuthenticated ? (
-          <p role="alert" className="text-sm text-destructive">
-            Team comments require Convex auth. Check Team sync before posting
-            comments.
-          </p>
-        ) : projectComments === undefined ? (
-          <p className="text-sm text-muted-foreground">Loading comments...</p>
-        ) : projectComments.length ? (
-          projectComments.map((comment) => (
-            <article
-              key={comment._id}
-              className="rounded-md border bg-background p-3"
-            >
-              <p className="text-sm font-semibold">
-                {comment.authorName}{" "}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {formatShortDateTime(comment.createdAt)}
-                </span>
-              </p>
-              <ProjectTimecodeBadge value={comment.timecode} />
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                {comment.body}
-              </p>
-            </article>
-          ))
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No comments yet. Add a note for the team or mention someone with
-            @name.
-          </p>
-        )}
-      </div>
-
-      {canComment ? (
-        <div className="grid items-start gap-3 md:grid-cols-[180px_minmax(0,1fr)_auto]">
-          <FieldLayout
-            label="Timecode (optional)"
-            description={TIMECODE_FORMAT_HINT}
-          >
-            <OwnedInput
-              value={commentTimecode}
-              placeholder="00:12"
-              maxLength={8}
-              inputMode="text"
-              onChange={(event) => {
-                setCommentTimecode(event.target.value);
-                if (commentError) setCommentError("");
-              }}
-            />
-          </FieldLayout>
-          <FieldLayout
-            label="Team comment"
-            error={commentError || undefined}
-            description={`${commentBody.length}/${TEAM_PROJECT_COMMENT_LIMIT} characters · Use @name or @emailname to notify a teammate.`}
-          >
-            <OwnedTextarea
-              value={commentBody}
-              maxLength={TEAM_PROJECT_COMMENT_LIMIT}
-              onChange={(event) => setCommentBody(event.target.value)}
-            />
-          </FieldLayout>
-          <OwnedButton
-            type="button"
-            className="md:mt-6"
-            disabled={!isConvexAuthenticated || !commentBody.trim()}
-            onClick={postComment}
-          >
-            Post
-          </OwnedButton>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Your team role can view comments but cannot add new ones.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function ProjectTimecodeBadge({ value }: { value?: string | null }) {
-  if (!value) return null;
-  return (
-    <OwnedBadge variant="secondary" className="mt-2">
-      <Clock3 aria-hidden="true" />
-      {value}
-    </OwnedBadge>
-  );
-}
-
-function ProjectDialog({
-  open,
-  editing,
-  returnFocusRef,
-  form,
-  setForm,
-  formError,
-  clientOptions,
-  workTypeOptions,
-  settings,
-  teamMembers,
-  onClose,
-  onSave,
-}: {
-  open: boolean;
-  editing: boolean;
-  returnFocusRef: RefObject<HTMLElement | null>;
-  form: WorkItem;
-  setForm: (form: WorkItem) => void;
-  formError: string;
-  clientOptions: string[];
-  workTypeOptions: string[];
-  settings: SettingsState;
-  teamMembers: WorkspaceMemberOption[];
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const selectedWorkType = workTypeOptions.some(
-    (option) => option.toLowerCase() === form.workType.toLowerCase()
-  )
-    ? canonicalWorkType(form.workType, workTypeOptions)
-    : workTypeOptions[0];
-  const typeConfig = getTypeConfig(selectedWorkType, settings);
-  return (
-    <OwnedDialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
-      }}
-    >
-      <OwnedDialogContent
-        className="max-h-[min(94dvh,900px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-2xl"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          returnFocusRef.current?.focus();
-        }}
-      >
-        <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl">
-            {editing ? "Edit Project" : "New Project"}
-          </OwnedDialogTitle>
-          <OwnedDialogDescription>
-            Set the schedule, ownership, and production details for this
-            project.
-          </OwnedDialogDescription>
-        </OwnedDialogHeader>
-        <div className="grid gap-5">
-          <FieldLayout label="Project name">
-            <OwnedInput
-              value={form.title}
-              onChange={(event) =>
-                setForm({ ...form, title: event.target.value })
-              }
-            />
-          </FieldLayout>
-          <ProjectClientCombobox
-            value={form.client || ""}
-            options={clientOptions}
-            onChange={(client) => setForm({ ...form, client })}
-            disabled={Boolean(form.salaryPlanId)}
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ProjectSelect
-              label="Status"
-              value={form.status}
-              options={statusOptions}
-              onChange={(value) => setForm({ ...form, status: value })}
-            />
-            <ProjectSelect
-              label="Tag"
-              value={selectedWorkType}
-              options={workTypeOptions}
-              disabled={Boolean(form.salaryPlanId)}
-              onChange={(value) =>
-                setForm({ ...form, workType: value, earnings: 0 })
-              }
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ProjectDatePicker
-              label="Start date"
-              value={form.startDate}
-              settings={settings}
-              onChange={(value) => setForm({ ...form, startDate: value })}
-            />
-            <ProjectDatePicker
-              label="Due date"
-              value={form.dueDate}
-              settings={settings}
-              onChange={(value) => setForm({ ...form, dueDate: value })}
-            />
-          </div>
-          <FieldLayout
-            label="Earnings"
-            disabled={
-              Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"
-            }
-            description={
-              form.salaryPlanId
-                ? "This Salary Plan fixes the Client and tracks money only when a full batch completes."
-                : typeConfig.earningsMode === "batch"
-                  ? `${settings.salaryWorkType} earnings are batch tracked in settings.`
-                  : undefined
-            }
-          >
-            <OwnedInput
-              type="number"
-              disabled={
-                Boolean(form.salaryPlanId) ||
-                typeConfig.earningsMode === "batch"
-              }
-              value={form.earnings}
-              onChange={(event) =>
-                setForm({ ...form, earnings: Number(event.target.value || 0) })
-              }
-            />
-          </FieldLayout>
-          <FieldLayout label="Notes">
-            <OwnedTextarea
-              value={form.notes}
-              onChange={(event) =>
-                setForm({ ...form, notes: event.target.value })
-              }
-              density="comfortable"
-            />
-          </FieldLayout>
-          <TemplateSetupEditor form={form} setForm={setForm} />
-          {form.teamId && teamMembers.length ? (
-            <ProjectAssigneeCombobox
-              options={teamMembers}
-              value={form.assigneeUserIds ?? []}
-              onChange={(assigneeUserIds) =>
-                setForm({ ...form, assigneeUserIds })
-              }
-            />
-          ) : null}
-          <IntegrationLinkManager
-            title="Project Integrations"
-            subtitle="Attach service links that belong only to this project."
-            links={form.integrationLinks}
-            emptyTitle="No project links"
-            emptyBody="Add links to this project's folders, reviews, channels, or calendar events."
-            onChange={(integrationLinks) =>
-              setForm({ ...form, integrationLinks })
-            }
-          />
-          {formError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {formError}
-            </p>
-          ) : null}
-        </div>
-        <OwnedDialogFooter>
-          <OwnedButton type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </OwnedButton>
-          <OwnedButton type="button" onClick={onSave}>
-            Save
-          </OwnedButton>
-        </OwnedDialogFooter>
-      </OwnedDialogContent>
-    </OwnedDialog>
-  );
-}
-
-function ProjectClientCombobox({
-  value,
-  options,
-  onChange,
-  disabled = false,
-}: {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout
-        label="Client"
-        disabled={disabled}
-        description={
-          disabled
-            ? "Fixed by the selected Salary Plan."
-            : clientSuggestionText(value, options)
-        }
-      >
-        <OwnedPopoverTrigger asChild>
-          <OwnedButton
-            type="button"
-            variant="outline"
-            role="combobox"
-            disabled={disabled}
-            aria-expanded={open}
-            className="w-full justify-between font-normal"
-          >
-            <span
-              className={value ? "truncate" : "truncate text-muted-foreground"}
-            >
-              {value ||
-                (options.length
-                  ? "Choose existing or type new client"
-                  : "Type a new client name")}
-            </span>
-            <ChevronsUpDown className="opacity-50" aria-hidden="true" />
-          </OwnedButton>
-        </OwnedPopoverTrigger>
-      </FieldLayout>
-      <OwnedPopoverContent
-        align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-      >
-        <OwnedCommand>
-          <OwnedCommandInput
-            placeholder="Search or type a client..."
-            value={value}
-            onValueChange={onChange}
-          />
-          <OwnedCommandList>
-            <OwnedCommandEmpty>
-              Press Escape to keep “{value}”.
-            </OwnedCommandEmpty>
-            <OwnedCommandGroup>
-              {options.map((option) => (
-                <OwnedCommandItem
-                  key={option}
-                  value={option}
-                  onSelect={() => {
-                    onChange(canonicalClientName(option, options));
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={
-                      option.toLowerCase() === value.toLowerCase()
-                        ? "opacity-100"
-                        : "opacity-0"
-                    }
-                    aria-hidden="true"
-                  />
-                  {option}
-                </OwnedCommandItem>
-              ))}
-            </OwnedCommandGroup>
-          </OwnedCommandList>
-        </OwnedCommand>
-      </OwnedPopoverContent>
-    </OwnedPopover>
-  );
-}
-
-function ProjectAssigneeCombobox({
-  options,
-  value,
-  onChange,
-}: {
-  options: WorkspaceMemberOption[];
-  value: string[];
-  onChange: (value: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = options.filter((option) => value.includes(option.userId));
-  return (
-    <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout
-        label="Assigned team members"
-        description="Assigned members receive project notifications when this project changes."
-      >
-        <OwnedPopoverTrigger asChild>
-          <OwnedButton
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="h-auto min-h-9 w-full justify-between whitespace-normal font-normal"
-          >
-            <span
-              className={
-                selected.length ? "text-left" : "text-muted-foreground"
-              }
-            >
-              {selected.length
-                ? selected
-                    .map((member) => member.name || member.email)
-                    .join(", ")
-                : "Choose team members"}
-            </span>
-            <ChevronsUpDown className="opacity-50" aria-hidden="true" />
-          </OwnedButton>
-        </OwnedPopoverTrigger>
-      </FieldLayout>
-      <OwnedPopoverContent
-        align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-      >
-        <OwnedCommand>
-          <OwnedCommandInput placeholder="Search team members..." />
-          <OwnedCommandList>
-            <OwnedCommandEmpty>No team member found.</OwnedCommandEmpty>
-            <OwnedCommandGroup>
-              {options.map((option) => {
-                const checked = value.includes(option.userId);
-                return (
-                  <OwnedCommandItem
-                    key={option.userId}
-                    value={`${option.name} ${option.email} ${option.role}`}
-                    onSelect={() =>
-                      onChange(
-                        checked
-                          ? value.filter((userId) => userId !== option.userId)
-                          : [...value, option.userId]
-                      )
-                    }
-                  >
-                    <Check
-                      className={checked ? "opacity-100" : "opacity-0"}
-                      aria-hidden="true"
-                    />
-                    <span className="grid">
-                      <span className="font-medium">
-                        {option.name || option.email || "Team member"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {option.role} · {option.email || "No email"}
-                      </span>
-                    </span>
-                  </OwnedCommandItem>
-                );
-              })}
-            </OwnedCommandGroup>
-          </OwnedCommandList>
-        </OwnedCommand>
-      </OwnedPopoverContent>
-    </OwnedPopover>
-  );
-}
-
-function TemplateSetupEditor({
-  form,
-  setForm,
-}: {
-  form: WorkItem;
-  setForm: (form: WorkItem) => void;
-}) {
-  const hasTemplateSetup = Boolean(
-    form.templateId ||
-    form.workflowStages?.length ||
-    form.templateDeliverables?.length ||
-    form.checklistItems?.length
-  );
-  if (!hasTemplateSetup) return null;
-
-  const deliverables = form.templateDeliverables ?? [];
-  return (
-    <section className="rounded-md border bg-muted/20 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold">Template Setup</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            These are suggestions, not locked rules. Edit or remove anything.
-          </p>
-        </div>
-        <OwnedBadge variant="secondary">Editable</OwnedBadge>
-      </div>
-      <div className="mt-4 grid gap-4">
-        <FieldLayout
-          label="Project type"
-          description="A descriptive type for this workflow; the project tag above still controls reporting and salary batches."
-        >
-          <OwnedInput
-            value={form.templateProjectType ?? ""}
-            onChange={(event) =>
-              setForm({ ...form, templateProjectType: event.target.value })
-            }
-          />
-        </FieldLayout>
-        <FieldLayout label="Workflow stages" description="One stage per line.">
-          <OwnedTextarea
-            value={(form.workflowStages ?? [])
-              .map((stage) => stage.label)
-              .join("\n")}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                workflowStages: workflowStagesFromLabels(
-                  event.target.value.split("\n").slice(0, 12),
-                  form.workflowStages
-                ),
-              })
-            }
-            density="comfortable"
-          />
-        </FieldLayout>
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold">Suggested deliverables</h4>
-            <OwnedButton
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                setForm({
-                  ...form,
-                  templateDeliverables: [
-                    ...deliverables,
-                    {
-                      title: "New deliverable",
-                      category: "Deliverable",
-                      initialStatus: "draft",
-                    },
-                  ],
-                })
-              }
-            >
-              <Plus aria-hidden="true" />
-              Add
-            </OwnedButton>
-          </div>
-          <div className="grid gap-2">
-            {deliverables.map((deliverable, index) => (
-              <div
-                key={`template-deliverable-${index}`}
-                className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_140px_170px_auto]"
-              >
-                <FieldLayout label="Deliverable">
-                  <OwnedInput
-                    value={deliverable.title}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        templateDeliverables: deliverables.map(
-                          (item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, title: event.target.value }
-                              : item
-                        ),
-                      })
-                    }
-                  />
-                </FieldLayout>
-                <ProjectSelect
-                  label="Category"
-                  value={deliverable.category}
-                  options={FILE_CATEGORY_VALUES}
-                  onChange={(category) =>
-                    setForm({
-                      ...form,
-                      templateDeliverables: deliverables.map(
-                        (item, itemIndex) =>
-                          itemIndex === index ? { ...item, category } : item
-                      ),
-                    })
-                  }
-                />
-                <ProjectSelect
-                  label="Initial status"
-                  value={deliverable.initialStatus}
-                  options={FILE_STATUS_VALUES}
-                  labels={APPROVAL_STATUS_LABELS}
-                  onChange={(initialStatus) =>
-                    setForm({
-                      ...form,
-                      templateDeliverables: deliverables.map(
-                        (item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, initialStatus }
-                            : item
-                      ),
-                    })
-                  }
-                />
-                <OwnedButton
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Remove ${deliverable.title}`}
-                  onClick={() =>
-                    setForm({
-                      ...form,
-                      templateDeliverables: deliverables.filter(
-                        (_, itemIndex) => itemIndex !== index
-                      ),
-                    })
-                  }
-                  className="text-destructive"
-                >
-                  <Trash2 aria-hidden="true" />
-                </OwnedButton>
-              </div>
-            ))}
-          </div>
-        </div>
-        <FieldLayout
-          label="Checklist"
-          description="One checklist item per line."
-        >
-          <OwnedTextarea
-            value={(form.checklistItems ?? []).join("\n")}
-            onChange={(event) => {
-              const checklistItems = event.target.value
-                .split("\n")
-                .slice(0, 20);
-              setForm({
-                ...form,
-                checklistItems,
-                checklistCompleted: normalizeChecklistCompleted(
-                  checklistItems,
-                  form.checklistCompleted
-                ),
-              });
-            }}
-            density="comfortable"
-          />
-        </FieldLayout>
-      </div>
-    </section>
-  );
-}
-
-function DeleteProjectDialog({
-  project,
-  onCancel,
-  onConfirm,
-}: {
-  project: WorkItem | null;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <OwnedAlertDialog
-      open={Boolean(project)}
-      onOpenChange={(open) => {
-        if (!open) onCancel();
-      }}
-    >
-      <OwnedAlertDialogContent
-        size="sm"
-        className="border-border bg-background text-foreground"
-      >
-        <OwnedAlertDialogHeader>
-          <OwnedAlertDialogTitle>Delete project?</OwnedAlertDialogTitle>
-          <OwnedAlertDialogDescription>
-            {project
-              ? `"${project.title}" will be removed from your tracker.`
-              : "This project will be removed from your tracker."}
-          </OwnedAlertDialogDescription>
-        </OwnedAlertDialogHeader>
-        <OwnedAlertDialogFooter>
-          <OwnedAlertDialogCancel onClick={onCancel}>
-            Cancel
-          </OwnedAlertDialogCancel>
-          <OwnedAlertDialogAction variant="destructive" onClick={onConfirm}>
-            Delete
-          </OwnedAlertDialogAction>
-        </OwnedAlertDialogFooter>
-      </OwnedAlertDialogContent>
-    </OwnedAlertDialog>
-  );
-}
-
-function ProjectSelect<T extends string>({
-  label,
-  value,
-  options,
-  labels,
-  onChange,
-  disabled = false,
-  compact = false,
-  className = "",
-}: {
-  label?: string;
-  value: T;
-  options: readonly T[];
-  labels?: Record<string, string>;
-  onChange: (value: T) => void;
-  disabled?: boolean;
-  compact?: boolean;
-  className?: string;
-}) {
-  return (
-    <OwnedSelect
-      value={value}
-      onValueChange={(nextValue) => onChange(nextValue as T)}
-      disabled={disabled}
-    >
-      {label ? (
-        <FieldLayout label={label} disabled={disabled}>
-          <OwnedSelectTrigger
-            size={compact ? "sm" : "default"}
-            className={`w-full ${className}`}
-          >
-            <OwnedSelectValue>{labels?.[value] ?? value}</OwnedSelectValue>
-          </OwnedSelectTrigger>
-        </FieldLayout>
-      ) : (
-        <OwnedSelectTrigger
-          size={compact ? "sm" : "default"}
-          aria-label="Choose value"
-          className={`w-full ${className}`}
-        >
-          <OwnedSelectValue>{labels?.[value] ?? value}</OwnedSelectValue>
-        </OwnedSelectTrigger>
-      )}
-      <OwnedSelectContent position="popper">
-        {options.map((option) => (
-          <OwnedSelectItem key={option} value={option}>
-            {labels?.[option] ?? option}
-          </OwnedSelectItem>
-        ))}
-      </OwnedSelectContent>
-    </OwnedSelect>
-  );
-}
-
-function ProjectDatePicker({
-  label,
-  value,
-  settings,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  settings: SettingsState;
-  onChange: (value: string) => void;
-}) {
-  const selected = isIsoDate(value)
-    ? new Date(`${value}T00:00:00`)
-    : todayDate();
-  const [open, setOpen] = useState(false);
-  const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(selected.getFullYear(), selected.getMonth(), 1)
-  );
-  const monthDays = calendarMonthDays(visibleMonth, settings.weekStart);
-  const weekdays = orderedWeekdays(settings.weekStart);
-  const monthLabel = new Intl.DateTimeFormat("en", {
-    month: "long",
-    year: "numeric",
-  }).format(visibleMonth);
-
-  function shiftMonth(offset: number) {
-    setVisibleMonth(
-      (current) =>
-        new Date(current.getFullYear(), current.getMonth() + offset, 1)
-    );
-  }
-
-  function chooseDate(next: string) {
-    onChange(next);
-    setOpen(false);
-  }
-
-  return (
-    <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout label={label}>
-        <OwnedPopoverTrigger asChild>
-          <OwnedButton
-            type="button"
-            variant="outline"
-            className="w-full justify-start font-normal"
-            onClick={() => {
-              const nextSelected = isIsoDate(value)
-                ? new Date(`${value}T00:00:00`)
-                : todayDate();
-              setVisibleMonth(
-                new Date(nextSelected.getFullYear(), nextSelected.getMonth(), 1)
-              );
-            }}
-          >
-            <CalendarDays aria-hidden="true" />
-            {isIsoDate(value)
-              ? formatDate(value, settings.dateFormat)
-              : "Choose date"}
-          </OwnedButton>
-        </OwnedPopoverTrigger>
-      </FieldLayout>
-      <OwnedPopoverContent
-        align="start"
-        className="w-[330px] max-w-[calc(100vw-2rem)] p-3"
-      >
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <OwnedButton
-            type="button"
-            size="icon-sm"
-            variant="outline"
-            aria-label={`Previous ${label.toLowerCase()} month`}
-            onClick={() => shiftMonth(-1)}
-          >
-            ‹
-          </OwnedButton>
-          <strong className="text-sm">{monthLabel}</strong>
-          <OwnedButton
-            type="button"
-            size="icon-sm"
-            variant="outline"
-            aria-label={`Next ${label.toLowerCase()} month`}
-            onClick={() => shiftMonth(1)}
-          >
-            ›
-          </OwnedButton>
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {weekdays.map((day) => (
-            <span
-              key={day}
-              className="py-1 text-center text-[10px] font-semibold uppercase text-muted-foreground"
-            >
-              {day}
-            </span>
-          ))}
-          {monthDays.map((day) => {
-            const key = iso(day.date);
-            const selectedDay = key === value;
-            const isCurrentMonth =
-              day.date.getMonth() === visibleMonth.getMonth();
-            const isToday = key === iso(todayDate());
-            return (
-              <OwnedButton
-                key={key}
-                type="button"
-                size="icon-sm"
-                variant={selectedDay ? "default" : "ghost"}
-                aria-label={`Choose ${formatDate(key, settings.dateFormat)} for ${label}`}
-                onClick={() => chooseDate(key)}
-                className={`${isToday && !selectedDay ? "border border-primary" : ""} ${isCurrentMonth ? "" : "opacity-40"}`}
-              >
-                {day.date.getDate()}
-              </OwnedButton>
-            );
-          })}
-        </div>
-        <div className="mt-2 flex justify-between">
-          <OwnedButton
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => chooseDate(iso(todayDate()))}
-          >
-            Today
-          </OwnedButton>
-          <OwnedButton
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setOpen(false)}
-          >
-            Close
-          </OwnedButton>
-        </div>
-      </OwnedPopoverContent>
-    </OwnedPopover>
-  );
 }
 
 function validateProject(
