@@ -1,6 +1,6 @@
 # Remove confirmed dead residue
 
-Status: ready
+Status: resolved
 Blocked by: none
 
 ## Work
@@ -17,3 +17,9 @@ Blocked by: none
 ## Comments
 
 This ticket changes no stored data.
+
+Implemented on 2026-08-26. The obsolete prototype route was already removed. The mobile Dashboard now opens the full Project route, and the unused CutLab asset generator and unreferenced product documents are removed. Type checking, the production build, and the full UI verifier pass.
+
+## Answer
+
+Removed the confirmed dead residue and replaced the mobile Project modal contract with the full-page Project route. The shared scroll check now waits for hydrated Local Workspace data while preserving its detailed failure output.
