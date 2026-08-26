@@ -22,7 +22,6 @@ import {
   Plus,
   Search,
   Settings,
-  ShieldCheck,
   Sparkles,
   Users,
   UsersRound,
@@ -60,8 +59,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ShellPage =
   | "dashboard"
@@ -102,42 +111,108 @@ const routeGroups: RouteGroup[] = [
   {
     label: "Overview",
     items: [
-      { page: "dashboard", label: "Dashboard", href: "/", icon: LayoutDashboard, shortcut: "G D" },
-      { page: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays, shortcut: "G C" },
-      { page: "timeline", label: "Timeline", href: "/timeline", icon: Workflow },
+      {
+        page: "dashboard",
+        label: "Dashboard",
+        href: "/",
+        icon: LayoutDashboard,
+        shortcut: "G D",
+      },
+      {
+        page: "calendar",
+        label: "Calendar",
+        href: "/calendar",
+        icon: CalendarDays,
+        shortcut: "G C",
+      },
+      {
+        page: "timeline",
+        label: "Timeline",
+        href: "/timeline",
+        icon: Workflow,
+      },
     ],
   },
   {
     label: "Work",
     items: [
-      { page: "projects", label: "Projects", href: "/projects", icon: FolderKanban, shortcut: "G P" },
+      {
+        page: "projects",
+        label: "Projects",
+        href: "/projects",
+        icon: FolderKanban,
+        shortcut: "G P",
+      },
       { page: "clients", label: "Clients", href: "/clients", icon: UsersRound },
-      { page: "feedback", label: "Reviews", href: "/feedback", icon: MessageSquareText },
+      {
+        page: "feedback",
+        label: "Reviews",
+        href: "/feedback",
+        icon: MessageSquareText,
+      },
       { page: "files", label: "Files", href: "/files", icon: FileText },
       { page: "media", label: "Media", href: "/media", icon: Images },
-      { page: "templates", label: "Templates", href: "/templates", icon: CheckSquare2 },
+      {
+        page: "templates",
+        label: "Templates",
+        href: "/templates",
+        icon: CheckSquare2,
+      },
     ],
   },
   {
     label: "Operations",
     items: [
-      { page: "resources", label: "Resources", href: "/resources", icon: Library },
-      { page: "integrations", label: "Integrations", href: "/integrations", icon: Sparkles },
-      { page: "reports", label: "Reports", href: "/reports", icon: ChartNoAxesCombined, shortcut: "G R" },
+      {
+        page: "resources",
+        label: "Resources",
+        href: "/resources",
+        icon: Library,
+      },
+      {
+        page: "integrations",
+        label: "Integrations",
+        href: "/integrations",
+        icon: Sparkles,
+      },
+      {
+        page: "reports",
+        label: "Reports",
+        href: "/reports",
+        icon: ChartNoAxesCombined,
+        shortcut: "G R",
+      },
     ],
   },
   {
     label: "Workspace",
     items: [
       { page: "team", label: "Team", href: "/team", icon: Users },
-      { page: "team-chat", label: "Team chat", href: "/team-chat", icon: MessageSquareText },
-      { page: "settings", label: "Settings", href: "/settings", icon: Settings, shortcut: "G S" },
+      {
+        page: "team-chat",
+        label: "Team chat",
+        href: "/team-chat",
+        icon: MessageSquareText,
+      },
+      {
+        page: "settings",
+        label: "Settings",
+        href: "/settings",
+        icon: Settings,
+        shortcut: "G S",
+      },
     ],
   },
 ];
 
 const allRoutes = routeGroups.flatMap((group) => group.items);
-const starterPages = new Set<ShellPage>(["dashboard", "projects", "calendar", "feedback", "settings"]);
+const starterPages = new Set<ShellPage>([
+  "dashboard",
+  "projects",
+  "calendar",
+  "feedback",
+  "settings",
+]);
 
 const mobileRoutes: RouteItem[] = [
   allRoutes.find((route) => route.page === "dashboard")!,
@@ -164,7 +239,10 @@ const quickRouteShortcuts: Record<string, string> = {
 function initials(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "CL";
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
 
 function routeIsActive(currentPage: ShellPage, item: RouteItem) {
@@ -173,7 +251,8 @@ function routeIsActive(currentPage: ShellPage, item: RouteItem) {
   if (item.page === "clients") return currentPage === "clients";
   if (item.page === "media") return currentPage === "media";
   if (item.page === "team") return currentPage === "team";
-  if (item.page === "settings") return ["settings", "account"].includes(currentPage);
+  if (item.page === "settings")
+    return ["settings", "account"].includes(currentPage);
   return false;
 }
 
@@ -255,8 +334,11 @@ export function WorkspaceShell({
   }, [router]);
 
   const title = useMemo(
-    () => page === "subscription" ? "Subscription" : allRoutes.find((route) => route.page === page)?.label ?? "Relay",
-    [page],
+    () =>
+      page === "subscription"
+        ? "Subscription"
+        : (allRoutes.find((route) => route.page === page)?.label ?? "Relay"),
+    [page]
   );
 
   return (
@@ -268,21 +350,20 @@ export function WorkspaceShell({
         showTeamNavigation={showTeamNavigation}
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
-        onSearch={() => setCommandOpen(true)}
       />
 
       <div
         className={cn(
           "min-h-dvh transition-[padding] ease-[cubic-bezier(0.22,1,0.36,1)]",
           reduceMotion ? "duration-0" : "duration-300",
-          collapsed ? "lg:pl-14" : "lg:pl-60",
+          collapsed ? "lg:pl-14" : "lg:pl-60"
         )}
       >
         <header
           className={cn(
             "fixed inset-x-0 top-0 z-30 flex h-12 items-center bg-[var(--app-sidebar)] px-2.5 transition-[left] ease-[cubic-bezier(0.22,1,0.36,1)] lg:justify-between lg:px-3",
             reduceMotion ? "duration-0" : "duration-300",
-            collapsed ? "lg:left-14" : "lg:left-60",
+            collapsed ? "lg:left-14" : "lg:left-60"
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
@@ -292,22 +373,34 @@ export function WorkspaceShell({
               </span>
             </div>
             <p className="truncate text-sm font-semibold lg:hidden">{title}</p>
-            <p className="hidden items-center gap-1.5 text-xs lg:flex" aria-label={`Current location: ${title}`}>
-              <span className="font-medium text-[var(--app-subtle)]">Relay</span>
-              <span aria-hidden="true" className="text-[var(--app-border)]">/</span>
+            <p
+              className="hidden items-center gap-1.5 text-xs lg:flex"
+              aria-label={`Current location: ${title}`}
+            >
+              <span className="font-medium text-[var(--app-subtle)]">
+                Relay
+              </span>
+              <span aria-hidden="true" className="text-[var(--app-border)]">
+                /
+              </span>
               <span className="font-medium text-[var(--app-ink)]">{title}</span>
             </p>
           </div>
 
+          <Button
+            variant="outline"
+            className="fixed inset-x-0 top-1.5 mx-auto hidden h-9 w-[220px] justify-start border-[var(--app-border)] bg-[var(--app-control)] px-2.5 text-xs text-[var(--app-muted)] shadow-none hover:bg-[var(--app-hover)] lg:flex"
+            onClick={() => setCommandOpen(true)}
+            aria-label="Quick Search (Ctrl K)"
+          >
+            <Search className="size-3.5 shrink-0" />
+            <span className="truncate">Quick Search</span>
+            <kbd className="ml-auto font-mono text-[9px] text-[var(--app-subtle)]">
+              Ctrl K
+            </kbd>
+          </Button>
+
           <div className="ml-3 flex items-center gap-1.5 lg:ml-0">
-            {isSignedIn ? (
-              <Button asChild variant={page === "subscription" ? "secondary" : "outline"} className="h-8 px-2.5 text-xs shadow-none">
-                <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined}>
-                  <CreditCard className="size-3.5" />
-                  <span className="hidden sm:inline">Plans & billing</span>
-                </Link>
-              </Button>
-            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -318,14 +411,20 @@ export function WorkspaceShell({
               <Search className="size-[18px]" />
             </Button>
             <motion.div
-              whileHover={canCreateProject && !reduceMotion ? { y: -1 } : undefined}
-              whileTap={canCreateProject && !reduceMotion ? { scale: 0.98, y: 0 } : undefined}
+              whileHover={
+                canCreateProject && !reduceMotion ? { y: -1 } : undefined
+              }
+              whileTap={
+                canCreateProject && !reduceMotion
+                  ? { scale: 0.98, y: 0 }
+                  : undefined
+              }
               transition={{ duration: 0.12 }}
               className="hidden sm:block"
             >
               <Button
                 aria-label="Quick create project"
-                className="h-8 bg-[var(--app-accent)] px-3 text-xs text-[var(--app-accent-foreground)] shadow-none hover:bg-[var(--app-highlight)]"
+                className="h-9 bg-[var(--app-accent)] px-3 text-xs text-[var(--app-accent-foreground)] shadow-none hover:bg-[var(--app-highlight)]"
                 onClick={onNewProject}
                 disabled={!canCreateProject}
               >
@@ -334,7 +433,10 @@ export function WorkspaceShell({
               </Button>
             </motion.div>
             {notificationSlot ?? (
-              <motion.div whileTap={reduceMotion ? undefined : { scale: 0.92 }} transition={{ duration: 0.1 }}>
+              <motion.div
+                whileTap={reduceMotion ? undefined : { scale: 0.92 }}
+                transition={{ duration: 0.1 }}
+              >
                 <Button variant="ghost" size="icon" aria-label="Notifications">
                   <Bell className="size-[18px]" />
                 </Button>
@@ -351,12 +453,10 @@ export function WorkspaceShell({
           className={cn(
             "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-md lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
             reduceMotion ? "lg:duration-0" : "lg:duration-300",
-            collapsed ? "lg:left-[62px]" : "lg:left-[246px]",
+            collapsed ? "lg:left-[62px]" : "lg:left-[246px]"
           )}
         >
-          <div className="min-h-full lg:h-full">
-            {children}
-          </div>
+          <div className="min-h-full lg:h-full">{children}</div>
         </main>
       </div>
 
@@ -373,8 +473,20 @@ export function WorkspaceShell({
         </motion.button>
       ) : null}
 
-      <MobileNavigation page={page} open={moreOpen} onOpenChange={setMoreOpen} starterNavigation={starterNavigation} showTeamNavigation={showTeamNavigation} />
-      <WorkspaceCommand open={commandOpen} onOpenChange={setCommandOpen} onNewProject={onNewProject} showTeamNavigation={showTeamNavigation} searchRecords={searchRecords} />
+      <MobileNavigation
+        page={page}
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        starterNavigation={starterNavigation}
+        showTeamNavigation={showTeamNavigation}
+      />
+      <WorkspaceCommand
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onNewProject={onNewProject}
+        showTeamNavigation={showTeamNavigation}
+        searchRecords={searchRecords}
+      />
     </div>
   );
 }
@@ -386,7 +498,6 @@ function DesktopSidebar({
   showTeamNavigation,
   collapsed,
   onCollapsedChange,
-  onSearch,
 }: {
   page: ShellPage;
   settings: SettingsState;
@@ -394,19 +505,30 @@ function DesktopSidebar({
   showTeamNavigation: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  onSearch: () => void;
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const [showAllTools, setShowAllTools] = useState(false);
   const availableGroups = routeGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
+      items: group.items.filter(
+        (item) =>
+          showTeamNavigation ||
+          (item.page !== "team" && item.page !== "team-chat")
+      ),
     }))
     .filter((group) => group.items.length);
-  const visibleGroups = starterNavigation && !showAllTools
-    ? availableGroups.map((group) => ({ ...group, items: group.items.filter((item) => starterPages.has(item.page) || item.page === page) })).filter((group) => group.items.length)
-    : availableGroups;
+  const visibleGroups =
+    starterNavigation && !showAllTools
+      ? availableGroups
+          .map((group) => ({
+            ...group,
+            items: group.items.filter(
+              (item) => starterPages.has(item.page) || item.page === page
+            ),
+          }))
+          .filter((group) => group.items.length)
+      : availableGroups;
 
   return (
     <motion.aside
@@ -415,16 +537,18 @@ function DesktopSidebar({
       transition={reduceMotion ? { duration: 0 } : shellTransition}
       className="fixed inset-y-0 left-0 z-40 hidden overflow-hidden bg-[var(--app-sidebar)] lg:flex lg:flex-col"
     >
-      <div className={cn(
-        "grid h-12 grid-cols-1 items-center justify-items-center bg-[var(--app-sidebar)] px-1.5",
-      )}>
+      <div
+        className={cn(
+          "grid h-12 grid-cols-1 items-center justify-items-center bg-[var(--app-sidebar)] px-1.5"
+        )}
+      >
         <Link
           href="/"
           aria-label="Go to dashboard"
           className={cn(
             "min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-sidebar)]",
             "flex h-full items-center overflow-hidden",
-            collapsed ? "w-12 justify-center" : "w-full justify-start px-2",
+            collapsed ? "w-12 justify-center" : "w-full justify-start px-2"
           )}
         >
           <motion.div
@@ -433,7 +557,7 @@ function DesktopSidebar({
             transition={reduceMotion ? { duration: 0 } : shellTransition}
             className={cn(
               "relative size-[26px] shrink-0 overflow-hidden",
-              collapsed ? "mx-auto" : "mr-auto",
+              collapsed ? "mx-auto" : "mr-auto"
             )}
           >
             <img
@@ -453,30 +577,12 @@ function DesktopSidebar({
             />
           </motion.div>
         </Link>
-
       </div>
 
-      <div className="px-1.5 pb-1.5">
-        <Button
-          variant="outline"
-          className={cn(
-            "h-8 border-[var(--app-border)] bg-[var(--app-control)] px-2 text-xs text-[var(--app-muted)] shadow-none hover:bg-[var(--app-hover)]",
-            collapsed ? "w-full justify-center" : "w-full justify-start",
-          )}
-          onClick={onSearch}
-          aria-label="Quick Search (Ctrl K)"
-        >
-          <Search className="size-3.5 shrink-0" />
-          {!collapsed ? (
-            <>
-              <span className="truncate">Quick Search</span>
-              <kbd className="ml-auto font-mono text-[9px] text-[var(--app-subtle)]">Ctrl K</kbd>
-            </>
-          ) : null}
-        </Button>
-      </div>
-
-      <nav aria-label="Primary navigation" className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1">
+      <nav
+        aria-label="Primary navigation"
+        className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1"
+      >
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.label} className="mb-2.5">
             {!collapsed ? (
@@ -489,8 +595,13 @@ function DesktopSidebar({
                 {group.label}
               </motion.p>
             ) : (
-              <div className="mb-1 flex h-2 items-center justify-center" aria-hidden="true">
-                {groupIndex > 0 ? <span className="h-px w-8 bg-[var(--app-border)]" /> : null}
+              <div
+                className="mb-1 flex h-2 items-center justify-center"
+                aria-hidden="true"
+              >
+                {groupIndex > 0 ? (
+                  <span className="h-px w-8 bg-[var(--app-border)]" />
+                ) : null}
               </div>
             )}
             <div className="space-y-0.5">
@@ -509,11 +620,23 @@ function DesktopSidebar({
         {starterNavigation ? (
           <button
             type="button"
-            className={cn("mt-1 flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", collapsed ? "justify-center" : "gap-2 px-2.5")}
+            className={cn(
+              "mt-1 flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
+              collapsed ? "justify-center" : "gap-2 px-2.5"
+            )}
             onClick={() => setShowAllTools((value) => !value)}
             aria-expanded={showAllTools}
           >
-            <MoreHorizontal className="size-4" />{collapsed ? <span className="sr-only">{showAllTools ? "Show starter tools" : "Show all tools"}</span> : showAllTools ? "Show starter tools" : "Show all tools"}
+            <MoreHorizontal className="size-4" />
+            {collapsed ? (
+              <span className="sr-only">
+                {showAllTools ? "Show starter tools" : "Show all tools"}
+              </span>
+            ) : showAllTools ? (
+              "Show starter tools"
+            ) : (
+              "Show all tools"
+            )}
           </button>
         ) : null}
       </nav>
@@ -521,11 +644,25 @@ function DesktopSidebar({
       <div className="border-t border-[var(--app-border)] p-1.5">
         {!collapsed ? (
           <footer className="mb-2 border-b border-[var(--app-border)] px-2 pb-2 text-[11px] leading-5 text-[var(--app-subtle)]">
-            <nav aria-label="Support and legal" className="flex flex-wrap gap-x-3 gap-y-1">
-              <Link className="hover:text-[var(--app-ink)]" href="/contact">Contact</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/privacy">Privacy</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/terms">Terms</Link>
-              <Link className="hover:text-[var(--app-ink)]" href="/accessibility">Accessibility</Link>
+            <nav
+              aria-label="Support and legal"
+              className="flex flex-wrap gap-x-3 gap-y-1"
+            >
+              <Link className="hover:text-[var(--app-ink)]" href="/contact">
+                Contact
+              </Link>
+              <Link className="hover:text-[var(--app-ink)]" href="/privacy">
+                Privacy
+              </Link>
+              <Link className="hover:text-[var(--app-ink)]" href="/terms">
+                Terms
+              </Link>
+              <Link
+                className="hover:text-[var(--app-ink)]"
+                href="/accessibility"
+              >
+                Accessibility
+              </Link>
             </nav>
             <p className="mt-1">© {new Date().getFullYear()} Relay</p>
           </footer>
@@ -534,20 +671,23 @@ function DesktopSidebar({
           type="button"
           className={cn(
             "flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"
           )}
           onClick={() => onCollapsedChange(!collapsed)}
           aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
           aria-expanded={!collapsed}
         >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          {collapsed ? (
+            <PanelLeftOpen className="size-4" />
+          ) : (
+            <PanelLeftClose className="size-4" />
+          )}
           {!collapsed ? <span>Collapse sidebar</span> : null}
         </button>
       </div>
     </motion.aside>
   );
 }
-
 
 function SidebarRoute({
   item,
@@ -580,7 +720,7 @@ function SidebarRoute({
         collapsed ? "mx-auto w-9 justify-center px-0" : "gap-2.5 px-2.5",
         active
           ? "bg-[var(--app-active)] text-[var(--app-ink)]"
-          : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]",
+          : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]"
       )}
     >
       {showPass ? (
@@ -620,13 +760,25 @@ function SidebarRoute({
   );
 }
 
-function ProfileMenu({ settings, collapsed = false, compact = false, page }: { settings: SettingsState; collapsed?: boolean; compact?: boolean; page: ShellPage }) {
+function ProfileMenu({
+  settings,
+  collapsed = false,
+  compact = false,
+  page,
+}: {
+  settings: SettingsState;
+  collapsed?: boolean;
+  compact?: boolean;
+  page: ShellPage;
+}) {
   const { isAuthEnabled } = useData();
   const { isSignedIn, openSignIn, openSignUp, signOut } = useOptionalAuth();
   const [open, setOpen] = useState(false);
   const reduceMotion = useHydratedReducedMotion();
   const name = settings.profileName || "Your profile";
-  const handle = settings.profileUsername ? `@${settings.profileUsername.replace(/^@/, "")}` : settings.teamRole || "Editor";
+  const handle = settings.profileUsername
+    ? `@${settings.profileUsername.replace(/^@/, "")}`
+    : settings.teamRole || "Editor";
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -637,8 +789,12 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
           whileTap={reduceMotion ? undefined : { scale: 0.97, y: 0 }}
           transition={{ duration: 0.12 }}
           className={cn(
-            "flex w-full items-center rounded-md text-left outline-none transition-[background-color,box-shadow] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-            compact || collapsed ? "justify-center p-1" : "gap-2.5 p-2",
+            "flex items-center rounded-md text-left outline-none transition-[background-color,box-shadow] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
+            compact
+              ? "h-9 w-9 justify-center p-0"
+              : collapsed
+                ? "w-full justify-center p-1"
+                : "w-full gap-2.5 p-2"
           )}
           aria-label="Open profile menu"
         >
@@ -651,8 +807,12 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
           {!collapsed && !compact ? (
             <>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-semibold">{name}</span>
-                <span className="block truncate text-[11px] text-[var(--app-muted)]">{handle}</span>
+                <span className="block truncate text-[12px] font-semibold">
+                  {name}
+                </span>
+                <span className="block truncate text-[11px] text-[var(--app-muted)]">
+                  {handle}
+                </span>
               </span>
               <motion.span
                 animate={{ rotate: open ? 180 : 0 }}
@@ -665,7 +825,11 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
           ) : null}
         </motion.button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side={compact ? "bottom" : collapsed ? "right" : "top"} align={compact ? "end" : "start"} className="w-64">
+      <DropdownMenuContent
+        side={compact ? "bottom" : collapsed ? "right" : "top"}
+        align={compact ? "end" : "start"}
+        className="w-64"
+      >
         <DropdownMenuLabel>
           <p className="text-sm font-semibold">{name}</p>
           <p className="text-xs font-normal text-muted-foreground">{handle}</p>
@@ -683,7 +847,10 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
             >
               <LogIn /> Sign in
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!isAuthEnabled} onSelect={() => openSignUp()}>
+            <DropdownMenuItem
+              disabled={!isAuthEnabled}
+              onSelect={() => openSignUp()}
+            >
               <UserPlus /> Create account
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -691,7 +858,11 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
         ) : null}
         {isSignedIn ? (
           <DropdownMenuItem asChild>
-            <Link href="/subscription" aria-current={page === "subscription" ? "page" : undefined} className={cn(page === "subscription" && "bg-accent")}>
+            <Link
+              href="/subscription"
+              aria-current={page === "subscription" ? "page" : undefined}
+              className={cn(page === "subscription" && "bg-accent")}
+            >
               <CreditCard /> Plans & billing
             </Link>
           </DropdownMenuItem>
@@ -733,20 +904,6 @@ function ProfileMenu({ settings, collapsed = false, compact = false, page }: { s
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
-          Legal and privacy
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild>
-          <Link href="/privacy">
-            <ShieldCheck /> Privacy Policy
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/terms">
-            <FileText /> Terms of Service
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         {isSignedIn ? (
           <DropdownMenuItem onSelect={() => void signOut()}>
             <LogOut /> Sign out
@@ -783,10 +940,16 @@ function WorkspaceCommand({
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: -8, scale: 0.985 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.18,
+            ease: [0.2, 0.8, 0.2, 1],
+          }}
         >
           <Command>
-            <CommandInput aria-label="Search workspace commands" placeholder="Search pages and actions..." />
+            <CommandInput
+              aria-label="Search workspace commands"
+              placeholder="Search pages and actions..."
+            />
             <CommandList className="max-h-[420px]">
               <CommandEmpty>No matching workspace action found.</CommandEmpty>
               <CommandGroup heading="Quick actions">
@@ -802,37 +965,62 @@ function WorkspaceCommand({
               <CommandSeparator />
               {searchRecords.length ? (
                 <CommandGroup heading="Workspace records">
-                  {searchRecords.filter((record) => record.kind !== "action").map((record) => (
-                    <CommandItem key={`${record.kind}:${record.id}`} asChild value={`${record.title} ${record.detail} ${record.keywords ?? ""}`}>
-                      <Link href={record.href ?? "/"} onClick={() => onOpenChange(false)}>
-                        <FileText />
-                        <span className="min-w-0 flex-1 truncate">{record.title}</span>
-                        <span className="text-xs text-muted-foreground">{record.detail}</span>
-                      </Link>
-                    </CommandItem>
-                  ))}
+                  {searchRecords
+                    .filter((record) => record.kind !== "action")
+                    .map((record) => (
+                      <CommandItem
+                        key={`${record.kind}:${record.id}`}
+                        asChild
+                        value={`${record.title} ${record.detail} ${record.keywords ?? ""}`}
+                      >
+                        <Link
+                          href={record.href ?? "/"}
+                          onClick={() => onOpenChange(false)}
+                        >
+                          <FileText />
+                          <span className="min-w-0 flex-1 truncate">
+                            {record.title}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {record.detail}
+                          </span>
+                        </Link>
+                      </CommandItem>
+                    ))}
                 </CommandGroup>
               ) : null}
               {searchRecords.length ? <CommandSeparator /> : null}
-              {routeGroups.map((group) => ({
-                ...group,
-                items: group.items.filter((item) => showTeamNavigation || (item.page !== "team" && item.page !== "team-chat")),
-              })).filter((group) => group.items.length).map((group) => (
-                <CommandGroup key={group.label} heading={group.label}>
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <CommandItem key={item.page} asChild>
-                        <Link href={item.href} onClick={() => onOpenChange(false)}>
-                          <Icon />
-                          {item.label}
-                          {item.shortcut ? <CommandShortcut>{item.shortcut}</CommandShortcut> : null}
-                        </Link>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))}
+              {routeGroups
+                .map((group) => ({
+                  ...group,
+                  items: group.items.filter(
+                    (item) =>
+                      showTeamNavigation ||
+                      (item.page !== "team" && item.page !== "team-chat")
+                  ),
+                }))
+                .filter((group) => group.items.length)
+                .map((group) => (
+                  <CommandGroup key={group.label} heading={group.label}>
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <CommandItem key={item.page} asChild>
+                          <Link
+                            href={item.href}
+                            onClick={() => onOpenChange(false)}
+                          >
+                            <Icon />
+                            {item.label}
+                            {item.shortcut ? (
+                              <CommandShortcut>{item.shortcut}</CommandShortcut>
+                            ) : null}
+                          </Link>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ))}
             </CommandList>
           </Command>
         </motion.div>
@@ -856,11 +1044,16 @@ function MobileNavigation({
 }) {
   const reduceMotion = useHydratedReducedMotion();
   const primaryRoutes = starterNavigation
-    ? ["dashboard", "projects", "calendar", "feedback"].map((key) => allRoutes.find((route) => route.page === key)!)
+    ? ["dashboard", "projects", "calendar", "feedback"].map((key) =>
+        allRoutes.find((route) => route.page === key)!
+      )
     : mobileRoutes;
 
   return (
-    <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(68px+env(safe-area-inset-bottom))] grid-cols-5 border-t border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-panel)_94%,transparent)] px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(68px+env(safe-area-inset-bottom))] grid-cols-5 border-t border-[var(--app-border)] bg-[color-mix(in_srgb,var(--app-panel)_94%,transparent)] px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+    >
       {primaryRoutes.map((item) => {
         const Icon = item.icon;
         const active = routeIsActive(page, item);
@@ -871,7 +1064,7 @@ function MobileNavigation({
             aria-current={active ? "page" : undefined}
             className={cn(
               "relative flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
-              active ? "text-[var(--app-highlight)]" : "text-[var(--app-muted)]",
+              active ? "text-[var(--app-highlight)]" : "text-[var(--app-muted)]"
             )}
           >
             {active ? (
@@ -900,7 +1093,10 @@ function MobileNavigation({
             aria-label="Open more workspace pages"
           >
             <motion.span
-              animate={{ rotate: open ? 90 : 0, scale: open && !reduceMotion ? 1.06 : 1 }}
+              animate={{
+                rotate: open ? 90 : 0,
+                scale: open && !reduceMotion ? 1.06 : 1,
+              }}
               transition={{ duration: reduceMotion ? 0 : 0.16 }}
               className="flex"
             >
@@ -909,44 +1105,84 @@ function MobileNavigation({
             More
           </motion.button>
         </SheetTrigger>
-        <SheetContent side="bottom" className="max-h-[82dvh] rounded-t-xl px-3 pb-8">
+        <SheetContent
+          side="bottom"
+          className="max-h-[82dvh] rounded-t-xl px-3 pb-8"
+        >
           <SheetHeader className="px-1">
             <SheetTitle>Workspace</SheetTitle>
           </SheetHeader>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {allRoutes
-              .filter((route) => !primaryRoutes.some((mobile) => mobile.page === route.page))
-              .filter((route) => showTeamNavigation || (route.page !== "team" && route.page !== "team-chat"))
+              .filter(
+                (route) =>
+                  !primaryRoutes.some((mobile) => mobile.page === route.page)
+              )
+              .filter(
+                (route) =>
+                  showTeamNavigation ||
+                  (route.page !== "team" && route.page !== "team-chat")
+              )
               .map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.page}
-                  href={item.href}
-                  onClick={() => onOpenChange(false)}
-                  aria-current={routeIsActive(page, item) ? "page" : undefined}
-                  className="group flex items-center gap-3 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3 text-sm font-medium outline-none transition-[background-color,border-color] hover:border-[var(--app-strong-border)] hover:bg-[var(--app-soft-panel)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
-                >
-                  <motion.span
-                    whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                    className="flex"
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.page}
+                    href={item.href}
+                    onClick={() => onOpenChange(false)}
+                    aria-current={
+                      routeIsActive(page, item) ? "page" : undefined
+                    }
+                    className="group flex items-center gap-3 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3 text-sm font-medium outline-none transition-[background-color,border-color] hover:border-[var(--app-strong-border)] hover:bg-[var(--app-soft-panel)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
                   >
-                    <Icon className="size-[18px] text-[var(--app-muted)] transition-colors group-hover:text-[var(--app-ink)]" />
-                  </motion.span>
-                  {item.label}
-                </Link>
-              );
-            })}
+                    <motion.span
+                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+                      className="flex"
+                    >
+                      <Icon className="size-[18px] text-[var(--app-muted)] transition-colors group-hover:text-[var(--app-ink)]" />
+                    </motion.span>
+                    {item.label}
+                  </Link>
+                );
+              })}
           </div>
           <div className="mt-4 border-t border-[var(--app-border)] pt-4">
-            <p className="px-1 text-xs font-semibold text-[var(--app-muted)]">Support and legal</p>
+            <p className="px-1 text-xs font-semibold text-[var(--app-muted)]">
+              Support and legal
+            </p>
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-              <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/contact" onClick={() => onOpenChange(false)}>Contact</Link>
-              <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/privacy" onClick={() => onOpenChange(false)}>Privacy</Link>
-              <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/terms" onClick={() => onOpenChange(false)}>Terms</Link>
-              <Link className="min-h-12 rounded-md border border-[var(--app-border)] p-3" href="/accessibility" onClick={() => onOpenChange(false)}>Accessibility</Link>
+              <Link
+                className="min-h-12 rounded-md border border-[var(--app-border)] p-3"
+                href="/contact"
+                onClick={() => onOpenChange(false)}
+              >
+                Contact
+              </Link>
+              <Link
+                className="min-h-12 rounded-md border border-[var(--app-border)] p-3"
+                href="/privacy"
+                onClick={() => onOpenChange(false)}
+              >
+                Privacy
+              </Link>
+              <Link
+                className="min-h-12 rounded-md border border-[var(--app-border)] p-3"
+                href="/terms"
+                onClick={() => onOpenChange(false)}
+              >
+                Terms
+              </Link>
+              <Link
+                className="min-h-12 rounded-md border border-[var(--app-border)] p-3"
+                href="/accessibility"
+                onClick={() => onOpenChange(false)}
+              >
+                Accessibility
+              </Link>
             </div>
-            <p className="mt-3 px-1 text-xs text-[var(--app-subtle)]">© {new Date().getFullYear()} Relay</p>
+            <p className="mt-3 px-1 text-xs text-[var(--app-subtle)]">
+              © {new Date().getFullYear()} Relay
+            </p>
           </div>
         </SheetContent>
       </Sheet>
