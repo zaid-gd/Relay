@@ -8,10 +8,12 @@ Blocked by: 02 Inventory legacy Convex data
 - Map every retained `portalDeliverables` row to a Project Output and client-visible Media Version.
 - Preserve title, link, download policy, status, timestamps, and portal visibility.
 - Make the migration idempotent so retries cannot create duplicate outputs or versions.
-- Verify public portal projections before retiring the old reader.
+- Give migrated records stable legacy identities and deduplicate dual-read results by that identity during rollout.
+- Verify both editor and public portal projections before retiring either old reader.
 
 ## Done when
 
 - Dry run and backfill counts match the inventory.
-- Public portal tests prove old and migrated records render the same client-safe result.
+- Editor and public portal tests prove old and migrated records render the same result.
+- Every deliverable renders once during dual reads, and deduplication happens before the result limit is applied.
 - No portal depends only on `portalDeliverables`.

@@ -40,18 +40,17 @@ All of these routes except profile currently enter `TrackerApp`, which supplies 
 
 ### Public, access and support routes
 
-| Route                                  | Purpose                                      | Current implementation                                                        |
-| -------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
-| `/access`                              | Access-code entry                            | CSS module form and semantic `main`/`section`                                 |
-| `/client-portal`                       | Client portal landing and token instructions | Standalone shadcn-style page                                                  |
-| `/client-portal/[token]`               | Shared client portal view                    | Server route plus client portal view                                          |
-| `/u/[slug]`                            | Shared public editor profile                 | `public-profile-page.tsx`                                                     |
-| `/contact`                             | Contact form and support copy                | `LegalPage` plus `ContactForm`                                                |
-| `/accessibility`                       | Accessibility statement                      | `LegalPage`                                                                   |
-| `/privacy`, `/privacy-policy`          | Privacy policy; alias redirects              | `LegalPage` and redirect                                                      |
-| `/terms`                               | Terms of service                             | `LegalPage`                                                                   |
-| `/not-found`, `/error`                 | Error and missing-route recovery             | Shared app error surfaces                                                     |
-| `/prototype/workspace-page-primitives` | Internal layout primitive fixture            | `WorkspacePageFixture`; should stay non-product and out of primary navigation |
+| Route                         | Purpose                                      | Current implementation                        |
+| ----------------------------- | -------------------------------------------- | --------------------------------------------- |
+| `/access`                     | Access-code entry                            | CSS module form and semantic `main`/`section` |
+| `/client-portal`              | Client portal landing and token instructions | Standalone shadcn-style page                  |
+| `/client-portal/[token]`      | Shared client portal view                    | Server route plus client portal view          |
+| `/u/[slug]`                   | Shared public editor profile                 | `public-profile-page.tsx`                     |
+| `/contact`                    | Contact form and support copy                | `LegalPage` plus `ContactForm`                |
+| `/accessibility`              | Accessibility statement                      | `LegalPage`                                   |
+| `/privacy`, `/privacy-policy` | Privacy policy; alias redirects              | `LegalPage` and redirect                      |
+| `/terms`                      | Terms of service                             | `LegalPage`                                   |
+| `/not-found`, `/error`        | Error and missing-route recovery             | Shared app error surfaces                     |
 
 ## Existing stack and component inventory
 

@@ -11,12 +11,11 @@ export type OnboardingEvent =
   | "workspace_mode_selected"
   | "first_project_created";
 
-/**
- * Determines the onboarding variant from URL params, storage, or environment configuration.
- */
 export function resolveOnboardingVariant(): OnboardingVariant {
   if (typeof window === "undefined") return "v2";
-  const override = new URLSearchParams(window.location.search).get("onboarding");
+  const override = new URLSearchParams(window.location.search).get(
+    "onboarding"
+  );
   if (override === "control" || override === "v2") return override;
   const stored = window.localStorage.getItem(variantKey);
   if (stored === "control" || stored === "v2") return stored;
@@ -26,12 +25,14 @@ export function resolveOnboardingVariant(): OnboardingVariant {
   return variant;
 }
 
-/**
- * Tracks an onboarding activation milestone event with variant and mode information.
- */
 export function trackOnboardingEvent(
   event: OnboardingEvent,
-  properties: { variant: OnboardingVariant; entrySource?: string; mode?: "local" | "account"; elapsedMs?: number },
+  properties: {
+    variant: OnboardingVariant;
+    entrySource?: string;
+    mode?: "local" | "account";
+    elapsedMs?: number;
+  }
 ) {
   trackOptionalEvent("activation", {
     milestone: event,

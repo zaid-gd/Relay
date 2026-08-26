@@ -26,16 +26,13 @@ const videoEditorProfile: ProfileConfig = {
   typeOptions: [
     { label: "Job / Salary", earningsMode: "batch" },
     { label: "Freelance", earningsMode: "manual" },
-    { label: "Personal Channel", earningsMode: "optional" }
+    { label: "Personal Channel", earningsMode: "optional" },
   ],
-  salaryBatch: true
+  salaryBatch: true,
 };
 
 export const profileConfigs: ProfileConfig[] = [videoEditorProfile];
 
-/**
- * Retrieves the profile configuration for the specified profile ID.
- */
 export function getProfile(_profileId?: string | null) {
   return videoEditorProfile;
 }

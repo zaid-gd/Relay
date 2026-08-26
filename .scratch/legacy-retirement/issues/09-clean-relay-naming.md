@@ -13,5 +13,5 @@ Blocked by: none
 ## Done when
 
 - User-visible UI and active source use Relay naming.
-- A source scan finds no active CutLab or FrameDesk product name outside documented persisted keys or history.
+- A case-insensitive source scan finds no active `CutLab`, `FrameDesk`, or `Frame Desk` product name outside documented persisted keys or history.
 - Branding and workspace browser checks pass.

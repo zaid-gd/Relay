@@ -13,4 +13,6 @@ Blocked by: 02 Inventory legacy Convex data
 
 - Dry-run and backfill counts match the inventory.
 - No Client Portal lacks `enabled`.
+- A value-level parity query reports zero cases where backfilled `enabled` differs from the resolved legacy `published` state.
+- `readPublicPortalAccess` tests cover enabled and disabled portals.
 - Portal tests pass and the old fallback is safe for ticket 11 to remove.
