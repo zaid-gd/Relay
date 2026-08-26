@@ -33,6 +33,9 @@ const videoEditorProfile: ProfileConfig = {
 
 export const profileConfigs: ProfileConfig[] = [videoEditorProfile];
 
+/**
+ * Retrieves the profile configuration for the specified profile ID.
+ */
 export function getProfile(_profileId?: string | null) {
   return videoEditorProfile;
 }

@@ -54,6 +54,9 @@ export function normalizeWorkflowStages(value: unknown): WorkflowStage[] {
   });
 }
 
+/**
+ * Converts workflow stage labels into structured stage records, reusing existing stage IDs where possible.
+ */
 export function workflowStagesFromLabels(
   labels: readonly string[],
   existing: readonly WorkflowStage[] = DEFAULT_WORKFLOW_STAGES,
@@ -73,6 +76,9 @@ export function workflowStagesFromLabels(
   });
 }
 
+/**
+ * Validates workflow stages and returns an error message if validation fails.
+ */
 export function validateWorkflowStages(stages: readonly WorkflowStage[] | readonly string[]) {
   const normalized = normalizeWorkflowStages(stages);
   if (normalized.length < 2) return "Add at least two workflow stages.";

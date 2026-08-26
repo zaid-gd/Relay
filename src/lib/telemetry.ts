@@ -77,6 +77,9 @@ function installationId() {
   return runtimeInstallationId;
 }
 
+/**
+ * Retrieves the current analytics consent status from runtime state or local storage.
+ */
 export function getAnalyticsConsent(): AnalyticsConsent {
   if (runtimeConsent !== "unknown") return runtimeConsent;
   const stored = browserStorage()?.getItem(CONSENT_KEY);
@@ -84,6 +87,9 @@ export function getAnalyticsConsent(): AnalyticsConsent {
   return runtimeConsent;
 }
 
+/**
+ * Updates the analytics consent status in runtime state and local storage.
+ */
 export function setAnalyticsConsent(consent: AnalyticsConsent) {
   runtimeConsent = consent;
   const storage = browserStorage();
@@ -95,6 +101,9 @@ export function setAnalyticsConsent(consent: AnalyticsConsent) {
   }
 }
 
+/**
+ * Checks if optional analytics are enabled by the user.
+ */
 export function optionalAnalyticsEnabled() {
   return getAnalyticsConsent() === "granted";
 }
@@ -168,10 +177,16 @@ function dispatch(channel: TelemetryEnvelope["channel"], event: string, properti
   void fetch(target, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => undefined);
 }
 
+/**
+ * Sets a custom telemetry transport for testing or alternative delivery mechanisms.
+ */
 export function setTelemetryTransport(transport: TelemetryTransport | undefined) {
   telemetryTransport = transport;
 }
 
+/**
+ * Tracks an optional analytics event if user consent has been granted.
+ */
 export function trackOptionalEvent<EventName extends AnalyticsEventName>(
   event: EventName,
   properties: AnalyticsEventProperties[EventName],

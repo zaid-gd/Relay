@@ -8,6 +8,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+/**
+ * Merges existing client records with legacy client names, creating new records for names that don't exist.
+ */
 export function mergeClientRecords(existing: readonly Client[], legacyNames: readonly string[]): Client[] {
   const clients = new Map(existing.map((client) => [client.name.trim().toLowerCase(), { ...client, name: client.name.trim() }]));
   for (const value of legacyNames) {
@@ -18,6 +21,9 @@ export function mergeClientRecords(existing: readonly Client[], legacyNames: rea
   return [...clients.values()];
 }
 
+/**
+ * Normalizes and validates client records from unknown input data.
+ */
 export function normalizeClientRecords(value: unknown, legacyNames: readonly string[] = []): Client[] {
   const records = Array.isArray(value) ? value.flatMap((candidate): Client[] => {
     if (!isRecord(candidate) || typeof candidate.name !== "string" || !candidate.name.trim()) return [];

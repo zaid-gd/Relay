@@ -180,10 +180,16 @@ export const PROJECT_TEMPLATES: ProjectTemplate[] = [
   },
 ];
 
+/**
+ * Retrieves a project template by its ID.
+ */
 export function getProjectTemplate(id: ProjectTemplateId) {
   return PROJECT_TEMPLATES.find((template) => template.id === id);
 }
 
+/**
+ * Generates formatted notes text from a project template including workflow and deliverables.
+ */
 export function templateNotes(template: ProjectTemplate) {
   return [
     `Project type: ${template.projectType}`,
@@ -193,6 +199,9 @@ export function templateNotes(template: ProjectTemplate) {
   ].join("\n\n");
 }
 
+/**
+ * Applies a project template to create a new work item with the template's configuration.
+ */
 export function applyProjectTemplate(
   template: ProjectTemplate,
   options: {

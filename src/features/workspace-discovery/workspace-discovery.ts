@@ -227,12 +227,18 @@ export function buildWorkspaceSearchIndex(input: WorkspaceDiscoveryInput, includ
   return records;
 }
 
+/**
+ * Filters workspace search records by a query string, returning up to the specified limit.
+ */
 export function filterWorkspaceSearch(records: readonly SearchRecord[], query: string, limit = 30) {
   const needle = normalized(query);
   if (!needle) return records.slice(0, limit);
   return records.filter((record) => recordSearchText(record).includes(needle)).slice(0, limit);
 }
 
+/**
+ * Filters workspace files by a query string, excluding archived files.
+ */
 export function filterWorkspaceFiles(files: readonly WorkspaceFile[], query: string) {
   const needle = normalized(query);
   if (!needle) return files.filter((file) => !file.archived);

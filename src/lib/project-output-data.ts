@@ -122,6 +122,9 @@ function outputId(projectId: string, index: number) {
   return `${projectId}:output:${index + 1}`.slice(0, 80);
 }
 
+/**
+ * Hook for managing project outputs with cloud sync and local storage fallback.
+ */
 export function useProjectOutputs(project: WorkItem, editable: boolean) {
   const { isSignedIn } = useData();
   const { isAuthenticated } = useConvexAuth();

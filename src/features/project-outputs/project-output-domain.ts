@@ -139,6 +139,9 @@ export function normalizeMediaUrl(input: string): MediaUrlResult {
   return { ok: true, value: { provider: "external", url: url.toString() } };
 }
 
+/**
+ * Creates a new project output with default review state and validation.
+ */
 export function createProjectOutput(input: {
   id: string;
   projectId: string;
@@ -162,6 +165,9 @@ export function createProjectOutput(input: {
   };
 }
 
+/**
+ * Updates a project output with the provided patch, validating required fields.
+ */
 export function updateProjectOutput(
   output: ProjectOutput,
   patch: { title?: string; category?: FileCategory; dueDate?: string | null },
@@ -178,6 +184,9 @@ export function updateProjectOutput(
   };
 }
 
+/**
+ * Updates the review state of a project output.
+ */
 export function setProjectOutputReviewState(
   output: ProjectOutput,
   reviewState: ProjectOutputReviewState,
@@ -186,6 +195,9 @@ export function setProjectOutputReviewState(
   return { ...output, reviewState, updatedAt };
 }
 
+/**
+ * Adds a new media version to a project output with auto-incremented version number.
+ */
 export function addMediaVersion(
   output: ProjectOutput,
   versions: readonly MediaVersion[],
@@ -207,6 +219,9 @@ export function addMediaVersion(
   };
 }
 
+/**
+ * Adds a media version by parsing and validating a URL, then creating the version.
+ */
 export function addMediaVersionFromUrl(
   output: ProjectOutput,
   versions: readonly MediaVersion[],
@@ -217,6 +232,9 @@ export function addMediaVersionFromUrl(
   return addMediaVersion(output, versions, { ...input, source: parsed.value });
 }
 
+/**
+ * Selects the current media version for an output, falling back to the latest version.
+ */
 export function selectCurrentMediaVersion(
   output: Pick<ProjectOutput, "currentVersionId">,
   versions: readonly MediaVersion[],
@@ -226,6 +244,9 @@ export function selectCurrentMediaVersion(
   return [...versions].sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt))[0];
 }
 
+/**
+ * Filters comments to find unresolved comments on older versions of a project output.
+ */
 export function unresolvedOldVersionComments(
   output: Pick<ProjectOutput, "currentVersionId">,
   versions: readonly MediaVersion[],

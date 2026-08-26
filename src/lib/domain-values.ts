@@ -17,11 +17,17 @@ const STORED_PROJECT_STATUS_VALUES = [
   ...LEGACY_PROJECT_STATUS_VALUES,
 ] as const;
 
+/**
+ * Type guard to check if a value is a valid stored project status.
+ */
 export function isStoredProjectStatus(value: unknown): value is StoredProjectStatus {
   return typeof value === "string" &&
     (STORED_PROJECT_STATUS_VALUES as readonly string[]).includes(value);
 }
 
+/**
+ * Normalizes a value to a valid stored project status, defaulting to "Planned".
+ */
 export function normalizeStoredProjectStatus(value: unknown): StoredProjectStatus {
   const normalized = typeof value === "string" ? value.trim() : "";
   return isStoredProjectStatus(normalized) ? normalized : "Planned";
@@ -59,6 +65,9 @@ export const LEGACY_FILE_STATUS_VALUES = [
 export type LegacyFileStatus = (typeof LEGACY_FILE_STATUS_VALUES)[number];
 export type StoredFileStatus = FileStatus | LegacyFileStatus;
 
+/**
+ * Normalizes file status values, mapping legacy statuses to current values.
+ */
 export function normalizeFileStatus(value: unknown): FileStatus {
   if (typeof value !== "string") return "draft";
   if ((FILE_STATUS_VALUES as readonly string[]).includes(value)) {
@@ -70,10 +79,16 @@ export function normalizeFileStatus(value: unknown): FileStatus {
   return "draft";
 }
 
+/**
+ * Returns the display label for an approval status.
+ */
 export function approvalStatusLabel(value: unknown) {
   return APPROVAL_STATUS_LABELS[normalizeFileStatus(value)];
 }
 
+/**
+ * Checks if an approval status is safe to show to clients (not draft).
+ */
 export function isClientSafeApprovalStatus(value: unknown) {
   return normalizeFileStatus(value) !== "draft";
 }
@@ -107,6 +122,9 @@ export const LEGACY_DELIVERABLE_STATUS_VALUES = [
 export type LegacyDeliverableStatus = (typeof LEGACY_DELIVERABLE_STATUS_VALUES)[number];
 export type StoredDeliverableStatus = DeliverableStatus | LegacyDeliverableStatus;
 
+/**
+ * Normalizes deliverable status values, mapping legacy statuses to current values.
+ */
 export function normalizeDeliverableStatus(value: unknown): DeliverableStatus {
   if (typeof value !== "string") return "draft";
   if ((DELIVERABLE_STATUS_VALUES as readonly string[]).includes(value)) {

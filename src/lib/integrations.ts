@@ -25,26 +25,44 @@ export const emptyIntegrationLink: IntegrationLink = {
   updatedAt: ""
 };
 
+/**
+ * Creates an empty integration links object.
+ */
 export function emptyIntegrationLinks(): IntegrationLinks {
   return {};
 }
 
+/**
+ * Finds an integration service by its ID.
+ */
 export function integrationServiceById(id: string) {
   return integrationServices.find((service) => service.id === id);
 }
 
+/**
+ * Gets the display name of an integration service by ID.
+ */
 export function integrationServiceName(id: string) {
   return integrationServiceById(id)?.name ?? id;
 }
 
+/**
+ * Type guard to check if a string is a valid integration service ID.
+ */
 export function isIntegrationServiceId(value: string): value is IntegrationServiceId {
   return integrationServices.some((service) => service.id === value);
 }
 
+/**
+ * Normalizes a URL by trimming whitespace.
+ */
 export function normalizeUrl(value: string) {
   return value.trim();
 }
 
+/**
+ * Validates whether a string is a valid HTTP or HTTPS URL.
+ */
 export function isValidIntegrationUrl(value: string) {
   const trimmed = normalizeUrl(value);
   if (!trimmed) return false;
@@ -64,6 +82,9 @@ function readProperty(value: object, key: string): unknown {
   return hasProperty(value, key) ? value[key] : undefined;
 }
 
+/**
+ * Normalizes an integration link from unknown input data.
+ */
 export function normalizeIntegrationLink(value: unknown): IntegrationLink {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { ...emptyIntegrationLink };
   const url = readProperty(value, "url");
@@ -78,6 +99,9 @@ export function normalizeIntegrationLink(value: unknown): IntegrationLink {
   };
 }
 
+/**
+ * Normalizes integration links for all services from unknown input data.
+ */
 export function normalizeIntegrationLinks(value: unknown): IntegrationLinks {
   const links: IntegrationLinks = {};
   if (!value || typeof value !== "object" || Array.isArray(value)) return links;
@@ -90,19 +114,31 @@ export function normalizeIntegrationLinks(value: unknown): IntegrationLinks {
   return links;
 }
 
+/**
+ * Checks if an integration link has a valid URL configured.
+ */
 export function hasIntegrationLink(link: IntegrationLink | undefined) {
   return Boolean(link?.url && isValidIntegrationUrl(link.url));
 }
 
+/**
+ * Counts the number of configured integration links.
+ */
 export function configuredIntegrationCount(links: IntegrationLinks | undefined) {
   if (!links) return 0;
   return integrationServices.filter((service) => hasIntegrationLink(links[service.id])).length;
 }
 
+/**
+ * Returns a status label for an integration link.
+ */
 export function integrationStatusLabel(link: IntegrationLink | undefined) {
   return hasIntegrationLink(link) ? "Link saved" : "No link";
 }
 
+/**
+ * Returns the display text for an integration link, using label, URL, or fallback in that order.
+ */
 export function integrationDisplayText(link: IntegrationLink | undefined, fallback: string) {
   if (!link) return fallback;
   return link.label || link.url || fallback;

@@ -35,6 +35,9 @@ function trimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Validates and normalizes a project group from unknown input data.
+ */
 export function normalizeProjectGroup(
   input: Record<string, unknown>,
   clients: readonly Client[],
@@ -66,6 +69,9 @@ export function normalizeProjectGroup(
   };
 }
 
+/**
+ * Normalizes an array of project groups from unknown input data.
+ */
 export function normalizeProjectGroups(input: unknown, clients: readonly Client[]): ProjectGroup[] {
   if (!Array.isArray(input)) return [];
   return input.flatMap((candidate) => {
@@ -75,6 +81,9 @@ export function normalizeProjectGroups(input: unknown, clients: readonly Client[
   });
 }
 
+/**
+ * Calculates summary statistics for a project group including counts, progress, and financials.
+ */
 export function deriveProjectGroupSummary(
   group: ProjectGroup,
   projects: readonly WorkItem[],
@@ -110,6 +119,9 @@ function isIsoDate(value: string) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+/**
+ * Validates new project input against existing clients, groups, templates, and salary plans.
+ */
 export function validateNewProjectInput(
   input: Record<string, unknown>,
   references: {
@@ -175,6 +187,9 @@ export function validateNewProjectInput(
   };
 }
 
+/**
+ * Derives status and completion date updates when changing a project's status.
+ */
 export function projectStatusUpdate(project: WorkItem, status: StoredProjectStatus, changedAt: string): Pick<WorkItem, "status" | "completedAt"> {
   return {
     status,
@@ -195,11 +210,17 @@ function stageMatches(stage: WorkflowStage, requested: string | WorkflowStage) {
     : stage.id === requested.id;
 }
 
+/**
+ * Gets the workflow stages for a project, using defaults if none are configured.
+ */
 export function getProjectWorkflowStages(project: Pick<WorkItem, "workflowStages">): WorkflowStage[] {
   const stages = normalizeWorkflowStages(project.workflowStages);
   return stages.length ? stages : DEFAULT_WORKFLOW_STAGES.map((stage) => ({ ...stage }));
 }
 
+/**
+ * Gets the current workflow stage for a project based on stage ID or status.
+ */
 export function getProjectWorkflowStage(project: Pick<WorkItem, "workflowStageId" | "workflowStage" | "workflowStages" | "status">): WorkflowStage {
   const stages = getProjectWorkflowStages(project);
   const currentStage = project.workflowStageId ?? project.workflowStage;
@@ -213,6 +234,9 @@ export function getProjectWorkflowStage(project: Pick<WorkItem, "workflowStageId
   return matchingPurpose ?? stages[1] ?? stages[0] ?? DEFAULT_WORKFLOW_STAGES[0];
 }
 
+/**
+ * Maps a workflow stage to its corresponding project status.
+ */
 export function getWorkflowStageStatus(
   project: Pick<WorkItem, "workflowStages">,
   stage: string | WorkflowStage,
@@ -234,6 +258,9 @@ export function getWorkflowStageStatus(
   return "In Progress";
 }
 
+/**
+ * Resolves a requested workflow stage to a valid stage ID for the project.
+ */
 export function resolveProjectWorkflowStage(
   project: Pick<WorkItem, "workflowStages">,
   requestedStage: string | WorkflowStage,
@@ -327,6 +354,9 @@ export function getProjectDeliveryConfirmation(
   };
 }
 
+/**
+ * Moves a project to a new workflow stage and updates its status accordingly.
+ */
 export function moveProjectToStage(
   project: WorkItem,
   requestedStage: string | WorkflowStage,
