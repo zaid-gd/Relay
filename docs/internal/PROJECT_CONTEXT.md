@@ -81,7 +81,6 @@ Recent additions/changes include:
   - `src/app/production-ui.tsx`
   - `src/app/production-charts.tsx`
 - README was rewritten to showcase the app rather than explain installation.
-- README showcase images were added under `assets/readme/`.
 - Design QA screenshots and notes were added under `docs/design/qa-artifacts/` and `docs/design/qa.md`.
 - QA scripts were added:
   - `scripts/capture-ui-qa.mjs`

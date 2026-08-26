@@ -16,42 +16,42 @@ The main risk is not missing UI primitives. It is split ownership. `tracker-app.
 
 All of these routes except profile currently enter `TrackerApp`, which supplies data, permissions, dialogs, notifications and `WorkspaceShell`.
 
-| Route | Screen / preserved capabilities | Current implementation |
-| --- | --- | --- |
-| `/` | Dashboard: operational stats, filters, due and review queues, activity, active projects, salary progress, project inspector, create/edit/delete | `PrecisionDashboard` |
-| `/projects` | Personal/team project lists, search/filter/sort, status/progress, project CRUD, responsive detail sheet | `PrecisionProjects` |
-| `/clients` | Client directory, client history, add client, open project | `PrecisionClients` |
-| `/calendar` | Month grid, week start, delivery counts, selected-day detail, open project | `PrecisionCalendar` |
-| `/timeline` | Chronological delivery and progress view | `PrecisionTimeline` |
-| `/media` | Project file/deliverable library, list/grid view, collection filter, search, selected project context | `PrecisionMedia` |
-| `/feedback` | Review/revision queue and project context | `PrecisionFeedback` |
-| `/reports` | Production metrics, payout periods, paid/outstanding batches, charts, payout and invoice CSV export | `PrecisionReports` |
-| `/resources` | Saved links, folders, project links, create/edit/delete/copy/open actions | `ResourcesDesignPage` in `tracker-app.tsx` |
-| `/templates` | Reusable project templates and blank-project flow | `TemplatesDesignPage` in `tracker-app.tsx` |
-| `/integrations` | Integration settings and project link configuration | `IntegrationsDesignPage` |
-| `/team` | Team members, roles and workspace management | `TeamDesignPage` |
-| `/team-chat` | Team conversation surface | `TeamChatPage` |
-| `/settings` | Workspace settings, profile preferences, theme, accent, density, date/currency and project options | `SettingsDesignPage` |
-| `/account` | Account/auth settings | `AccountSettingsPage` |
-| `/profile` | Public-facing profile summary, project stats and profile data | `ProfileDesignPage` (special shell bypass) |
-| `/profile/edit` | Profile editing | `ProfileEditPage` |
-| `/organization` | Team/organization profile and team project summary | `OrganizationProfilePage` |
-| `/sample-studio` | Read-only/sample dashboard experience with sample mode bar | `TrackerApp experienceMode="sample"` |
+| Route            | Screen / preserved capabilities                                                                                                                 | Current implementation                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `/`              | Dashboard: operational stats, filters, due and review queues, activity, active projects, salary progress, project inspector, create/edit/delete | `PrecisionDashboard`                       |
+| `/projects`      | Personal/team project lists, search/filter/sort, status/progress, project CRUD, responsive detail sheet                                         | `PrecisionProjects`                        |
+| `/clients`       | Client directory, client history, add client, open project                                                                                      | `PrecisionClients`                         |
+| `/calendar`      | Month grid, week start, delivery counts, selected-day detail, open project                                                                      | `PrecisionCalendar`                        |
+| `/timeline`      | Chronological delivery and progress view                                                                                                        | `PrecisionTimeline`                        |
+| `/media`         | Project file/deliverable library, list/grid view, collection filter, search, selected project context                                           | `PrecisionMedia`                           |
+| `/feedback`      | Review/revision queue and project context                                                                                                       | `PrecisionFeedback`                        |
+| `/reports`       | Production metrics, payout periods, paid/outstanding batches, charts, payout and invoice CSV export                                             | `PrecisionReports`                         |
+| `/resources`     | Saved links, folders, project links, create/edit/delete/copy/open actions                                                                       | `ResourcesDesignPage` in `tracker-app.tsx` |
+| `/templates`     | Reusable project templates and blank-project flow                                                                                               | `TemplatesDesignPage` in `tracker-app.tsx` |
+| `/integrations`  | Integration settings and project link configuration                                                                                             | `IntegrationsDesignPage`                   |
+| `/team`          | Team members, roles and workspace management                                                                                                    | `TeamDesignPage`                           |
+| `/team-chat`     | Team conversation surface                                                                                                                       | `TeamChatPage`                             |
+| `/settings`      | Workspace settings, profile preferences, theme, accent, density, date/currency and project options                                              | `SettingsDesignPage`                       |
+| `/account`       | Account/auth settings                                                                                                                           | `AccountSettingsPage`                      |
+| `/profile`       | Public-facing profile summary, project stats and profile data                                                                                   | `ProfileDesignPage` (special shell bypass) |
+| `/profile/edit`  | Profile editing                                                                                                                                 | `ProfileEditPage`                          |
+| `/organization`  | Team/organization profile and team project summary                                                                                              | `OrganizationProfilePage`                  |
+| `/sample-studio` | Read-only/sample dashboard experience with sample mode bar                                                                                      | `TrackerApp experienceMode="sample"`       |
 
 ### Public, access and support routes
 
-| Route | Purpose | Current implementation |
-| --- | --- | --- |
-| `/access` | Access-code entry | CSS module form and semantic `main`/`section` |
-| `/client-portal` | Client portal landing and token instructions | Standalone shadcn-style page |
-| `/client-portal/[token]` | Shared client portal view | Server route plus client portal view |
-| `/u/[slug]` | Shared public editor profile | `public-profile-page.tsx` |
-| `/contact` | Contact form and support copy | `LegalPage` plus `ContactForm` |
-| `/accessibility` | Accessibility statement | `LegalPage` |
-| `/privacy`, `/privacy-policy` | Privacy policy; alias redirects | `LegalPage` and redirect |
-| `/terms` | Terms of service | `LegalPage` |
-| `/not-found`, `/error` | Error and missing-route recovery | Shared app error surfaces |
-| `/prototype/workspace-page-primitives` | Internal layout primitive fixture | `WorkspacePageFixture`; should stay non-product and out of primary navigation |
+| Route                                  | Purpose                                      | Current implementation                                                        |
+| -------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `/access`                              | Access-code entry                            | CSS module form and semantic `main`/`section`                                 |
+| `/client-portal`                       | Client portal landing and token instructions | Standalone shadcn-style page                                                  |
+| `/client-portal/[token]`               | Shared client portal view                    | Server route plus client portal view                                          |
+| `/u/[slug]`                            | Shared public editor profile                 | `public-profile-page.tsx`                                                     |
+| `/contact`                             | Contact form and support copy                | `LegalPage` plus `ContactForm`                                                |
+| `/accessibility`                       | Accessibility statement                      | `LegalPage`                                                                   |
+| `/privacy`, `/privacy-policy`          | Privacy policy; alias redirects              | `LegalPage` and redirect                                                      |
+| `/terms`                               | Terms of service                             | `LegalPage`                                                                   |
+| `/not-found`, `/error`                 | Error and missing-route recovery             | Shared app error surfaces                                                     |
+| `/prototype/workspace-page-primitives` | Internal layout primitive fixture            | `WorkspacePageFixture`; should stay non-product and out of primary navigation |
 
 ## Existing stack and component inventory
 
@@ -71,8 +71,8 @@ All of these routes except profile currently enter `TrackerApp`, which supplies 
 - `workspace-page`: `WorkspacePage`, `PageHeader`, `PageContent`, `PageToolbar`, `MetricStrip`, `ContentSection`, `DataTableFrame`, `SplitPane`, `MasterDetail`, `FillViewport`, and empty-state primitives.
 - Precision screen modules: dashboard, projects, schedule/timeline/calendar, media, clients/feedback/reports and workspace administration.
 - `TrackerApp`: cross-screen state, data hooks, permissions, project dialogs, detail/delete dialogs, settings context and route dispatch.
-- Brand helpers: `CutLabMark`, `CutLabLockup`, brand assets and empty-state assets.
-- Owned UI primitives: alert dialog, accordion, avatar, badge, button, command, dialog, dropdown menu, field layout, input, label, popover, progress, scroll area, select, separator, sheet, skeleton, switch, tabs, textarea and tooltip.
+- Brand helper: `CutLabLockup`, brand assets and empty-state assets.
+- Owned UI primitives: alert dialog, accordion, avatar, badge, button, command, dialog, dropdown menu, field layout, input, label, popover, progress, select, sheet, skeleton, switch, textarea and tooltip.
 
 ### Design tokens already present
 

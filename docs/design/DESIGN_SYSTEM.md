@@ -83,9 +83,9 @@ Related destinations remain addressable routes but appear as contextual navigati
 
 ## Shared Components
 
-- `CutLabMark` and `CutLabLockup` provide the product identity.
+- `CutLabLockup` provides the product identity.
 - The `workspace-page` module provides headers, toolbars, sections, metrics, tables, pane layouts, and empty states.
-- Owned shadcn/Radix components under `src/components/ui/` provide controls, menus, dialogs, sheets, tabs, tooltips, and feedback.
+- Owned shadcn/Radix components under `src/components/ui/` provide controls, menus, dialogs, sheets, tooltips, and feedback.
 - Feature modules compose these shared parts without route-local color or spacing systems.
 
 New routes should reuse these foundations before introducing route-specific styling.

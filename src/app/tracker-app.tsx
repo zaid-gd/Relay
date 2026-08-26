@@ -1,11 +1,25 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { UserProfile, useAuth } from "@clerk/nextjs";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
-import { useData, useProjectGroups, useProjectWorkflow } from "@/lib/data-context";
+import {
+  useData,
+  useProjectGroups,
+  useProjectWorkflow,
+} from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -13,12 +27,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DEFAULT_PROFILE_ID, getProfile } from "@/lib/profiles";
 import { useHydratedReducedMotion } from "@/lib/motion";
-import type { Client, WorkItem, WorkTypeConfig, IntegrationConfig, ResourceLink, SavedProjectTemplate } from "@/lib/types";
-import { useProjectController, useProjectCreationController } from "@/features/projects/project-controller";
+import type {
+  Client,
+  WorkItem,
+  WorkTypeConfig,
+  IntegrationConfig,
+  ResourceLink,
+  SavedProjectTemplate,
+} from "@/lib/types";
+import {
+  useProjectController,
+  useProjectCreationController,
+} from "@/features/projects/project-controller";
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { ProjectGroupsDialog } from "@/components/project-groups-dialog";
 import { mergeClientRecords } from "@/lib/clients";
-import { validateWorkflowStages, workflowStagesFromLabels } from "@/lib/workflow-templates";
+import {
+  validateWorkflowStages,
+  workflowStagesFromLabels,
+} from "@/lib/workflow-templates";
 import {
   APPROVAL_STATUS_LABELS,
   CLIENT_PORTAL_STAGE_VALUES,
@@ -38,7 +65,11 @@ import {
   type StoredTeamRole,
   approvalStatusLabel,
 } from "@/lib/domain-values";
-import type { IntegrationLink, IntegrationLinks, IntegrationServiceId } from "@/lib/integrations";
+import type {
+  IntegrationLink,
+  IntegrationLinks,
+  IntegrationServiceId,
+} from "@/lib/integrations";
 import {
   PROJECT_TEMPLATES,
   type ProjectTemplate,
@@ -56,7 +87,7 @@ import {
   integrationStatusLabel,
   isIntegrationServiceId,
   isValidIntegrationUrl,
-  normalizeIntegrationLink
+  normalizeIntegrationLink,
 } from "@/lib/integrations";
 import { cutlab } from "./design-system";
 import { CutLabLockup } from "./cutlab-brand";
@@ -77,9 +108,16 @@ import {
 } from "@/components/workspace-page";
 import { PrecisionDashboard } from "@/components/precision-dashboard";
 import { PrecisionProjects } from "@/components/precision-projects";
-import { PrecisionCalendar, PrecisionTimeline } from "@/components/precision-schedule";
+import {
+  PrecisionCalendar,
+  PrecisionTimeline,
+} from "@/components/precision-schedule";
 import { PrecisionFiles } from "@/components/precision-files";
-import { PrecisionClients, PrecisionFeedback, PrecisionReports } from "@/components/precision-workspaces";
+import {
+  PrecisionClients,
+  PrecisionFeedback,
+  PrecisionReports,
+} from "@/components/precision-workspaces";
 import { PrecisionMedia } from "@/components/precision-media";
 import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
 import { ProjectPortalPanel } from "@/components/project-portal-panel";
@@ -87,10 +125,23 @@ import { SalaryPlansPanel } from "@/components/salary-plans-panel";
 import { FirstRunChecklist } from "@/components/first-run-checklist";
 import { SampleModeBar } from "@/components/sample-mode-bar";
 import { ClerkPricingPlans } from "@/components/subscription-plans";
-import { resolveOnboardingVariant, trackOnboardingEvent, type OnboardingVariant } from "@/lib/onboarding";
+import {
+  resolveOnboardingVariant,
+  trackOnboardingEvent,
+  type OnboardingVariant,
+} from "@/lib/onboarding";
 import { buildPayoutReport } from "@/lib/payout-reporting";
-import { buildWorkspaceSearchIndex, type WorkspaceFile, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
-import { getAnalyticsConsent, setAnalyticsConsent, trackOptionalEvent, type AnalyticsConsent } from "@/lib/telemetry";
+import {
+  buildWorkspaceSearchIndex,
+  type WorkspaceFile,
+  type WorkspaceOutput,
+} from "@/features/workspace-discovery/workspace-discovery";
+import {
+  getAnalyticsConsent,
+  setAnalyticsConsent,
+  trackOptionalEvent,
+  type AnalyticsConsent,
+} from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
 import { projectStatusTone } from "@/lib/project-status-style";
 import {
@@ -105,23 +156,39 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const teamApi = {
-  updateWorkspaceSettings: makeFunctionReference<"mutation", {
-    teamId: string;
-    name: string;
-    currencyCode: string;
-    timeZone: string;
-    defaultWorkflowTemplateId?: string;
-    allowAllTeamProjects: boolean;
-  }, null>("team:updateWorkspaceSettings"),
-  updateMemberPermissions: makeFunctionReference<"mutation", {
-    teamId: string;
-    memberId: string;
-    permissions: Record<string, boolean>;
-  }, null>("team:updateMemberPermissions"),
-  transferOwnership: makeFunctionReference<"mutation", { teamId: string; memberId: string }, null>("team:transferOwnership"),
+  updateWorkspaceSettings: makeFunctionReference<
+    "mutation",
+    {
+      teamId: string;
+      name: string;
+      currencyCode: string;
+      timeZone: string;
+      defaultWorkflowTemplateId?: string;
+      allowAllTeamProjects: boolean;
+    },
+    null
+  >("team:updateWorkspaceSettings"),
+  updateMemberPermissions: makeFunctionReference<
+    "mutation",
+    {
+      teamId: string;
+      memberId: string;
+      permissions: Record<string, boolean>;
+    },
+    null
+  >("team:updateMemberPermissions"),
+  transferOwnership: makeFunctionReference<
+    "mutation",
+    { teamId: string; memberId: string },
+    null
+  >("team:transferOwnership"),
 };
 const workspaceDiscoveryApi = {
-  list: makeFunctionReference<"query", { includeArchived?: boolean }, { outputs: WorkspaceOutput[]; files: WorkspaceFile[] }>("workspaceDiscovery:list"),
+  list: makeFunctionReference<
+    "query",
+    { includeArchived?: boolean },
+    { outputs: WorkspaceOutput[]; files: WorkspaceFile[] }
+  >("workspaceDiscovery:list"),
 };
 import {
   Accordion as OwnedAccordion,
@@ -149,7 +216,11 @@ import {
 } from "@/components/ui/dialog";
 import { FieldLayout } from "@/components/ui/field-layout";
 import { Input as OwnedInput } from "@/components/ui/input";
-import { Popover as OwnedPopover, PopoverContent as OwnedPopoverContent, PopoverTrigger as OwnedPopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover as OwnedPopover,
+  PopoverContent as OwnedPopoverContent,
+  PopoverTrigger as OwnedPopoverTrigger,
+} from "@/components/ui/popover";
 import { Progress as OwnedProgress } from "@/components/ui/progress";
 import {
   Select as OwnedSelect,
@@ -227,13 +298,41 @@ const border = "var(--app-border)";
 const panel = `var(--app-panel, ${cutlab.color.graphite})`;
 const canvas = `var(--app-canvas, ${cutlab.color.charcoal})`;
 const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
-const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;const successColor = `var(--app-success, ${cutlab.color.success})`;
+const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;
+const successColor = `var(--app-success, ${cutlab.color.success})`;
 const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
 
-type PageKey = "dashboard" | "projects" | "project" | "clients" | "timeline" | "calendar" | "files" | "media" | "resources" | "feedback" | "templates" | "reports" | "integrations" | "team" | "team-chat" | "settings" | "account" | "subscription" | "profile" | "profile-edit" | "organization-profile";
+type PageKey =
+  | "dashboard"
+  | "projects"
+  | "project"
+  | "clients"
+  | "timeline"
+  | "calendar"
+  | "files"
+  | "media"
+  | "resources"
+  | "feedback"
+  | "templates"
+  | "reports"
+  | "integrations"
+  | "team"
+  | "team-chat"
+  | "settings"
+  | "account"
+  | "subscription"
+  | "profile"
+  | "profile-edit"
+  | "organization-profile";
 type ProjectKind = string;
 type DueFilter = "ALL" | "This Week" | "Overdue" | "Delivered";
-type SortKey = "createdAt_desc" | "createdAt_asc" | "dueDate_asc" | "earnings_desc" | "earnings_asc";type TeamMember = {
+type SortKey =
+  | "createdAt_desc"
+  | "createdAt_asc"
+  | "dueDate_asc"
+  | "earnings_desc"
+  | "earnings_asc";
+type TeamMember = {
   id: string;
   name: string;
   role: StoredTeamRole;
@@ -249,10 +348,16 @@ type TeamWorkspaceContract = {
   timeZone?: string;
   defaultWorkflowTemplateId?: string;
 };
-type ProjectWorkspaceView = "overview" | "outputs" | "review" | "files" | "activity";
+type ProjectWorkspaceView =
+  "overview" | "outputs" | "review" | "files" | "activity";
 
 function projectWorkspaceView(value: string | null): ProjectWorkspaceView {
-  return value === "overview" || value === "review" || value === "files" || value === "activity" ? value : "outputs";
+  return value === "overview" ||
+    value === "review" ||
+    value === "files" ||
+    value === "activity"
+    ? value
+    : "outputs";
 }
 type WorkspaceMemberOption = {
   userId: string;
@@ -333,21 +438,34 @@ const currencyLabels: Record<string, string> = {
   GBP: "GBP (£)",
   INR: "INR (Rs)",
   AED: "AED (Dh)",
-  SAR: "SAR (SR)"
+  SAR: "SAR (SR)",
 };
-const resourceCategories = ["Asset Folder", "Raw Footage", "Music / SFX", "Brand Assets", "Review Link", "Reference", "Other"];
+const resourceCategories = [
+  "Asset Folder",
+  "Raw Footage",
+  "Music / SFX",
+  "Brand Assets",
+  "Review Link",
+  "Reference",
+  "Other",
+];
 
 const permissionKeys = [
   "Create and edit projects",
   "Upload media and assets",
   "Manage project stages",
   "Invite team members",
-  "Manage app settings"
+  "Manage app settings",
 ];
 
 const defaultRolePermissions: Record<string, Record<string, boolean>> = {
   Owner: Object.fromEntries(permissionKeys.map((k) => [k, true])),
-  Editor: Object.fromEntries(permissionKeys.map((k) => [k, ["Create and edit projects", "Upload media and assets"].includes(k)])),
+  Editor: Object.fromEntries(
+    permissionKeys.map((k) => [
+      k,
+      ["Create and edit projects", "Upload media and assets"].includes(k),
+    ])
+  ),
   Reviewer: Object.fromEntries(permissionKeys.map((k) => [k, false])),
 };
 
@@ -359,34 +477,35 @@ const emptyIntegrationConfig: IntegrationConfig = {
   workspace: "",
   webhookUrl: "",
   connectedAt: "",
-  lastSyncAt: ""
+  lastSyncAt: "",
 };
 
 const integrationNames = ["Google Drive", "Dropbox", "Slack", "Frame.io"];
 
-const defaultIntegrationConfigs: Record<string, IntegrationConfig> = Object.fromEntries(
-  integrationNames.map((name) => [name, { ...emptyIntegrationConfig }])
-);
+const defaultIntegrationConfigs: Record<string, IntegrationConfig> =
+  Object.fromEntries(
+    integrationNames.map((name) => [name, { ...emptyIntegrationConfig }])
+  );
 
 const integrationDescriptions: Record<string, string> = {
   "Google Drive": "Save Google Drive folder and file links for project assets.",
   Dropbox: "Save Dropbox folder and delivery package links.",
   Slack: "Save Slack channel or message links for project discussion.",
-  "Frame.io": "Save Frame.io review links and approval pages."
+  "Frame.io": "Save Frame.io review links and approval pages.",
 };
 
 const integrationIcons: Record<string, string> = {
   "Google Drive": "G",
   Dropbox: "D",
   Slack: "S",
-  "Frame.io": "F"
+  "Frame.io": "F",
 };
 
 const integrationColors: Record<string, string> = {
   "Google Drive": "var(--brand-google-drive)",
   Dropbox: "var(--brand-dropbox)",
   Slack: "var(--brand-slack)",
-  "Frame.io": "var(--brand-frame-io)"
+  "Frame.io": "var(--brand-frame-io)",
 };
 
 const defaultSettings: SettingsState = {
@@ -417,19 +536,19 @@ const defaultSettings: SettingsState = {
     "Feedback received": false,
     "Upcoming deadlines": false,
     Mentions: false,
-    "Weekly summary": false
+    "Weekly summary": false,
   },
   integrations: {
     "Google Drive": false,
     Dropbox: false,
     Slack: false,
-    "Frame.io": false
+    "Frame.io": false,
   },
   integrationAccounts: {
     "Google Drive": "",
     Dropbox: "",
     Slack: "",
-    "Frame.io": ""
+    "Frame.io": "",
   },
   integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
   integrationLinks: {},
@@ -440,12 +559,12 @@ const defaultSettings: SettingsState = {
     "Upload media and assets": false,
     "Manage project stages": false,
     "Invite team members": false,
-    "Manage app settings": false
+    "Manage app settings": false,
   },
   rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   theme: "Dark",
   accentColor: defaultAccent,
-  density: "Comfortable"
+  density: "Comfortable",
 };
 
 const SettingsContext = createContext<SettingsState>(defaultSettings);
@@ -465,7 +584,7 @@ const emptyForm = (): WorkItem => ({
   dueDate: iso(todayDate()),
   earnings: 0,
   notes: "",
-  integrationLinks: {}
+  integrationLinks: {},
 });
 
 export function TrackerApp({
@@ -496,21 +615,50 @@ export function TrackerApp({
     updateSalaryBatchPayment,
   } = useData();
   const workflow = useProjectWorkflow();
-  const { groups: projectGroups, saveGroup: saveProjectGroup, setGroupArchived } = useProjectGroups();
+  const {
+    groups: projectGroups,
+    saveGroup: saveProjectGroup,
+    setGroupArchived,
+  } = useProjectGroups();
   const router = useRouter();
-  const [activeProjectView, setActiveProjectView] = useState<ProjectWorkspaceView>(() => projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
+  const [activeProjectView, setActiveProjectView] =
+    useState<ProjectWorkspaceView>(() =>
+      projectWorkspaceView(
+        projectView ??
+          (typeof window === "undefined"
+            ? null
+            : window.localStorage.getItem("relay:last-project-workspace-view"))
+      )
+    );
   const { openSignIn, openSignUp } = useOptionalAuth();
   const isSample = experienceMode === "sample";
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const shouldLoadTeamPermissions = Boolean(isSignedIn && isConvexAuthenticated);
-  const teamData = useQuery(api.team.getMyWorkspace, shouldLoadTeamPermissions ? {} : "skip");
-  const workspaceDiscovery = useQuery(workspaceDiscoveryApi.list, shouldLoadTeamPermissions ? {} : "skip");
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
+  const shouldLoadTeamPermissions = Boolean(
+    isSignedIn && isConvexAuthenticated
+  );
+  const teamData = useQuery(
+    api.team.getMyWorkspace,
+    shouldLoadTeamPermissions ? {} : "skip"
+  );
+  const workspaceDiscovery = useQuery(
+    workspaceDiscoveryApi.list,
+    shouldLoadTeamPermissions ? {} : "skip"
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [newProjectTemplateId, setNewProjectTemplateId] = useState("relay-default-workflow");
+  const [newProjectTemplateId, setNewProjectTemplateId] = useState(
+    "relay-default-workflow"
+  );
   const [projectGroupsOpen, setProjectGroupsOpen] = useState(false);
-  const [projectGroupsScope, setProjectGroupsScope] = useState<"personal" | "team">("personal");
-  const [projectStartScope, setProjectStartScope] = useState<"personal" | "team">("personal");
+  const [projectGroupsScope, setProjectGroupsScope] = useState<
+    "personal" | "team"
+  >("personal");
+  const [projectStartScope, setProjectStartScope] = useState<
+    "personal" | "team"
+  >("personal");
   const [editingId, setEditingId] = useState("");
   const [detailProjectId, setDetailProjectId] = useState(projectId ?? "");
   const [deleteTarget, setDeleteTarget] = useState<WorkItem | null>(null);
@@ -518,21 +666,32 @@ export function TrackerApp({
   const [formError, setFormError] = useState("");
   const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
   const [analyticsConsentOpen, setAnalyticsConsentOpen] = useState(false);
-  const [onboardingVariant, setOnboardingVariant] = useState<OnboardingVariant>("v2");
+  const [onboardingVariant, setOnboardingVariant] =
+    useState<OnboardingVariant>("v2");
   const onboardingStartedAt = useRef(Date.now());
   const projectLauncherTriggerRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "All">("All");
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "All">(
+    "All"
+  );
   const [kindFilter, setKindFilter] = useState<ProjectKind>("ALL");
   const [clientFilter, setClientFilter] = useState("ALL");
   const [dueFilter, setDueFilter] = useState<DueFilter>("ALL");
-  const [billingFilter, setBillingFilter] = useState<"ALL" | "Paid" | "Unpaid">("ALL");
+  const [billingFilter, setBillingFilter] = useState<"ALL" | "Paid" | "Unpaid">(
+    "ALL"
+  );
   const [sortKey, setSortKey] = useState<SortKey>("createdAt_desc");
-  const [dashboardActivity, setDashboardActivity] = useState<DashboardActivity[]>([]);
-  const [localProjectActivity, setLocalProjectActivity] = useState<ProjectActivityEvent[]>(() => {
+  const [dashboardActivity, setDashboardActivity] = useState<
+    DashboardActivity[]
+  >([]);
+  const [localProjectActivity, setLocalProjectActivity] = useState<
+    ProjectActivityEvent[]
+  >(() => {
     if (typeof window === "undefined") return [];
     try {
-      const value = JSON.parse(window.localStorage.getItem(LOCAL_PROJECT_ACTIVITY_STORAGE_KEY) ?? "[]");
+      const value = JSON.parse(
+        window.localStorage.getItem(LOCAL_PROJECT_ACTIVITY_STORAGE_KEY) ?? "[]"
+      );
       return Array.isArray(value) ? value.slice(0, 500) : [];
     } catch {
       return [];
@@ -544,7 +703,14 @@ export function TrackerApp({
   }, [projectId]);
 
   useEffect(() => {
-    setActiveProjectView(projectWorkspaceView(projectView ?? (typeof window === "undefined" ? null : window.localStorage.getItem("relay:last-project-workspace-view"))));
+    setActiveProjectView(
+      projectWorkspaceView(
+        projectView ??
+          (typeof window === "undefined"
+            ? null
+            : window.localStorage.getItem("relay:last-project-workspace-view"))
+      )
+    );
   }, [projectId, projectView]);
 
   useEffect(() => {
@@ -554,7 +720,10 @@ export function TrackerApp({
   useEffect(() => {
     if (isSample) {
       setOnboardingVariant("v2");
-      trackOnboardingEvent("sample_studio_opened", { variant: "v2", entrySource: "first_run_dialog" });
+      trackOnboardingEvent("sample_studio_opened", {
+        variant: "v2",
+        entrySource: "first_run_dialog",
+      });
       return;
     }
     setOnboardingVariant(resolveOnboardingVariant());
@@ -562,7 +731,10 @@ export function TrackerApp({
 
   useEffect(() => {
     if (typeof window === "undefined" || isSample) return;
-    window.localStorage.setItem(LOCAL_PROJECT_ACTIVITY_STORAGE_KEY, JSON.stringify(localProjectActivity.slice(0, 500)));
+    window.localStorage.setItem(
+      LOCAL_PROJECT_ACTIVITY_STORAGE_KEY,
+      JSON.stringify(localProjectActivity.slice(0, 500))
+    );
   }, [isSample, localProjectActivity]);
 
   useEffect(() => {
@@ -579,46 +751,98 @@ export function TrackerApp({
 
   useEffect(() => {
     if (!authChoiceOpen) return;
-    trackOnboardingEvent("onboarding_dialog_viewed", { variant: onboardingVariant, entrySource: "workspace_root" });
+    trackOnboardingEvent("onboarding_dialog_viewed", {
+      variant: onboardingVariant,
+      entrySource: "workspace_root",
+    });
   }, [authChoiceOpen, onboardingVariant]);
 
   useEffect(() => {
-    trackOptionalEvent("weekly_return", { mode: isSignedIn ? "account" : "local" });
+    trackOptionalEvent("weekly_return", {
+      mode: isSignedIn ? "account" : "local",
+    });
   }, [isSignedIn]);
 
-  const projects = useMemo(() => items.filter((item) => (item.profileId || DEFAULT_PROFILE_ID) === profile.id), [items]);
-  const personalProjects = useMemo(() => projects.filter((item) => !item.teamId), [projects]);
+  const projects = useMemo(
+    () =>
+      items.filter(
+        (item) => (item.profileId || DEFAULT_PROFILE_ID) === profile.id
+      ),
+    [items]
+  );
+  const personalProjects = useMemo(
+    () => projects.filter((item) => !item.teamId),
+    [projects]
+  );
 
-  const activeTeamMembers = useMemo(() => teamData?.members.filter((member) => member.status === "active") ?? [], [teamData]);
-  const teamDataLoading = Boolean(isSignedIn && (isConvexAuthLoading || (isConvexAuthenticated && teamData === undefined)));
-  const teamSyncUnavailable = Boolean(isSignedIn && !isConvexAuthLoading && !isConvexAuthenticated);
+  const activeTeamMembers = useMemo(
+    () =>
+      teamData?.members.filter((member) => member.status === "active") ?? [],
+    [teamData]
+  );
+  const teamDataLoading = Boolean(
+    isSignedIn &&
+    (isConvexAuthLoading || (isConvexAuthenticated && teamData === undefined))
+  );
+  const teamSyncUnavailable = Boolean(
+    isSignedIn && !isConvexAuthLoading && !isConvexAuthenticated
+  );
   const currentTeamId = teamData?.workspace?._id;
   const teamProjects = useMemo(
-    () => (currentTeamId ? projects.filter((project) => project.teamId === currentTeamId) : []),
+    () =>
+      currentTeamId
+        ? projects.filter((project) => project.teamId === currentTeamId)
+        : [],
     [currentTeamId, projects]
   );
-  const teamWorkspace = teamData?.workspace as TeamWorkspaceContract | undefined;
+  const teamWorkspace = teamData?.workspace as
+    TeamWorkspaceContract | undefined;
   const teamStats = useMemo(() => {
-    const deliveredProjects = teamProjects.filter((project) => isDoneStatus(project.status));
+    const deliveredProjects = teamProjects.filter((project) =>
+      isDoneStatus(project.status)
+    );
     return {
       active: teamProjects.length - deliveredProjects.length,
       delivered: deliveredProjects.length,
-      earned: deliveredProjects.reduce((total, project) => total + safeMoneyValue(project.earnings), 0),
-      salaryEdits: deliveredProjects.filter((project) => isSalaryWorkType(project.workType, settings)).length
+      earned: deliveredProjects.reduce(
+        (total, project) => total + safeMoneyValue(project.earnings),
+        0
+      ),
+      salaryEdits: deliveredProjects.filter((project) =>
+        isSalaryWorkType(project.workType, settings)
+      ).length,
     };
   }, [settings, teamProjects]);
   const projectPermissions = teamData?.currentMember.permissions;
-  const canCreateTeamProjects = teamSyncUnavailable || teamDataLoading ? false : Boolean(teamData && projectPermissions?.createProjects);
+  const canCreateTeamProjects =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : Boolean(teamData && projectPermissions?.createProjects);
   const canCreateProjects = !isSample;
-  const canEditProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.editProjects);
-  const canUpdateProjectStatus = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.updateStatus);
-  const canCommentProjects = teamSyncUnavailable || teamDataLoading ? false : !teamData || Boolean(projectPermissions?.commentProjects);
-  const canManagePortals = teamSyncUnavailable || teamDataLoading
-    ? false
-    : !teamData || (projectPermissions?.managePortal ?? teamData.currentMember.role === "Owner");
-  const canManageFinance = teamSyncUnavailable || teamDataLoading
-    ? false
-    : !teamData || (projectPermissions?.manageFinance ?? teamData.currentMember.role === "Owner");
+  const canEditProjects =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : !teamData || Boolean(projectPermissions?.editProjects);
+  const canUpdateProjectStatus =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : !teamData || Boolean(projectPermissions?.updateStatus);
+  const canCommentProjects =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : !teamData || Boolean(projectPermissions?.commentProjects);
+  const canManagePortals =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : !teamData ||
+        (projectPermissions?.managePortal ??
+          teamData.currentMember.role === "Owner");
+  const canManageFinance =
+    teamSyncUnavailable || teamDataLoading
+      ? false
+      : !teamData ||
+        (projectPermissions?.manageFinance ??
+          teamData.currentMember.role === "Owner");
   const canManageTeamProjects = Boolean(projectPermissions?.manageTeam);
 
   useEffect(() => {
@@ -629,55 +853,125 @@ export function TrackerApp({
       currencyCode: teamWorkspace.currencyCode || settings.currencyCode,
       timeZone: teamWorkspace.timeZone || settings.timeZone,
     };
-    if (next.studioName === settings.studioName && next.currencyCode === settings.currencyCode && next.timeZone === settings.timeZone) return;
-    setSettings((current) => ({ ...current, studioName: next.studioName, currencyCode: next.currencyCode, timeZone: next.timeZone }));
-  }, [setSettings, settings.currencyCode, settings.studioName, settings.timeZone, teamWorkspace]);
-  const detailProject = useMemo(() => items.find((item) => item.id === detailProjectId) ?? null, [detailProjectId, items]);
-  const projectTagOptions = useMemo(() => projectWorkTypeOptions(settings, projects), [projects, settings]);
-  const filterProjectTagOptions = useMemo(() => ["ALL", ...projectTagOptions], [projectTagOptions]);
-  const clientRecords = useMemo(
-    () => mergeClientRecords(settings.clients, [...settings.customClients, ...projects.flatMap((project) => project.client ? [project.client] : [])]),
-    [projects, settings.clients, settings.customClients],
+    if (
+      next.studioName === settings.studioName &&
+      next.currencyCode === settings.currencyCode &&
+      next.timeZone === settings.timeZone
+    )
+      return;
+    setSettings((current) => ({
+      ...current,
+      studioName: next.studioName,
+      currencyCode: next.currencyCode,
+      timeZone: next.timeZone,
+    }));
+  }, [
+    setSettings,
+    settings.currencyCode,
+    settings.studioName,
+    settings.timeZone,
+    teamWorkspace,
+  ]);
+  const detailProject = useMemo(
+    () => items.find((item) => item.id === detailProjectId) ?? null,
+    [detailProjectId, items]
   );
-  const clientOptions = useMemo(() => clientRecords.filter((client) => !client.archived).map((client) => client.name), [clientRecords]);
-  const clientFilterOptions = useMemo(() => ["ALL", ...clientOptions], [clientOptions]);
+  const projectTagOptions = useMemo(
+    () => projectWorkTypeOptions(settings, projects),
+    [projects, settings]
+  );
+  const filterProjectTagOptions = useMemo(
+    () => ["ALL", ...projectTagOptions],
+    [projectTagOptions]
+  );
+  const clientRecords = useMemo(
+    () =>
+      mergeClientRecords(settings.clients, [
+        ...settings.customClients,
+        ...projects.flatMap((project) =>
+          project.client ? [project.client] : []
+        ),
+      ]),
+    [projects, settings.clients, settings.customClients]
+  );
+  const clientOptions = useMemo(
+    () =>
+      clientRecords
+        .filter((client) => !client.archived)
+        .map((client) => client.name),
+    [clientRecords]
+  );
+  const clientFilterOptions = useMemo(
+    () => ["ALL", ...clientOptions],
+    [clientOptions]
+  );
   const workflowTemplates = useMemo(
     () => [...PROJECT_TEMPLATES, ...settings.customProjectTemplates],
-    [settings.customProjectTemplates],
+    [settings.customProjectTemplates]
   );
-  const workspaceSearchRecords = useMemo(() => buildWorkspaceSearchIndex({
-    clients: clientRecords,
-    groups: projectGroups,
-    projects,
-    outputs: workspaceDiscovery?.outputs ?? [],
-    files: workspaceDiscovery?.files ?? [],
-  }), [clientRecords, projectGroups, projects, workspaceDiscovery?.files, workspaceDiscovery?.outputs]);
+  const workspaceSearchRecords = useMemo(
+    () =>
+      buildWorkspaceSearchIndex({
+        clients: clientRecords,
+        groups: projectGroups,
+        projects,
+        outputs: workspaceDiscovery?.outputs ?? [],
+        files: workspaceDiscovery?.files ?? [],
+      }),
+    [
+      clientRecords,
+      projectGroups,
+      projects,
+      workspaceDiscovery?.files,
+      workspaceDiscovery?.outputs,
+    ]
+  );
 
   useEffect(() => {
     if (!teamWorkspace?.defaultWorkflowTemplateId) return;
-    if (workflowTemplates.some((template) => template.id === teamWorkspace.defaultWorkflowTemplateId)) {
+    if (
+      workflowTemplates.some(
+        (template) => template.id === teamWorkspace.defaultWorkflowTemplateId
+      )
+    ) {
       setNewProjectTemplateId(teamWorkspace.defaultWorkflowTemplateId);
     }
   }, [teamWorkspace?.defaultWorkflowTemplateId, workflowTemplates]);
 
   useEffect(() => {
-    if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords)) return;
+    if (JSON.stringify(settings.clients) === JSON.stringify(clientRecords))
+      return;
     setSettings((current) => ({ ...current, clients: clientRecords }));
   }, [clientRecords, setSettings, settings.clients]);
-  const isClientBillableProject = useCallback((item: WorkItem) => (
-    !isSalaryWorkType(item.workType, settings) &&
-    isDoneStatus(item.status) &&
-    safeMoneyValue(item.earnings) > 0
-  ), [settings]);
-  const isProjectPaid = useCallback((item: WorkItem) => isClientBillableProject(item) && Boolean(item.paid), [isClientBillableProject]);
-  const isProjectUnpaid = useCallback((item: WorkItem) => isClientBillableProject(item) && !item.paid, [isClientBillableProject]);
+  const isClientBillableProject = useCallback(
+    (item: WorkItem) =>
+      !isSalaryWorkType(item.workType, settings) &&
+      isDoneStatus(item.status) &&
+      safeMoneyValue(item.earnings) > 0,
+    [settings]
+  );
+  const isProjectPaid = useCallback(
+    (item: WorkItem) => isClientBillableProject(item) && Boolean(item.paid),
+    [isClientBillableProject]
+  );
+  const isProjectUnpaid = useCallback(
+    (item: WorkItem) => isClientBillableProject(item) && !item.paid,
+    [isClientBillableProject]
+  );
   const filteredProjects = useMemo(() => {
     const searched = projects.filter((item) => {
-      const haystack = `${item.title} ${item.client || ""} ${item.notes} ${item.workType}`.toLowerCase();
-      const matchesSearch = !query.trim() || haystack.includes(query.trim().toLowerCase());
-      const matchesStatus = statusFilter === "All" || item.status === statusFilter;
-      const matchesKind = kindFilter === "ALL" || item.workType.trim().toLowerCase() === kindFilter.toLowerCase();
-      const matchesClient = clientFilter === "ALL" || item.client?.trim().toLowerCase() === clientFilter.toLowerCase();
+      const haystack =
+        `${item.title} ${item.client || ""} ${item.notes} ${item.workType}`.toLowerCase();
+      const matchesSearch =
+        !query.trim() || haystack.includes(query.trim().toLowerCase());
+      const matchesStatus =
+        statusFilter === "All" || item.status === statusFilter;
+      const matchesKind =
+        kindFilter === "ALL" ||
+        item.workType.trim().toLowerCase() === kindFilter.toLowerCase();
+      const matchesClient =
+        clientFilter === "ALL" ||
+        item.client?.trim().toLowerCase() === clientFilter.toLowerCase();
       const matchesDue = dueFilter === "ALL" || dueBucket(item) === dueFilter;
       const isPaid = isProjectPaid(item);
       const isUnpaid = isProjectUnpaid(item);
@@ -685,38 +979,84 @@ export function TrackerApp({
         billingFilter === "ALL" ||
         (billingFilter === "Paid" && isPaid) ||
         (billingFilter === "Unpaid" && isUnpaid);
-      return matchesSearch && matchesStatus && matchesKind && matchesClient && matchesDue && matchesBilling;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesKind &&
+        matchesClient &&
+        matchesDue &&
+        matchesBilling
+      );
     });
 
     return [...searched].sort((a, b) => {
       if (sortKey === "createdAt_asc") return createdTime(a) - createdTime(b);
-      if (sortKey === "dueDate_asc") return dateTime(a.dueDate || "9999-12-31") - dateTime(b.dueDate || "9999-12-31");
-      if (sortKey === "earnings_desc") return safeMoneyValue(b.earnings) - safeMoneyValue(a.earnings);
-      if (sortKey === "earnings_asc") return safeMoneyValue(a.earnings) - safeMoneyValue(b.earnings);
+      if (sortKey === "dueDate_asc")
+        return (
+          dateTime(a.dueDate || "9999-12-31") -
+          dateTime(b.dueDate || "9999-12-31")
+        );
+      if (sortKey === "earnings_desc")
+        return safeMoneyValue(b.earnings) - safeMoneyValue(a.earnings);
+      if (sortKey === "earnings_asc")
+        return safeMoneyValue(a.earnings) - safeMoneyValue(b.earnings);
       return createdTime(b) - createdTime(a);
     });
-  }, [billingFilter, clientFilter, dueFilter, isProjectPaid, isProjectUnpaid, kindFilter, projects, query, sortKey, statusFilter]);
+  }, [
+    billingFilter,
+    clientFilter,
+    dueFilter,
+    isProjectPaid,
+    isProjectUnpaid,
+    kindFilter,
+    projects,
+    query,
+    sortKey,
+    statusFilter,
+  ]);
 
   const stats = useMemo(() => {
     const moneyReport = buildPayoutReport({
       projects: personalProjects,
       salaryBatches,
       salaryWorkType: settings.salaryWorkType,
-      salaryBatchAmount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
+      salaryBatchAmount: normalizedSalaryBatchAmount(
+        settings.salaryBatchAmount
+      ),
       profileName: settings.profileName,
       period: "all",
     });
-    const unpaid = personalProjects.filter((item) => isProjectUnpaid(item)).length;
-    const active = personalProjects.filter((item) => !isDoneStatus(item.status)).length;
+    const unpaid = personalProjects.filter((item) =>
+      isProjectUnpaid(item)
+    ).length;
+    const active = personalProjects.filter(
+      (item) => !isDoneStatus(item.status)
+    ).length;
     const salaryBatchSize = normalizedSalaryBatchSize(settings.salaryBatchSize);
-    const deliveredSalaryProjects = personalProjects.filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status));
-    const settledProjectIds = new Set(salaryBatches.flatMap((batch) => batch.projectIds ?? []));
-    const legacySettledCount = salaryBatches.filter((batch) => !batch.projectIds).length * salaryBatchSize;
-    const unsettledSalaryProjects = deliveredSalaryProjects.filter((project) => !settledProjectIds.has(project.id)).slice(legacySettledCount);
+    const deliveredSalaryProjects = personalProjects.filter(
+      (item) =>
+        isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status)
+    );
+    const settledProjectIds = new Set(
+      salaryBatches.flatMap((batch) => batch.projectIds ?? [])
+    );
+    const legacySettledCount =
+      salaryBatches.filter((batch) => !batch.projectIds).length *
+      salaryBatchSize;
+    const unsettledSalaryProjects = deliveredSalaryProjects
+      .filter((project) => !settledProjectIds.has(project.id))
+      .slice(legacySettledCount);
     const salaryEdits = deliveredSalaryProjects.length;
-    const delivered = personalProjects.filter((item) => isDoneStatus(item.status));
+    const delivered = personalProjects.filter((item) =>
+      isDoneStatus(item.status)
+    );
     const avgTurnaroundDays = delivered.length
-      ? Math.round(delivered.reduce((total, item) => total + daysBetween(item.startDate, item.dueDate), 0) / delivered.length)
+      ? Math.round(
+          delivered.reduce(
+            (total, item) => total + daysBetween(item.startDate, item.dueDate),
+            0
+          ) / delivered.length
+        )
       : 0;
     return {
       total: personalProjects.length,
@@ -728,9 +1068,17 @@ export function TrackerApp({
       salaryEdits,
       salaryBatchProgress: unsettledSalaryProjects.length % salaryBatchSize,
       delivered: delivered.length,
-      avgTurnaroundDays
+      avgTurnaroundDays,
     };
-  }, [isProjectUnpaid, personalProjects, salaryBatches, settings.profileName, settings.salaryBatchAmount, settings.salaryBatchSize, settings.salaryWorkType]);
+  }, [
+    isProjectUnpaid,
+    personalProjects,
+    salaryBatches,
+    settings.profileName,
+    settings.salaryBatchAmount,
+    settings.salaryBatchSize,
+    settings.salaryWorkType,
+  ]);
 
   function openNewProject(scope: "personal" | "team" = "personal") {
     if (scope === "team" && !canCreateTeamProjects) {
@@ -738,10 +1086,16 @@ export function TrackerApp({
       return;
     }
     if (scope === "team" && !currentTeamId) {
-      notify("Create or join a team workspace before adding team projects.", "warning");
+      notify(
+        "Create or join a team workspace before adding team projects.",
+        "warning"
+      );
       return;
     }
-    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    if (
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
       projectLauncherTriggerRef.current = document.activeElement;
     }
     setProjectStartScope(scope);
@@ -759,13 +1113,23 @@ export function TrackerApp({
     setToast({ message, tone });
   }
 
-  function logLocalProjectActivity(event: Omit<ProjectActivityEvent, "id" | "actorName" | "createdAt"> & { actorName?: string; createdAt?: string }) {
-    setLocalProjectActivity((current) => [{
-      ...event,
-      id: createId(),
-      actorName: event.actorName ?? (settings.profileName || "Local user"),
-      createdAt: event.createdAt ?? new Date().toISOString()
-    }, ...current].slice(0, 500));
+  function logLocalProjectActivity(
+    event: Omit<ProjectActivityEvent, "id" | "actorName" | "createdAt"> & {
+      actorName?: string;
+      createdAt?: string;
+    }
+  ) {
+    setLocalProjectActivity((current) =>
+      [
+        {
+          ...event,
+          id: createId(),
+          actorName: event.actorName ?? (settings.profileName || "Local user"),
+          createdAt: event.createdAt ?? new Date().toISOString(),
+        },
+        ...current,
+      ].slice(0, 500)
+    );
   }
 
   function chooseLocalMode() {
@@ -774,18 +1138,29 @@ export function TrackerApp({
     }
     setAuthChoiceOpen(false);
     if (getAnalyticsConsent() === "unknown") setAnalyticsConsentOpen(true);
-    trackOnboardingEvent("workspace_mode_selected", { variant: onboardingVariant, mode: "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+    trackOnboardingEvent("workspace_mode_selected", {
+      variant: onboardingVariant,
+      mode: "local",
+      elapsedMs: Date.now() - onboardingStartedAt.current,
+    });
     notify("Using local mode on this device.", "info");
   }
 
   function launchAccountFlow(mode: "sign-up" | "sign-in") {
     if (!isAuthEnabled) {
       setAuthChoiceOpen(false);
-      notify("Sign-in is unavailable until Clerk and Convex are configured.", "warning");
+      notify(
+        "Sign-in is unavailable until Clerk and Convex are configured.",
+        "warning"
+      );
       return;
     }
     setAuthChoiceOpen(false);
-    trackOnboardingEvent("workspace_mode_selected", { variant: onboardingVariant, mode: "account", elapsedMs: Date.now() - onboardingStartedAt.current });
+    trackOnboardingEvent("workspace_mode_selected", {
+      variant: onboardingVariant,
+      mode: "account",
+      elapsedMs: Date.now() - onboardingStartedAt.current,
+    });
     if (mode === "sign-up") {
       openSignUp();
       return;
@@ -793,13 +1168,19 @@ export function TrackerApp({
     openSignIn();
   }
 
-  function openTemplateProject(template: ProjectTemplate, scope: "personal" | "team" = projectStartScope) {
+  function openTemplateProject(
+    template: ProjectTemplate,
+    scope: "personal" | "team" = projectStartScope
+  ) {
     if (!canCreateProjects) {
       notify("Your team role cannot create projects.", "warning");
       return;
     }
     if (scope === "team" && (!canCreateTeamProjects || !currentTeamId)) {
-      notify("Your team role cannot create projects in this workspace.", "warning");
+      notify(
+        "Your team role cannot create projects in this workspace.",
+        "warning"
+      );
       return;
     }
     setProjectStartScope(scope);
@@ -813,31 +1194,40 @@ export function TrackerApp({
       return;
     }
     setEditingId(item.id);
-    setDetailProjectId("");
     setForm(item);
     setFormError("");
     setDialogOpen(true);
   }
 
   function openProjectDetails(item: WorkItem) {
-    setDetailProjectId(item.id);
     if (isSample) {
-      trackOnboardingEvent("sample_project_opened", { variant: "v2", entrySource: "sample_dashboard" });
-      return;
+      trackOnboardingEvent("sample_project_opened", {
+        variant: "v2",
+        entrySource: "sample_dashboard",
+      });
     }
-    router.push(`/projects/${encodeURIComponent(item.id)}`);
+    router.push(
+      `${isSample ? "/sample-studio" : ""}/projects/${encodeURIComponent(item.id)}`
+    );
   }
 
   function canDeleteProject(project: WorkItem | null) {
     if (!project) return false;
     if (!project.teamId) return true;
-    return (canEditProjects || canManageTeamProjects) && (project.ownerUserId === teamData?.currentMember.userId || canManageTeamProjects);
+    return (
+      (canEditProjects || canManageTeamProjects) &&
+      (project.ownerUserId === teamData?.currentMember.userId ||
+        canManageTeamProjects)
+    );
   }
 
   function requestDeleteProject(id: string) {
     const target = items.find((item) => item.id === id);
     if (target && !canDeleteProject(target)) {
-      notify("Only the project owner or a team owner can delete this team project.", "warning");
+      notify(
+        "Only the project owner or a team owner can delete this team project.",
+        "warning"
+      );
       return;
     }
     if (target) setDeleteTarget(target);
@@ -855,23 +1245,27 @@ export function TrackerApp({
     onStatusChanged: (project, previousStatus) => {
       const status = project.status;
       if (isDoneStatus(status) && !isDoneStatus(previousStatus)) {
-        trackOptionalEvent("project_delivered", { mode: isSignedIn ? "account" : "local" });
+        trackOptionalEvent("project_delivered", {
+          mode: isSignedIn ? "account" : "local",
+        });
       }
-    setDashboardActivity((current) => {
-      const activity: DashboardActivity = {
-        id: createId(),
-        kind: isDoneStatus(status) ? "delivered" : "status",
-        message: isDoneStatus(status) ? `${project.title} was delivered` : `${project.title} moved to ${status}`,
+      setDashboardActivity((current) => {
+        const activity: DashboardActivity = {
+          id: createId(),
+          kind: isDoneStatus(status) ? "delivered" : "status",
+          message: isDoneStatus(status)
+            ? `${project.title} was delivered`
+            : `${project.title} moved to ${status}`,
+          projectId: project.id,
+          createdAt: new Date().toISOString(),
+        };
+        return [activity, ...current].slice(0, 20);
+      });
+      logLocalProjectActivity({
         projectId: project.id,
-        createdAt: new Date().toISOString()
-      };
-      return [activity, ...current].slice(0, 20);
-    });
-    logLocalProjectActivity({
-      projectId: project.id,
-      kind: "status_changed",
-        message: `${project.title} status changed from ${previousStatus} to ${status}.`
-    });
+        kind: "status_changed",
+        message: `${project.title} status changed from ${previousStatus} to ${status}.`,
+      });
     },
   });
 
@@ -898,30 +1292,22 @@ export function TrackerApp({
         createdAt: project.createdAt,
       };
       setDashboardActivity((current) => [activity, ...current].slice(0, 20));
-      logLocalProjectActivity({ projectId: project.id, kind: "project_created", message: `${project.title} was created.`, createdAt: project.createdAt });
-      trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+      logLocalProjectActivity({
+        projectId: project.id,
+        kind: "project_created",
+        message: `${project.title} was created.`,
+        createdAt: project.createdAt,
+      });
+      trackOnboardingEvent("first_project_created", {
+        variant: onboardingVariant,
+        mode: isSignedIn ? "account" : "local",
+        elapsedMs: Date.now() - onboardingStartedAt.current,
+      });
       setNewProjectOpen(false);
       notify("Project created.");
       router.push(`/projects/${encodeURIComponent(project.id)}`);
     },
   });
-
-  function updateProjectChecklist(project: WorkItem, itemKey: string, completed: boolean) {
-    if (project.teamId && !canEditProjects) {
-      notify("Your team role cannot edit team project checklists.", "warning");
-      return;
-    }
-    const currentCompleted = normalizeChecklistCompleted(project.checklistItems, project.checklistCompleted);
-    const nextCompleted = { ...currentCompleted };
-    if (completed) nextCompleted[itemKey] = true;
-    else delete nextCompleted[itemKey];
-    setItems((current) => current.map((item) => item.id === project.id ? { ...item, checklistCompleted: nextCompleted } : item));
-    logLocalProjectActivity({
-      projectId: project.id,
-      kind: "project_updated",
-      message: `${project.title} checklist progress was updated.`,
-    });
-  }
 
   function updateProjectPayment(project: WorkItem, paid: boolean) {
     if (project.teamId && !canManageFinance) {
@@ -929,11 +1315,18 @@ export function TrackerApp({
       return;
     }
     if (!isClientBillableProject(project)) {
-      notify("Only delivered billable client projects can be marked paid.", "warning");
+      notify(
+        "Only delivered billable client projects can be marked paid.",
+        "warning"
+      );
       return;
     }
     const paidDate = paid ? new Date().toISOString() : "";
-    setItems((current) => current.map((item) => item.id === project.id ? { ...item, paid, paidDate } : item));
+    setItems((current) =>
+      current.map((item) =>
+        item.id === project.id ? { ...item, paid, paidDate } : item
+      )
+    );
     logLocalProjectActivity({
       projectId: project.id,
       kind: "project_updated",
@@ -944,21 +1337,42 @@ export function TrackerApp({
 
   function confirmDeleteProject() {
     if (!deleteTarget) return;
-    setItems((current) => current.filter((item) => item.id !== deleteTarget.id));
-    setLocalProjectActivity((current) => current.filter((event) => event.projectId !== deleteTarget.id));
+    setItems((current) =>
+      current.filter((item) => item.id !== deleteTarget.id)
+    );
+    setLocalProjectActivity((current) =>
+      current.filter((event) => event.projectId !== deleteTarget.id)
+    );
     if (detailProjectId === deleteTarget.id) setDetailProjectId("");
     setDeleteTarget(null);
     notify("Project deleted.", "warning");
   }
 
   function saveProject() {
-    const canonicalClient = canonicalClientName(form.client || "", clientOptions);
-    const clientRecord = clientRecords.find((client) => client.name.toLowerCase() === canonicalClient.toLowerCase())
-      ?? mergeClientRecords([], [canonicalClient])[0];
-    const normalizedWorkType = canonicalWorkType(form.workType, projectTagOptions);
-    const normalizedForm = { ...form, client: canonicalClient, workType: normalizedWorkType, integrationLinks: normalizeProjectIntegrationLinks(form.integrationLinks) };
+    const canonicalClient = canonicalClientName(
+      form.client || "",
+      clientOptions
+    );
+    const clientRecord =
+      clientRecords.find(
+        (client) => client.name.toLowerCase() === canonicalClient.toLowerCase()
+      ) ?? mergeClientRecords([], [canonicalClient])[0];
+    const normalizedWorkType = canonicalWorkType(
+      form.workType,
+      projectTagOptions
+    );
+    const normalizedForm = {
+      ...form,
+      client: canonicalClient,
+      workType: normalizedWorkType,
+      integrationLinks: normalizeProjectIntegrationLinks(form.integrationLinks),
+    };
     const typeConfig = getTypeConfig(normalizedForm.workType, settings);
-    const error = validateProject(normalizedForm, typeConfig, projectTagOptions);
+    const error = validateProject(
+      normalizedForm,
+      typeConfig,
+      projectTagOptions
+    );
     if (error) {
       setFormError(error);
       return;
@@ -968,41 +1382,76 @@ export function TrackerApp({
       title: normalizedForm.title.trim(),
       id: editingId || createId(),
       teamId: normalizedForm.teamId,
-      ownerUserId: normalizedForm.ownerUserId ?? (!editingId && normalizedForm.teamId ? teamData?.currentMember.userId : undefined),
+      ownerUserId:
+        normalizedForm.ownerUserId ??
+        (!editingId && normalizedForm.teamId
+          ? teamData?.currentMember.userId
+          : undefined),
       assigneeUserIds: normalizedForm.assigneeUserIds ?? [],
       createdAt: form.createdAt || new Date().toISOString(),
       profileId: profile.id,
       client: normalizedForm.client?.trim() || "",
       clientId: clientRecord?.id,
       notes: normalizedForm.notes.trim(),
-      earnings: typeConfig.earningsMode === "batch" ? 0 : safeMoneyValue(normalizedForm.earnings),
-      paid: typeConfig.earningsMode === "batch" ? false : Boolean(normalizedForm.paid),
-      paidDate: typeConfig.earningsMode === "batch" || !normalizedForm.paid ? "" : normalizedForm.paidDate || new Date().toISOString(),
-      checklistCompleted: normalizeChecklistCompleted(normalizedForm.checklistItems, normalizedForm.checklistCompleted),
-      integrationLinks: normalizedForm.integrationLinks
+      earnings:
+        typeConfig.earningsMode === "batch"
+          ? 0
+          : safeMoneyValue(normalizedForm.earnings),
+      paid:
+        typeConfig.earningsMode === "batch"
+          ? false
+          : Boolean(normalizedForm.paid),
+      paidDate:
+        typeConfig.earningsMode === "batch" || !normalizedForm.paid
+          ? ""
+          : normalizedForm.paidDate || new Date().toISOString(),
+      checklistCompleted: normalizeChecklistCompleted(
+        normalizedForm.checklistItems,
+        normalizedForm.checklistCompleted
+      ),
+      integrationLinks: normalizedForm.integrationLinks,
     };
-    if (clientRecord && !settings.clients.some((client) => client.id === clientRecord.id)) {
-      setSettings((current) => ({ ...current, customClients: [...current.customClients, clientRecord.name], clients: [...current.clients, clientRecord] }));
+    if (
+      clientRecord &&
+      !settings.clients.some((client) => client.id === clientRecord.id)
+    ) {
+      setSettings((current) => ({
+        ...current,
+        customClients: [...current.customClients, clientRecord.name],
+        clients: [...current.clients, clientRecord],
+      }));
     }
-    setItems((current) => (editingId ? current.map((item) => (item.id === editingId ? payload : item)) : [payload, ...current]));
+    setItems((current) =>
+      editingId
+        ? current.map((item) => (item.id === editingId ? payload : item))
+        : [payload, ...current]
+    );
     if (!editingId) {
-      trackOnboardingEvent("first_project_created", { variant: onboardingVariant, mode: isSignedIn ? "account" : "local", elapsedMs: Date.now() - onboardingStartedAt.current });
+      trackOnboardingEvent("first_project_created", {
+        variant: onboardingVariant,
+        mode: isSignedIn ? "account" : "local",
+        elapsedMs: Date.now() - onboardingStartedAt.current,
+      });
     }
     setDashboardActivity((current) => {
       const activity: DashboardActivity = {
         id: createId(),
         kind: editingId ? "updated" : "created",
-        message: editingId ? `${payload.title} was updated` : `${payload.title} was created`,
+        message: editingId
+          ? `${payload.title} was updated`
+          : `${payload.title} was created`,
         projectId: payload.id,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       return [activity, ...current].slice(0, 20);
     });
     logLocalProjectActivity({
       projectId: payload.id,
       kind: editingId ? "project_updated" : "project_created",
-      message: editingId ? `${payload.title} was updated.` : `${payload.title} was created.`,
-      createdAt: editingId ? undefined : payload.createdAt
+      message: editingId
+        ? `${payload.title} was updated.`
+        : `${payload.title} was created.`,
+      createdAt: editingId ? undefined : payload.createdAt,
     });
     setDialogOpen(false);
     setEditingId("");
@@ -1011,12 +1460,20 @@ export function TrackerApp({
     if (!editingId) router.push(`/projects/${encodeURIComponent(payload.id)}`);
   }
 
-  function handleAddClient(client: Omit<Client, "id" | "archived">): Client | null {
+  function handleAddClient(
+    client: Omit<Client, "id" | "archived">
+  ): Client | null {
     const canonical = canonicalClientName(client.name, clientOptions, false);
     if (!canonical) return null;
-    const existing = clientRecords.find((record) => record.name.toLowerCase() === canonical.toLowerCase());
+    const existing = clientRecords.find(
+      (record) => record.name.toLowerCase() === canonical.toLowerCase()
+    );
     if (existing) return existing;
-    const record = { ...mergeClientRecords([], [canonical])[0], ...client, name: canonical };
+    const record = {
+      ...mergeClientRecords([], [canonical])[0],
+      ...client,
+      name: canonical,
+    };
     setSettings((current) => {
       if (current.clients.some((item) => item.id === record.id)) return current;
       return {
@@ -1030,39 +1487,82 @@ export function TrackerApp({
   }
 
   function handleUpdateClient(client: Client) {
-    setSettings((current) => ({ ...current, clients: current.clients.map((record) => record.id === client.id ? client : record) }));
-    setItems((current) => current.map((project) => project.clientId === client.id ? { ...project, client: client.name } : project));
-    notify(client.archived ? `Client "${client.name}" archived.` : `Client "${client.name}" updated.`);
+    setSettings((current) => ({
+      ...current,
+      clients: current.clients.map((record) =>
+        record.id === client.id ? client : record
+      ),
+    }));
+    setItems((current) =>
+      current.map((project) =>
+        project.clientId === client.id
+          ? { ...project, client: client.name }
+          : project
+      )
+    );
+    notify(
+      client.archived
+        ? `Client "${client.name}" archived.`
+        : `Client "${client.name}" updated.`
+    );
   }
 
-  const pageContent = page === "project" ? (
-    detailProject ? <ProjectWorkspace
-      project={detailProject}
-      projectGroup={projectGroups.find((group) => group.id === detailProject.projectGroupId)}
-      settings={settings}
-      view={activeProjectView}
-      canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
-      canManagePayment={!isSample && (canManageFinance || !detailProject.teamId)}
-      canManagePortal={!isSample && (canManagePortals || !detailProject.teamId)}
-      canDelete={canDeleteProject(detailProject)}
-      canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)}
-      canComment={!isSample && canCommentProjects}
-      teamMembers={activeTeamMembers}
-      localActivity={localProjectActivity.filter((event) => event.projectId === detailProject.id)}
-      onBack={() => router.push("/projects")}
-      onViewChange={(view) => {
-        setActiveProjectView(view);
-        window.localStorage.setItem("relay:last-project-workspace-view", view);
-        router.replace(`/projects/${encodeURIComponent(detailProject.id)}?view=${view}`);
-      }}
-      onEdit={openEditProject}
-      onDelete={(project) => requestDeleteProject(project.id)}
-      onStatusChange={updateProjectStatus}
-      onPaymentChange={updateProjectPayment}
-    /> : <PageEmptyState icon={<FolderKanban />} title="Project not found" description="This Project does not exist or you cannot access it." />
-  ) : page === "dashboard" && personalProjects.length === 0 && !isSample ? (
-    <FirstRunChecklist mode={isSignedIn ? "account" : "local"} onCreateProject={() => openNewProject("personal")} />
-  ) : page === "dashboard" ? (
+  const pageContent =
+    page === "project" ? (
+      detailProject ? (
+        <ProjectWorkspace
+          project={detailProject}
+          projectGroup={projectGroups.find(
+            (group) => group.id === detailProject.projectGroupId
+          )}
+          settings={settings}
+          view={activeProjectView}
+          canEdit={!isSample && (canEditProjects || !detailProject.teamId)}
+          canManagePayment={
+            !isSample && (canManageFinance || !detailProject.teamId)
+          }
+          canManagePortal={
+            !isSample && (canManagePortals || !detailProject.teamId)
+          }
+          canDelete={canDeleteProject(detailProject)}
+          canUpdateStatus={
+            !isSample &&
+            (canUpdateProjectStatus || canEditProjects || !detailProject.teamId)
+          }
+          canComment={!isSample && canCommentProjects}
+          teamMembers={activeTeamMembers}
+          localActivity={localProjectActivity.filter(
+            (event) => event.projectId === detailProject.id
+          )}
+          onBack={() => router.push(isSample ? "/sample-studio" : "/projects")}
+          onViewChange={(view) => {
+            setActiveProjectView(view);
+            window.localStorage.setItem(
+              "relay:last-project-workspace-view",
+              view
+            );
+            router.replace(
+              `${isSample ? "/sample-studio" : ""}/projects/${encodeURIComponent(detailProject.id)}?view=${view}`
+            );
+          }}
+          onEdit={openEditProject}
+          onDelete={(project) => requestDeleteProject(project.id)}
+          onStatusChange={updateProjectStatus}
+          onPaymentChange={updateProjectPayment}
+        />
+      ) : (
+        <PageEmptyState
+          icon={<FolderKanban />}
+          title="Project not found"
+          description="This Project does not exist or you cannot access it."
+        />
+      )
+    ) : page === "dashboard" && personalProjects.length === 0 && !isSample ? (
+      <FirstRunChecklist
+        mode={isSignedIn ? "account" : "local"}
+        onCreateProject={() => openNewProject("personal")}
+      />
+    ) : page === "dashboard" ? (
       <PrecisionDashboard
         settings={settings}
         stats={stats}
@@ -1101,102 +1601,186 @@ export function TrackerApp({
         canEditProjects={canEditProjects}
         canDeleteProject={canDeleteProject}
       />
-  ) : page === "projects" ? (
-    <PrecisionProjects
-      settings={settings}
-      personalProjects={personalProjects}
-      teamProjects={teamProjects}
-      teamName={teamData?.workspace?.name}
-      currentUserId={teamData?.currentMember.userId ?? ""}
-      currentUserRole={teamData?.currentMember.role}
-      teamMembers={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
-      allowAllTeamProjects={teamData?.workspace.allowAllTeamProjects ?? false}
-      loading={!isAuthLoaded}
-      error={teamSyncUnavailable ? "Team Projects are unavailable until cloud authentication reconnects." : undefined}
-      onNewProject={openNewProject}
-      onViewProject={openProjectDetails}
-      onEditProject={openEditProject}
-      onDeleteProject={requestDeleteProject}
-      onArchiveProject={archiveProject}
-      onUpdateProjectStatus={updateProjectStatus}
-      canCreateProjects={canCreateProjects}
-      canCreateTeamProjects={canCreateTeamProjects}
-      canEditProjects={canEditProjects}
-      canUpdateProjectStatus={canUpdateProjectStatus || canEditProjects}
-      canDeleteProject={canDeleteProject}
-      onManageProjectGroups={(scope) => {
-        setProjectGroupsScope(scope);
-        setProjectGroupsOpen(true);
-      }}
-    />
-  ) : page === "clients" ? (
-    <PrecisionClients projects={personalProjects} settings={settings} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onViewProject={openProjectDetails} />
-  ) : page === "timeline" ? (
-    <PrecisionTimeline projects={personalProjects} onViewProject={openProjectDetails} />
-  ) : page === "calendar" ? (
-    <PrecisionCalendar projects={personalProjects} outputs={workspaceDiscovery?.outputs ?? []} settings={settings} onViewProject={openProjectDetails} />
-  ) : page === "files" ? (
-    <PrecisionFiles files={workspaceDiscovery?.files ?? []} projectTitles={Object.fromEntries(projects.map((project) => [project.id, project.title]))} loading={Boolean(isSignedIn && workspaceDiscovery === undefined)} onOpenProject={(projectId) => {
-      const project = projects.find((item) => item.id === projectId);
-      if (project) openProjectDetails(project);
-    }} />
-  ) : page === "media" ? (
-    <PrecisionMedia projects={personalProjects} onViewProject={openProjectDetails} />
-  ) : page === "resources" ? (
-    <ResourcesDesignPage resources={resourceLinks} projects={personalProjects} setResources={setResourceLinks} notify={notify} />
-  ) : page === "feedback" ? (
-    <PrecisionFeedback projects={personalProjects} onViewProject={openProjectDetails} />
-  ) : page === "templates" ? (
-    <TemplatesDesignPage
-      onUseBlank={() => openBlankProject("personal")}
-      onUseTemplate={(template) => openTemplateProject(template, "personal")}
-      canManageTemplates={!teamData || canManageTeamProjects}
-    />
-  ) : page === "reports" ? (
-    <div className="grid gap-4">
-      <PrecisionReports
-        projects={projects}
-        salaryBatches={salaryBatches}
+    ) : page === "projects" ? (
+      <PrecisionProjects
         settings={settings}
-        editors={activeTeamMembers.map((member) => ({ userId: member.userId, name: member.name }))}
-        currentUserId={teamData?.currentMember.userId}
-        canManageFinance={canManageFinance}
-        onUpdateBatchPayment={updateSalaryBatchPayment}
+        personalProjects={personalProjects}
+        teamProjects={teamProjects}
+        teamName={teamData?.workspace?.name}
+        currentUserId={teamData?.currentMember.userId ?? ""}
+        currentUserRole={teamData?.currentMember.role}
+        teamMembers={activeTeamMembers.map((member) => ({
+          userId: member.userId,
+          name: member.name,
+        }))}
+        allowAllTeamProjects={teamData?.workspace.allowAllTeamProjects ?? false}
+        loading={!isAuthLoaded}
+        error={
+          teamSyncUnavailable
+            ? "Team Projects are unavailable until cloud authentication reconnects."
+            : undefined
+        }
+        onNewProject={openNewProject}
+        onViewProject={openProjectDetails}
+        onEditProject={openEditProject}
+        onDeleteProject={requestDeleteProject}
+        onArchiveProject={archiveProject}
+        onUpdateProjectStatus={updateProjectStatus}
+        canCreateProjects={canCreateProjects}
+        canCreateTeamProjects={canCreateTeamProjects}
+        canEditProjects={canEditProjects}
+        canUpdateProjectStatus={canUpdateProjectStatus || canEditProjects}
+        canDeleteProject={canDeleteProject}
+        onManageProjectGroups={(scope) => {
+          setProjectGroupsScope(scope);
+          setProjectGroupsOpen(true);
+        }}
       />
-      {!teamData || teamData.currentMember.role === "Owner" ? <SalaryPlansPanel settings={settings} projects={personalProjects} isOwner /> : null}
-    </div>
-  ) : page === "integrations" ? (
-    <IntegrationsDesignPage projects={personalProjects} settings={settings} setSettings={setSettings} notify={notify} onEditProject={openEditProject} />
-  ) : page === "team" ? (
-    <TeamDesignPage projects={projects} settings={settings} setSettings={setSettings} />
-  ) : page === "team-chat" ? (
-    <TeamChatPage />
-  ) : page === "settings" ? (
-    <SettingsDesignPage settings={settings} setSettings={setSettings} notify={notify} teamWorkspace={teamWorkspace} canManageWorkspace={Boolean(teamData?.currentMember.role === "Owner")} />
-  ) : page === "account" ? (
-    <AccountSettingsPage />
-  ) : page === "subscription" ? (
-    <SubscriptionPage />
-  ) : page === "profile" ? (
-    <ProfileDesignPage projects={personalProjects} stats={stats} settings={settings} />
-  ) : page === "profile-edit" ? (
-    <ProfileEditPage settings={settings} setSettings={setSettings} />
-  ) : (
-    <OrganizationProfilePage projects={teamProjects} settings={settings} stats={teamStats} />
-  );
+    ) : page === "clients" ? (
+      <PrecisionClients
+        projects={personalProjects}
+        settings={settings}
+        onAddClient={handleAddClient}
+        onUpdateClient={handleUpdateClient}
+        onViewProject={openProjectDetails}
+      />
+    ) : page === "timeline" ? (
+      <PrecisionTimeline
+        projects={personalProjects}
+        onViewProject={openProjectDetails}
+      />
+    ) : page === "calendar" ? (
+      <PrecisionCalendar
+        projects={personalProjects}
+        outputs={workspaceDiscovery?.outputs ?? []}
+        settings={settings}
+        onViewProject={openProjectDetails}
+      />
+    ) : page === "files" ? (
+      <PrecisionFiles
+        files={workspaceDiscovery?.files ?? []}
+        projectTitles={Object.fromEntries(
+          projects.map((project) => [project.id, project.title])
+        )}
+        loading={Boolean(isSignedIn && workspaceDiscovery === undefined)}
+        onOpenProject={(projectId) => {
+          const project = projects.find((item) => item.id === projectId);
+          if (project) openProjectDetails(project);
+        }}
+      />
+    ) : page === "media" ? (
+      <PrecisionMedia
+        projects={personalProjects}
+        onViewProject={openProjectDetails}
+      />
+    ) : page === "resources" ? (
+      <ResourcesDesignPage
+        resources={resourceLinks}
+        projects={personalProjects}
+        setResources={setResourceLinks}
+        notify={notify}
+      />
+    ) : page === "feedback" ? (
+      <PrecisionFeedback
+        projects={personalProjects}
+        onViewProject={openProjectDetails}
+      />
+    ) : page === "templates" ? (
+      <TemplatesDesignPage
+        onUseBlank={() => openBlankProject("personal")}
+        onUseTemplate={(template) => openTemplateProject(template, "personal")}
+        canManageTemplates={!teamData || canManageTeamProjects}
+      />
+    ) : page === "reports" ? (
+      <div className="grid gap-4">
+        <PrecisionReports
+          projects={projects}
+          salaryBatches={salaryBatches}
+          settings={settings}
+          editors={activeTeamMembers.map((member) => ({
+            userId: member.userId,
+            name: member.name,
+          }))}
+          currentUserId={teamData?.currentMember.userId}
+          canManageFinance={canManageFinance}
+          onUpdateBatchPayment={updateSalaryBatchPayment}
+        />
+        {!teamData || teamData.currentMember.role === "Owner" ? (
+          <SalaryPlansPanel
+            settings={settings}
+            projects={personalProjects}
+            isOwner
+          />
+        ) : null}
+      </div>
+    ) : page === "integrations" ? (
+      <IntegrationsDesignPage
+        projects={personalProjects}
+        settings={settings}
+        setSettings={setSettings}
+        notify={notify}
+        onEditProject={openEditProject}
+      />
+    ) : page === "team" ? (
+      <TeamDesignPage
+        projects={projects}
+        settings={settings}
+        setSettings={setSettings}
+      />
+    ) : page === "team-chat" ? (
+      <TeamChatPage />
+    ) : page === "settings" ? (
+      <SettingsDesignPage
+        settings={settings}
+        setSettings={setSettings}
+        notify={notify}
+        teamWorkspace={teamWorkspace}
+        canManageWorkspace={Boolean(teamData?.currentMember.role === "Owner")}
+      />
+    ) : page === "account" ? (
+      <AccountSettingsPage />
+    ) : page === "subscription" ? (
+      <SubscriptionPage />
+    ) : page === "profile" ? (
+      <ProfileDesignPage
+        projects={personalProjects}
+        stats={stats}
+        settings={settings}
+      />
+    ) : page === "profile-edit" ? (
+      <ProfileEditPage settings={settings} setSettings={setSettings} />
+    ) : (
+      <OrganizationProfilePage
+        projects={teamProjects}
+        settings={settings}
+        stats={teamStats}
+      />
+    );
 
   const projectDialog = (
     <>
       <NewProjectDialog
         open={newProjectOpen}
         clients={clientRecords}
-        projectGroups={projectGroups.filter((group) => group.teamId === (projectStartScope === "team" ? currentTeamId : undefined))}
+        projectGroups={projectGroups.filter(
+          (group) =>
+            group.teamId ===
+            (projectStartScope === "team" ? currentTeamId : undefined)
+        )}
         workflowTemplates={workflowTemplates}
         initialTemplateId={newProjectTemplateId}
         salaryPlanLabel={`${settings.salaryWorkType} Plan`}
-        salaryPlans={isSignedIn ? (projectStartScope === "team" ? [] : salaryPlans) : undefined}
+        salaryPlans={
+          isSignedIn
+            ? projectStartScope === "team"
+              ? []
+              : salaryPlans
+            : undefined
+        }
         currencyCode={settings.currencyCode}
-        onCreateClient={(client) => handleAddClient({ ...client, contactName: "", phone: "", notes: "" })}
+        onCreateClient={(client) =>
+          handleAddClient({ ...client, contactName: "", phone: "", notes: "" })
+        }
         onClose={() => setNewProjectOpen(false)}
         onCreate={createProject}
       />
@@ -1205,7 +1789,9 @@ export function TrackerApp({
         teamId={projectGroupsScope === "team" ? currentTeamId : undefined}
         clients={clientRecords}
         groups={projectGroups}
-        projects={projectGroupsScope === "team" ? teamProjects : personalProjects}
+        projects={
+          projectGroupsScope === "team" ? teamProjects : personalProjects
+        }
         currency={settings.currencyCode}
         onClose={() => setProjectGroupsOpen(false)}
         onSave={saveProjectGroup}
@@ -1237,31 +1823,6 @@ export function TrackerApp({
       onConfirm={confirmDeleteProject}
     />
   );
-  const detailDialog = page === "project" ? null : (
-    <ProjectDetailDialog
-      project={detailProject}
-      settings={settings}
-      canEdit={!isSample && (canEditProjects || !detailProject?.teamId)}
-      canManagePayment={!isSample && (canManageFinance || !detailProject?.teamId)}
-      canManagePortal={!isSample && (canManagePortals || !detailProject?.teamId)}
-      canDelete={canDeleteProject(detailProject)}
-      canUpdateStatus={!isSample && (canUpdateProjectStatus || canEditProjects || !detailProject?.teamId)}
-      canComment={!isSample && canCommentProjects}
-      teamMembers={activeTeamMembers}
-      localActivity={localProjectActivity.filter((event) => event.projectId === detailProject?.id)}
-      onClose={() => {
-        setDetailProjectId("");
-      }}
-      onEdit={(project) => openEditProject(project)}
-      onDelete={(project) => {
-        setDetailProjectId("");
-        requestDeleteProject(project.id);
-      }}
-      onStatusChange={updateProjectStatus}
-      onChecklistChange={updateProjectChecklist}
-      onPaymentChange={updateProjectPayment}
-      />
-  );
   const loadingStatus = !isAuthLoaded ? <AppLoadingStatus /> : null;
 
   if (page === "profile") {
@@ -1274,10 +1835,11 @@ export function TrackerApp({
         }`}
         style={{ backgroundColor: canvas, color: ink }}
       >
-        <SettingsContext.Provider value={settings}>{pageContent}</SettingsContext.Provider>
+        <SettingsContext.Provider value={settings}>
+          {pageContent}
+        </SettingsContext.Provider>
         {projectDialog}
         {deleteDialog}
-        {detailDialog}
         {loadingStatus}
         <WelcomeChoiceDialog
           open={authChoiceOpen}
@@ -1286,7 +1848,13 @@ export function TrackerApp({
           onCreateAccount={() => launchAccountFlow("sign-up")}
           onSignIn={() => launchAccountFlow("sign-in")}
         />
-        <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
+        <AnalyticsConsentDialog
+          open={analyticsConsentOpen}
+          onChoose={(consent) => {
+            setAnalyticsConsent(consent);
+            setAnalyticsConsentOpen(false);
+          }}
+        />
       </div>
     );
   }
@@ -1299,7 +1867,13 @@ export function TrackerApp({
         onNewProject={() => openNewProject("personal")}
         canCreateProject={canCreateProjects}
         starterNavigation={!isSample && personalProjects.length === 0}
-        showTeamNavigation={activeTeamMembers.length > 1 || Boolean(teamData?.members.some((member) => member.status === "invited")) || settings.teamMembers.length > 0}
+        showTeamNavigation={
+          activeTeamMembers.length > 1 ||
+          Boolean(
+            teamData?.members.some((member) => member.status === "invited")
+          ) ||
+          settings.teamMembers.length > 0
+        }
         searchRecords={workspaceSearchRecords}
         notificationSlot={<NotificationBell settings={settings} />}
       >
@@ -1312,13 +1886,14 @@ export function TrackerApp({
           }`}
           style={{ backgroundColor: canvas, color: ink }}
         >
-          <SettingsContext.Provider value={settings}>{pageContent}</SettingsContext.Provider>
+          <SettingsContext.Provider value={settings}>
+            {pageContent}
+          </SettingsContext.Provider>
         </div>
       </WorkspaceShell>
       <AppToast toast={toast} onClose={() => setToast(null)} />
       {projectDialog}
       {deleteDialog}
-      {detailDialog}
       {loadingStatus}
       <WelcomeChoiceDialog
         open={authChoiceOpen}
@@ -1327,7 +1902,13 @@ export function TrackerApp({
         onCreateAccount={() => launchAccountFlow("sign-up")}
         onSignIn={() => launchAccountFlow("sign-in")}
       />
-      <AnalyticsConsentDialog open={analyticsConsentOpen} onChoose={(consent) => { setAnalyticsConsent(consent); setAnalyticsConsentOpen(false); }} />
+      <AnalyticsConsentDialog
+        open={analyticsConsentOpen}
+        onChoose={(consent) => {
+          setAnalyticsConsent(consent);
+          setAnalyticsConsentOpen(false);
+        }}
+      />
     </>
   );
 }
@@ -1337,48 +1918,91 @@ function AccountSettingsPage() {
   const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
 
   return (
-    <WorkspacePage family="administration" className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]">
+    <WorkspacePage
+      family="administration"
+      className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]"
+    >
       <PageHeader
         eyebrow="Workspace / Account"
         title="Account Settings"
         description="Manage your private login details separately from your public Relay profile."
         actions={
           <PageToolbar
-            primary={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
-            secondary={isSignedIn ? (
-              <OwnedButton asChild variant="outline">
-                <Link href="/profile/edit">
-                  <Pencil aria-hidden="true" />
-                  Edit public profile
-                </Link>
-              </OwnedButton>
-            ) : null}
+            primary={
+              <OwnedBadge variant={isSignedIn ? "default" : "secondary"}>
+                {isSignedIn ? "Signed in" : "Local mode"}
+              </OwnedBadge>
+            }
+            secondary={
+              isSignedIn ? (
+                <OwnedButton asChild variant="outline">
+                  <Link href="/profile/edit">
+                    <Pencil aria-hidden="true" />
+                    Edit public profile
+                  </Link>
+                </OwnedButton>
+              ) : null
+            }
           />
         }
       />
-      <PageContent data-family-region="account-administration" className="space-y-5">
-        <ContentSection title="Private account" description="Authentication and account controls stay inside this signed-in area." bodyMode="flush" className="scroll-mt-6">
+      <PageContent
+        data-family-region="account-administration"
+        className="space-y-5"
+      >
+        <ContentSection
+          title="Private account"
+          description="Authentication and account controls stay inside this signed-in area."
+          bodyMode="flush"
+          className="scroll-mt-6"
+        >
           {!isLoaded ? (
-            <div role="status" className="grid min-h-[220px] place-items-center p-6">
+            <div
+              role="status"
+              className="grid min-h-[220px] place-items-center p-6"
+            >
               <div className="flex flex-col items-center gap-3 text-sm text-[var(--app-muted)]">
-                <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="size-7 animate-spin text-[var(--app-accent)]"
+                />
                 <span>Loading account controls...</span>
               </div>
             </div>
           ) : !isSignedIn ? (
-            <div className="grid max-w-[620px] gap-4 p-5 md:p-6" aria-labelledby="account-required-title">
-              <h2 id="account-required-title" className="text-xl font-semibold text-foreground">Account required</h2>
+            <div
+              className="grid max-w-[620px] gap-4 p-5 md:p-6"
+              aria-labelledby="account-required-title"
+            >
+              <h2
+                id="account-required-title"
+                className="text-xl font-semibold text-foreground"
+              >
+                Account required
+              </h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                Local mode does not have an account record, email, password, or connected login provider. Sign in or create an account to manage private account settings.
+                Local mode does not have an account record, email, password, or
+                connected login provider. Sign in or create an account to manage
+                private account settings.
               </p>
               {isAuthEnabled ? (
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <OwnedButton type="button" onClick={() => openSignUp()}>Create account</OwnedButton>
-                  <OwnedButton type="button" variant="outline" onClick={() => openSignIn()}>Sign in</OwnedButton>
+                  <OwnedButton type="button" onClick={() => openSignUp()}>
+                    Create account
+                  </OwnedButton>
+                  <OwnedButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => openSignIn()}
+                  >
+                    Sign in
+                  </OwnedButton>
                 </div>
               ) : (
                 <p role="status" className="text-sm text-muted-foreground">
-                  Account sync is not configured for this deployment. Use local mode, or add the Clerk and Convex public settings to enable accounts.
+                  Account sync is not configured for this deployment. Use local
+                  mode, or add the Clerk and Convex public settings to enable
+                  accounts.
                 </p>
               )}
             </div>
@@ -1391,7 +2015,8 @@ function AccountSettingsPage() {
                     variables: { borderRadius: "6px" },
                     elements: {
                       rootBox: "w-full",
-                      cardBox: "w-full max-w-none rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] shadow-none",
+                      cardBox:
+                        "w-full max-w-none rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] shadow-none",
                       card: "shadow-none",
                       navbar: "border-[var(--app-border)]",
                       pageScrollBox: "py-1",
@@ -1403,12 +2028,18 @@ function AccountSettingsPage() {
           )}
         </ContentSection>
 
-        <ContentSection title="Public profile" description="Keep the profile you share with clients separate from private authentication settings.">
+        <ContentSection
+          title="Public profile"
+          description="Keep the profile you share with clients separate from private authentication settings."
+        >
           <div className="flex flex-col justify-between gap-4 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-center">
             <div>
-              <p className="text-sm font-semibold">Profile visibility and presentation</p>
+              <p className="text-sm font-semibold">
+                Profile visibility and presentation
+              </p>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Update your public name, handle, bio, location, and published work from the profile editor.
+                Update your public name, handle, bio, location, and published
+                work from the profile editor.
               </p>
             </div>
             {isSignedIn ? (
@@ -1419,11 +2050,18 @@ function AccountSettingsPage() {
                 </Link>
               </OwnedButton>
             ) : isAuthEnabled ? (
-              <OwnedButton type="button" variant="outline" onClick={() => openSignIn()} className="shrink-0">
+              <OwnedButton
+                type="button"
+                variant="outline"
+                onClick={() => openSignIn()}
+                className="shrink-0"
+              >
                 Sign in to edit
               </OwnedButton>
             ) : (
-              <span className="text-sm text-muted-foreground">Account sign-in is not configured.</span>
+              <span className="text-sm text-muted-foreground">
+                Account sign-in is not configured.
+              </span>
             )}
           </div>
         </ContentSection>
@@ -1432,13 +2070,28 @@ function AccountSettingsPage() {
   );
 }
 
-function AppToast({ toast, onClose }: { toast: ToastState | null; onClose: () => void }) {
+function AppToast({
+  toast,
+  onClose,
+}: {
+  toast: ToastState | null;
+  onClose: () => void;
+}) {
   const reduceMotion = useHydratedReducedMotion();
-  const palette = toast?.tone === "warning"
-    ? { bg: "var(--app-warning-bg, rgba(245,166,35,0.14))", fg: warningColor, border }
-    : toast?.tone === "info"
-      ? { bg: activeBg, fg: accent, border }
-      : { bg: "var(--app-success-bg, rgba(35,181,142,0.14))", fg: successColor, border };
+  const palette =
+    toast?.tone === "warning"
+      ? {
+          bg: "var(--app-warning-bg, rgba(245,166,35,0.14))",
+          fg: warningColor,
+          border,
+        }
+      : toast?.tone === "info"
+        ? { bg: activeBg, fg: accent, border }
+        : {
+            bg: "var(--app-success-bg, rgba(35,181,142,0.14))",
+            fg: successColor,
+            border,
+          };
 
   return (
     <AnimatePresence>
@@ -1447,8 +2100,13 @@ function AppToast({ toast, onClose }: { toast: ToastState | null; onClose: () =>
           key={toast.message}
           initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
-          transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+          exit={
+            reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }
+          }
+          transition={{
+            duration: reduceMotion ? 0 : 0.18,
+            ease: [0.16, 1, 0.3, 1],
+          }}
           className="app-toast-position fixed right-4 z-50 w-[min(360px,calc(100vw-32px))]"
         >
           <div
@@ -1460,7 +2118,9 @@ function AppToast({ toast, onClose }: { toast: ToastState | null; onClose: () =>
               color: palette.fg,
             }}
           >
-            <p className="min-w-0 flex-1 text-[13px] font-semibold">{toast.message}</p>
+            <p className="min-w-0 flex-1 text-[13px] font-semibold">
+              {toast.message}
+            </p>
             <OwnedButton
               type="button"
               variant="ghost"
@@ -1493,7 +2153,11 @@ function AppLoadingStatus() {
         className="block h-full w-1/2 bg-[var(--app-accent)]"
         initial={reduceMotion ? false : { x: "-100%" }}
         animate={reduceMotion ? { x: "50%" } : { x: ["-100%", "200%"] }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 1.1, ease: "easeInOut", repeat: Infinity }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { duration: 1.1, ease: "easeInOut", repeat: Infinity }
+        }
       />
     </div>
   );
@@ -1503,7 +2167,7 @@ function WelcomeChoiceDialog({
   open,
   onChooseLocal,
   onCreateAccount,
-  onSignIn
+  onSignIn,
 }: {
   open: boolean;
   variant: OnboardingVariant;
@@ -1521,31 +2185,64 @@ function WelcomeChoiceDialog({
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">Choose how to use Relay</OwnedDialogTitle>
+          <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">
+            Choose how to use Relay
+          </OwnedDialogTitle>
           <OwnedDialogDescription>
-            Keep work on this device, sync an account, or explore a read-only sample.
+            Keep work on this device, sync an account, or explore a read-only
+            sample.
           </OwnedDialogDescription>
         </OwnedDialogHeader>
         <div className="grid gap-3 md:grid-cols-3">
           <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Local Mode</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Local Mode
+            </p>
             <h3 className="mt-2 text-lg font-semibold">Work on this device</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Fast solo workspace with no account.</p>
-            <p className="mt-4 text-xs leading-relaxed text-[var(--app-warning)]">Stored in this browser. Clearing site data can remove your work.</p>
-            <OwnedButton type="button" onClick={onChooseLocal} className="mt-4 w-full">Use Local Mode</OwnedButton>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Fast solo workspace with no account.
+            </p>
+            <p className="mt-4 text-xs leading-relaxed text-[var(--app-warning)]">
+              Stored in this browser. Clearing site data can remove your work.
+            </p>
+            <OwnedButton
+              type="button"
+              onClick={onChooseLocal}
+              className="mt-4 w-full"
+            >
+              Use Local Mode
+            </OwnedButton>
           </section>
 
           <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Account
+            </p>
             <h3 className="mt-2 text-lg font-semibold">Sync your workspace</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Create an account for supported cloud and Team features.</p>
-            <OwnedButton type="button" variant="outline" onClick={onCreateAccount} className="mt-4 w-full">Create account</OwnedButton>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Create an account for supported cloud and Team features.
+            </p>
+            <OwnedButton
+              type="button"
+              variant="outline"
+              onClick={onCreateAccount}
+              className="mt-4 w-full"
+            >
+              Create account
+            </OwnedButton>
           </section>
 
           <section className="flex flex-col rounded-md bg-[var(--app-soft-panel)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Sample Workspace</p>
-            <h3 className="mt-2 text-lg font-semibold">Explore a real workflow</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">Open realistic read-only projects, reviews, activity, and delivery data.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Sample Workspace
+            </p>
+            <h3 className="mt-2 text-lg font-semibold">
+              Explore a real workflow
+            </h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Open realistic read-only projects, reviews, activity, and delivery
+              data.
+            </p>
             <OwnedButton asChild variant="outline" className="mt-4 w-full">
               <Link href="/sample-studio">Open Sample Workspace</Link>
             </OwnedButton>
@@ -1553,40 +2250,82 @@ function WelcomeChoiceDialog({
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground">
           <p>Already have an account?</p>
-          <OwnedButton type="button" variant="ghost" onClick={onSignIn}>Sign in</OwnedButton>
+          <OwnedButton type="button" variant="ghost" onClick={onSignIn}>
+            Sign in
+          </OwnedButton>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Account sync covers supported workspace records. Integrations store links and settings only. Read the <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link> and <Link href="/terms" className="underline underline-offset-2">Terms</Link>.
+          Account sync covers supported workspace records. Integrations store
+          links and settings only. Read the{" "}
+          <Link href="/privacy" className="underline underline-offset-2">
+            Privacy Policy
+          </Link>{" "}
+          and{" "}
+          <Link href="/terms" className="underline underline-offset-2">
+            Terms
+          </Link>
+          .
         </p>
       </OwnedDialogContent>
     </OwnedDialog>
   );
 }
 
-function ResourcesDesignPage({ resources, projects, setResources, notify }: { resources: ResourceLink[]; projects: WorkItem[]; setResources: React.Dispatch<React.SetStateAction<ResourceLink[]>>; notify: (message: string, tone?: ToastState["tone"]) => void }) {
+function ResourcesDesignPage({
+  resources,
+  projects,
+  setResources,
+  notify,
+}: {
+  resources: ResourceLink[];
+  projects: WorkItem[];
+  setResources: React.Dispatch<React.SetStateAction<ResourceLink[]>>;
+  notify: (message: string, tone?: ToastState["tone"]) => void;
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState<ResourceLink>(() => emptyResourceForm());
   const [error, setError] = useState("");
   const [resourceSearch, setResourceSearch] = useState("");
   const [resourceCategory, setResourceCategory] = useState("all");
-  const sortedResources = [...resources].sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt));
+  const sortedResources = [...resources].sort(
+    (a, b) =>
+      Date.parse(b.updatedAt || b.createdAt) -
+      Date.parse(a.updatedAt || a.createdAt)
+  );
   const visibleResources = sortedResources.filter((resource) => {
     const query = resourceSearch.trim().toLowerCase();
-    const matchesSearch = !query || [resource.title, resource.url, resource.notes, resource.category, projectName(resource.projectId)].some((value) => value.toLowerCase().includes(query));
-    const matchesCategory = resourceCategory === "all" || resource.category === resourceCategory;
+    const matchesSearch =
+      !query ||
+      [
+        resource.title,
+        resource.url,
+        resource.notes,
+        resource.category,
+        projectName(resource.projectId),
+      ].some((value) => value.toLowerCase().includes(query));
+    const matchesCategory =
+      resourceCategory === "all" || resource.category === resourceCategory;
     return matchesSearch && matchesCategory;
   });
-  const linkedToProjects = resources.filter((resource) => resource.projectId).length;
+  const linkedToProjects = resources.filter(
+    (resource) => resource.projectId
+  ).length;
   const projectOptions = ["General", ...projects.map((project) => project.id)];
-  const projectLabels = Object.fromEntries(projects.map((project) => [project.id, project.title]));
+  const projectLabels = Object.fromEntries(
+    projects.map((project) => [project.id, project.title])
+  );
   const projectSelectValue = form.projectId || "General";
-  const safeProjectOptions = projectSelectValue && !projectOptions.includes(projectSelectValue)
-    ? [projectSelectValue, ...projectOptions]
-    : projectOptions;
-  const safeProjectLabels = projectSelectValue && !projectLabels[projectSelectValue] && projectSelectValue !== "General"
-    ? { ...projectLabels, [projectSelectValue]: "Deleted project" }
-    : projectLabels;
+  const safeProjectOptions =
+    projectSelectValue && !projectOptions.includes(projectSelectValue)
+      ? [projectSelectValue, ...projectOptions]
+      : projectOptions;
+  const safeProjectLabels =
+    projectSelectValue &&
+    !projectLabels[projectSelectValue] &&
+    projectSelectValue !== "General"
+      ? { ...projectLabels, [projectSelectValue]: "Deleted project" }
+      : projectLabels;
 
   function emptyResourceForm(): ResourceLink {
     const now = new Date().toISOString();
@@ -1640,7 +2379,13 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
       createdAt: form.createdAt || now,
       updatedAt: now,
     };
-    setResources((current) => (editingId ? current.map((resource) => (resource.id === editingId ? payload : resource)) : [payload, ...current]));
+    setResources((current) =>
+      editingId
+        ? current.map((resource) =>
+            resource.id === editingId ? payload : resource
+          )
+        : [payload, ...current]
+    );
     setDialogOpen(false);
     setEditingId("");
     setForm(emptyResourceForm());
@@ -1668,139 +2413,209 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
         title="Resources"
         description="Store asset folders, reference links, review pages, and handoff resources."
         actions={
-        <OwnedButton type="button" variant="outline" onClick={openNewResource}>
-          <Plus aria-hidden="true" />
-          New Resource
-        </OwnedButton>
-      }
+          <OwnedButton
+            type="button"
+            variant="outline"
+            onClick={openNewResource}
+          >
+            <Plus aria-hidden="true" />
+            New Resource
+          </OwnedButton>
+        }
       />
 
       <PageContent className="space-y-5">
-      <MetricStrip columns={3}>
-        <MetricItem
-          label="Resources"
-          value={resources.length}
-          supporting="Saved asset and reference links"
-        />
-        <MetricItem
-          label="Project Linked"
-          value={linkedToProjects}
-          supporting="Attached to tracked projects"
-        />
-        <MetricItem
-          label="Categories"
-          value={new Set(resources.map((resource) => resource.category)).size}
-          supporting="Resource groups in use"
-        />
-      </MetricStrip>
+        <MetricStrip columns={3}>
+          <MetricItem
+            label="Resources"
+            value={resources.length}
+            supporting="Saved asset and reference links"
+          />
+          <MetricItem
+            label="Project Linked"
+            value={linkedToProjects}
+            supporting="Attached to tracked projects"
+          />
+          <MetricItem
+            label="Categories"
+            value={new Set(resources.map((resource) => resource.category)).size}
+            supporting="Resource groups in use"
+          />
+        </MetricStrip>
 
-      <PageToolbar
-        data-family-toolbar="resources"
-        primary={
-          <div className="relative min-w-0 flex-1 sm:max-w-md">
-            <Link2 aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--app-muted)]" />
-            <OwnedInput
-              aria-label="Search resources"
-              value={resourceSearch}
-              onChange={(event) => setResourceSearch(event.target.value)}
-              placeholder="Search resources, links, or projects..."
-              className="h-10 bg-[var(--app-control)] pl-9 shadow-none"
-            />
-          </div>
-        }
-        secondary={
-          <OwnedSelect value={resourceCategory} onValueChange={setResourceCategory}>
-            <OwnedSelectTrigger aria-label="Filter resources by category" className="h-10 w-full sm:w-44">
-              <OwnedSelectValue placeholder="All categories" />
-            </OwnedSelectTrigger>
-            <OwnedSelectContent position="popper">
-              <OwnedSelectItem value="all">All categories</OwnedSelectItem>
-              {resourceCategories.map((category) => <OwnedSelectItem key={category} value={category}>{category}</OwnedSelectItem>)}
-            </OwnedSelectContent>
-          </OwnedSelect>
-        }
-      />
+        <PageToolbar
+          data-family-toolbar="resources"
+          primary={
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Link2
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--app-muted)]"
+              />
+              <OwnedInput
+                aria-label="Search resources"
+                value={resourceSearch}
+                onChange={(event) => setResourceSearch(event.target.value)}
+                placeholder="Search resources, links, or projects..."
+                className="h-10 bg-[var(--app-control)] pl-9 shadow-none"
+              />
+            </div>
+          }
+          secondary={
+            <OwnedSelect
+              value={resourceCategory}
+              onValueChange={setResourceCategory}
+            >
+              <OwnedSelectTrigger
+                aria-label="Filter resources by category"
+                className="h-10 w-full sm:w-44"
+              >
+                <OwnedSelectValue placeholder="All categories" />
+              </OwnedSelectTrigger>
+              <OwnedSelectContent position="popper">
+                <OwnedSelectItem value="all">All categories</OwnedSelectItem>
+                {resourceCategories.map((category) => (
+                  <OwnedSelectItem key={category} value={category}>
+                    {category}
+                  </OwnedSelectItem>
+                ))}
+              </OwnedSelectContent>
+            </OwnedSelect>
+          }
+        />
 
-      <ContentSection
-        title="Resource Library"
-        description={resourceSearch || resourceCategory !== "all" ? `${visibleResources.length} matching resources` : "Manual links for now; this can later map to cloud storage APIs or OAuth providers."}
-        metadata={
-          <OwnedBadge variant="secondary" className="self-start rounded-md bg-primary/15 text-primary sm:self-auto">
-            {resources.length} saved
-          </OwnedBadge>
-        }
-        bodyMode="flush"
-      >
-        <div className="divide-y divide-border">
-          {visibleResources.length ? visibleResources.map((resource) => (
-            <article key={resource.id} className="grid items-start gap-4 px-4 py-4 transition-colors hover:bg-[var(--app-soft-panel)] focus-within:bg-[var(--app-soft-panel)] lg:grid-cols-[minmax(0,1.4fr)_160px_minmax(0,1fr)_140px]">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] text-[var(--app-accent)]" aria-hidden="true">
-                  <Link2 className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-sm font-semibold">{resource.title}</h3>
-                    <OwnedBadge variant="secondary" className="rounded-md text-[11px] font-medium">{resource.category}</OwnedBadge>
+        <ContentSection
+          title="Resource Library"
+          description={
+            resourceSearch || resourceCategory !== "all"
+              ? `${visibleResources.length} matching resources`
+              : "Manual links for now; this can later map to cloud storage APIs or OAuth providers."
+          }
+          metadata={
+            <OwnedBadge
+              variant="secondary"
+              className="self-start rounded-md bg-primary/15 text-primary sm:self-auto"
+            >
+              {resources.length} saved
+            </OwnedBadge>
+          }
+          bodyMode="flush"
+        >
+          <div className="divide-y divide-border">
+            {visibleResources.length ? (
+              visibleResources.map((resource) => (
+                <article
+                  key={resource.id}
+                  className="grid items-start gap-4 px-4 py-4 transition-colors hover:bg-[var(--app-soft-panel)] focus-within:bg-[var(--app-soft-panel)] lg:grid-cols-[minmax(0,1.4fr)_160px_minmax(0,1fr)_140px]"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] text-[var(--app-accent)]"
+                      aria-hidden="true"
+                    >
+                      <Link2 className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-sm font-semibold">
+                          {resource.title}
+                        </h3>
+                        <OwnedBadge
+                          variant="secondary"
+                          className="rounded-md text-[11px] font-medium"
+                        >
+                          {resource.category}
+                        </OwnedBadge>
+                      </div>
+                      <p className="truncate text-xs text-[var(--app-muted)]">
+                        {resource.url}
+                      </p>
+                      {resource.notes ? (
+                        <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">
+                          {resource.notes}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <p className="truncate text-xs text-[var(--app-muted)]">{resource.url}</p>
-                  {resource.notes ? <p className="mt-1 text-xs leading-relaxed text-[var(--app-muted)]">{resource.notes}</p> : null}
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground lg:text-foreground">{resource.projectId ? projectName(resource.projectId) || "Linked project" : "General"}</p>
-              <time className="truncate text-xs text-[var(--app-muted)]" dateTime={resource.updatedAt || resource.createdAt}>
-                Updated {formatDate((resource.updatedAt || resource.createdAt).slice(0, 10))}
-              </time>
-              <div className="flex gap-1 lg:justify-end" aria-label={`${resource.title} actions`}>
-                <OwnedButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Open ${resource.title}`}
-                  title="Open resource"
-                  onClick={() => openResource(resource.url)}
-                  className="text-primary"
-                >
-                  <ExternalLink aria-hidden="true" />
-                </OwnedButton>
-                <OwnedButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${resource.title}`}
-                  title="Edit resource"
-                  onClick={() => openEditResource(resource)}
-                >
-                  <Pencil aria-hidden="true" />
-                </OwnedButton>
-                <OwnedButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Delete ${resource.title}`}
-                  title="Delete resource"
-                  onClick={() => removeResource(resource.id)}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 aria-hidden="true" />
-                </OwnedButton>
-              </div>
-            </article>
-          )) : (
-            <PageEmptyState
-              title={resources.length ? "No matching resources" : "No resources yet"}
-              description={resources.length ? "Try a different search or category filter." : "Add asset folders, reference docs, cloud links, review URLs, or handoff resources."}
-            />
-          )}
-        </div>
-      </ContentSection>
+                  <p className="text-sm text-muted-foreground lg:text-foreground">
+                    {resource.projectId
+                      ? projectName(resource.projectId) || "Linked project"
+                      : "General"}
+                  </p>
+                  <time
+                    className="truncate text-xs text-[var(--app-muted)]"
+                    dateTime={resource.updatedAt || resource.createdAt}
+                  >
+                    Updated{" "}
+                    {formatDate(
+                      (resource.updatedAt || resource.createdAt).slice(0, 10)
+                    )}
+                  </time>
+                  <div
+                    className="flex gap-1 lg:justify-end"
+                    aria-label={`${resource.title} actions`}
+                  >
+                    <OwnedButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Open ${resource.title}`}
+                      title="Open resource"
+                      onClick={() => openResource(resource.url)}
+                      className="text-primary"
+                    >
+                      <ExternalLink aria-hidden="true" />
+                    </OwnedButton>
+                    <OwnedButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${resource.title}`}
+                      title="Edit resource"
+                      onClick={() => openEditResource(resource)}
+                    >
+                      <Pencil aria-hidden="true" />
+                    </OwnedButton>
+                    <OwnedButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Delete ${resource.title}`}
+                      title="Delete resource"
+                      onClick={() => removeResource(resource.id)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </OwnedButton>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <PageEmptyState
+                title={
+                  resources.length
+                    ? "No matching resources"
+                    : "No resources yet"
+                }
+                description={
+                  resources.length
+                    ? "Try a different search or category filter."
+                    : "Add asset folders, reference docs, cloud links, review URLs, or handoff resources."
+                }
+              />
+            )}
+          </div>
+        </ContentSection>
       </PageContent>
 
       <OwnedDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <OwnedDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-xl">
           <OwnedDialogHeader>
-            <OwnedDialogTitle>{editingId ? "Edit Resource" : "New Resource"}</OwnedDialogTitle>
-            <OwnedDialogDescription>Save a labeled link and optionally attach it to a project.</OwnedDialogDescription>
+            <OwnedDialogTitle>
+              {editingId ? "Edit Resource" : "New Resource"}
+            </OwnedDialogTitle>
+            <OwnedDialogDescription>
+              Save a labeled link and optionally attach it to a project.
+            </OwnedDialogDescription>
           </OwnedDialogHeader>
           <form
             noValidate
@@ -1810,7 +2625,13 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
               saveResource();
             }}
           >
-            <FieldLayout label="Resource title" required error={error === "Resource title is required." ? error : undefined}>
+            <FieldLayout
+              label="Resource title"
+              required
+              error={
+                error === "Resource title is required." ? error : undefined
+              }
+            >
               <OwnedInput
                 value={form.title}
                 onChange={(event) => {
@@ -1819,7 +2640,13 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
                 }}
               />
             </FieldLayout>
-            <FieldLayout label="URL" required error={error === "Enter a valid http or https URL." ? error : undefined}>
+            <FieldLayout
+              label="URL"
+              required
+              error={
+                error === "Enter a valid http or https URL." ? error : undefined
+              }
+            >
               <OwnedInput
                 type="url"
                 inputMode="url"
@@ -1832,23 +2659,38 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
               />
             </FieldLayout>
             <div className="grid gap-4 sm:grid-cols-2">
-              <OwnedSelect value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
+              <OwnedSelect
+                value={form.category}
+                onValueChange={(value) => setForm({ ...form, category: value })}
+              >
                 <FieldLayout label="Category">
                   <OwnedSelectTrigger className="w-full">
                     <OwnedSelectValue />
                   </OwnedSelectTrigger>
                 </FieldLayout>
                 <OwnedSelectContent position="popper">
-                  {resourceCategories.map((category) => <OwnedSelectItem key={category} value={category}>{category}</OwnedSelectItem>)}
+                  {resourceCategories.map((category) => (
+                    <OwnedSelectItem key={category} value={category}>
+                      {category}
+                    </OwnedSelectItem>
+                  ))}
                 </OwnedSelectContent>
               </OwnedSelect>
               <OwnedSelect
                 value={projectSelectValue}
-                onValueChange={(value) => setForm({ ...form, projectId: value === "General" ? "" : value })}
+                onValueChange={(value) =>
+                  setForm({
+                    ...form,
+                    projectId: value === "General" ? "" : value,
+                  })
+                }
               >
                 <FieldLayout label="Project">
                   <OwnedSelectTrigger className="w-full">
-                    <OwnedSelectValue>{safeProjectLabels[projectSelectValue] ?? projectSelectValue}</OwnedSelectValue>
+                    <OwnedSelectValue>
+                      {safeProjectLabels[projectSelectValue] ??
+                        projectSelectValue}
+                    </OwnedSelectValue>
                   </OwnedSelectTrigger>
                 </FieldLayout>
                 <OwnedSelectContent position="popper">
@@ -1864,11 +2706,19 @@ function ResourcesDesignPage({ resources, projects, setResources, notify }: { re
               <OwnedTextarea
                 value={form.notes}
                 rows={3}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, notes: event.target.value })
+                }
               />
             </FieldLayout>
             <OwnedDialogFooter>
-              <OwnedButton type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</OwnedButton>
+              <OwnedButton
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
+                Cancel
+              </OwnedButton>
               <OwnedButton type="submit">Save Resource</OwnedButton>
             </OwnedDialogFooter>
           </form>
@@ -1897,7 +2747,8 @@ const emptyTemplateForm: TemplateFormState = {
   projectType: "",
   workType: "freelance",
   durationDays: 7,
-  workflowStagesText: "Planned\nEditing\nClient Review\nRevisions\nApproved\nDelivered",
+  workflowStagesText:
+    "Planned\nEditing\nClient Review\nRevisions\nApproved\nDelivered",
   deliverablesText: "Final master",
   checklistText: "Confirm brief\nCheck export settings",
 };
@@ -1910,30 +2761,56 @@ function templateToForm(template: ProjectTemplate): TemplateFormState {
     projectType: template.projectType,
     workType: template.workType,
     durationDays: template.durationDays,
-    workflowStagesText: template.workflowStages.map((stage) => stage.label).join("\n"),
-    deliverablesText: template.deliverables.map((item) => item.title).join("\n"),
+    workflowStagesText: template.workflowStages
+      .map((stage) => stage.label)
+      .join("\n"),
+    deliverablesText: template.deliverables
+      .map((item) => item.title)
+      .join("\n"),
     checklistText: template.checklistItems.join("\n"),
   };
 }
 
 function linesFromText(value: string, limit: number) {
-  return value.split(/\r?\n|,/).map((line) => line.trim()).filter(Boolean).slice(0, limit);
+  return value
+    .split(/\r?\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, limit);
 }
 
-function customTemplateFromForm(form: TemplateFormState, existing?: SavedProjectTemplate): SavedProjectTemplate {
+function customTemplateFromForm(
+  form: TemplateFormState,
+  existing?: SavedProjectTemplate
+): SavedProjectTemplate {
   const name = form.name.trim().slice(0, 80) || "Custom template";
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "template";
+  const slug =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "template";
   const id = form.id || `custom-${slug}-${Date.now().toString(36)}`;
   const deliverableTitles = linesFromText(form.deliverablesText, 12);
   return {
     id,
     name,
-    description: form.description.trim().slice(0, 220) || "Reusable workflow for recurring client work.",
+    description:
+      form.description.trim().slice(0, 220) ||
+      "Reusable workflow for recurring client work.",
     projectType: form.projectType.trim().slice(0, 80) || "Custom project",
     workType: form.workType,
-    durationDays: Math.max(1, Math.min(120, Math.floor(Number(form.durationDays) || 7))),
-    workflowStages: workflowStagesFromLabels(linesFromText(form.workflowStagesText, 12), existing?.workflowStages),
-    deliverables: (deliverableTitles.length ? deliverableTitles : ["Final master"]).map((title) => ({
+    durationDays: Math.max(
+      1,
+      Math.min(120, Math.floor(Number(form.durationDays) || 7))
+    ),
+    workflowStages: workflowStagesFromLabels(
+      linesFromText(form.workflowStagesText, 12),
+      existing?.workflowStages
+    ),
+    deliverables: (deliverableTitles.length
+      ? deliverableTitles
+      : ["Final master"]
+    ).map((title) => ({
       title: title.slice(0, 120),
       category: "Deliverable" as FileCategory,
       initialStatus: "draft" as FileStatus,
@@ -1954,23 +2831,34 @@ function TemplatesDesignPage({
   canManageTemplates: boolean;
 }) {
   const { items, settings, setSettings } = useData();
-  const [templateForm, setTemplateForm] = useState<TemplateFormState>(emptyTemplateForm);
+  const [templateForm, setTemplateForm] =
+    useState<TemplateFormState>(emptyTemplateForm);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [templateError, setTemplateError] = useState("");
   const customTemplates = settings.customProjectTemplates ?? [];
-  const templates = useMemo(() => [...PROJECT_TEMPLATES, ...customTemplates], [customTemplates]);
+  const templates = useMemo(
+    () => [...PROJECT_TEMPLATES, ...customTemplates],
+    [customTemplates]
+  );
 
   function openBuilder(template?: ProjectTemplate) {
     setTemplateError("");
-    setTemplateForm(template ? templateToForm(template) : { ...emptyTemplateForm, id: "" });
+    setTemplateForm(
+      template ? templateToForm(template) : { ...emptyTemplateForm, id: "" }
+    );
     setBuilderOpen(true);
   }
 
   function saveTemplate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!templateForm.name.trim()) return;
-    const previousTemplate = customTemplates.find((template) => template.id === templateForm.id);
-    const nextStages = workflowStagesFromLabels(linesFromText(templateForm.workflowStagesText, 12), previousTemplate?.workflowStages);
+    const previousTemplate = customTemplates.find(
+      (template) => template.id === templateForm.id
+    );
+    const nextStages = workflowStagesFromLabels(
+      linesFromText(templateForm.workflowStagesText, 12),
+      previousTemplate?.workflowStages
+    );
     const stageError = validateWorkflowStages(nextStages);
     if (stageError) {
       setTemplateError(stageError);
@@ -1979,21 +2867,34 @@ function TemplatesDesignPage({
 
     const nextTemplate = customTemplateFromForm(templateForm, previousTemplate);
     nextTemplate.archived = previousTemplate?.archived ?? false;
-    if (previousTemplate && items.some((item) => item.templateId === previousTemplate.id)) {
-      const nextStageIds = new Set(nextTemplate.workflowStages.map((stage) => stage.id));
-      const removedStage = previousTemplate.workflowStages.find((stage) => !nextStageIds.has(stage.id));
+    if (
+      previousTemplate &&
+      items.some((item) => item.templateId === previousTemplate.id)
+    ) {
+      const nextStageIds = new Set(
+        nextTemplate.workflowStages.map((stage) => stage.id)
+      );
+      const removedStage = previousTemplate.workflowStages.find(
+        (stage) => !nextStageIds.has(stage.id)
+      );
       if (removedStage) {
-        setTemplateError(`Reassign Projects before removing the ${removedStage.label} stage.`);
+        setTemplateError(
+          `Reassign Projects before removing the ${removedStage.label} stage.`
+        );
         return;
       }
     }
     setSettings((current) => {
       const currentTemplates = current.customProjectTemplates ?? [];
-      const exists = currentTemplates.some((template) => template.id === nextTemplate.id);
+      const exists = currentTemplates.some(
+        (template) => template.id === nextTemplate.id
+      );
       return {
         ...current,
         customProjectTemplates: exists
-          ? currentTemplates.map((template) => template.id === nextTemplate.id ? nextTemplate : template)
+          ? currentTemplates.map((template) =>
+              template.id === nextTemplate.id ? nextTemplate : template
+            )
           : [nextTemplate, ...currentTemplates].slice(0, 24),
       };
     });
@@ -2002,22 +2903,46 @@ function TemplatesDesignPage({
 
   function deleteTemplate(templateId: string) {
     if (items.some((item) => item.templateId === templateId)) {
-      setTemplateError("This template is in use. Reassign its Projects before deleting it.");
+      setTemplateError(
+        "This template is in use. Reassign its Projects before deleting it."
+      );
       return;
     }
     setSettings((current) => ({
       ...current,
-      customProjectTemplates: (current.customProjectTemplates ?? []).filter((template) => template.id !== templateId),
+      customProjectTemplates: (current.customProjectTemplates ?? []).filter(
+        (template) => template.id !== templateId
+      ),
     }));
   }
 
   function copyTemplate(template: ProjectTemplate) {
-    const copy = { ...template, id: `custom-copy-${Date.now().toString(36)}`, name: `${template.name} Copy`, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems], custom: true, updatedAt: new Date().toISOString() };
-    setSettings((current) => ({ ...current, customProjectTemplates: [copy, ...current.customProjectTemplates].slice(0, 24) }));
+    const copy = {
+      ...template,
+      id: `custom-copy-${Date.now().toString(36)}`,
+      name: `${template.name} Copy`,
+      workflowStages: template.workflowStages.map((stage) => ({ ...stage })),
+      deliverables: template.deliverables.map((item) => ({ ...item })),
+      checklistItems: [...template.checklistItems],
+      custom: true,
+      updatedAt: new Date().toISOString(),
+    };
+    setSettings((current) => ({
+      ...current,
+      customProjectTemplates: [copy, ...current.customProjectTemplates].slice(
+        0,
+        24
+      ),
+    }));
   }
 
   function archiveTemplate(template: SavedProjectTemplate) {
-    setSettings((current) => ({ ...current, customProjectTemplates: current.customProjectTemplates.map((item) => item.id === template.id ? { ...item, archived: !item.archived } : item) }));
+    setSettings((current) => ({
+      ...current,
+      customProjectTemplates: current.customProjectTemplates.map((item) =>
+        item.id === template.id ? { ...item, archived: !item.archived } : item
+      ),
+    }));
   }
 
   return (
@@ -2027,132 +2952,224 @@ function TemplatesDesignPage({
         title="Templates"
         description="Start with a practical editing workflow, or save your own recurring setup for the next project."
         actions={
-        <div className="flex flex-wrap justify-end gap-2">
-          <OwnedButton type="button" variant="outline" onClick={() => openBuilder()} disabled={!canManageTemplates}>
-            <Plus aria-hidden="true" />
-            Custom Template
-          </OwnedButton>
-          <OwnedButton type="button" variant="outline" onClick={onUseBlank}>
-            <Plus aria-hidden="true" />
-            Blank Project
-          </OwnedButton>
-        </div>
-      }
+          <div className="flex flex-wrap justify-end gap-2">
+            <OwnedButton
+              type="button"
+              variant="outline"
+              onClick={() => openBuilder()}
+              disabled={!canManageTemplates}
+            >
+              <Plus aria-hidden="true" />
+              Custom Template
+            </OwnedButton>
+            <OwnedButton type="button" variant="outline" onClick={onUseBlank}>
+              <Plus aria-hidden="true" />
+              Blank Project
+            </OwnedButton>
+          </div>
+        }
       />
       <PageContent className="space-y-5">
-      {templateError && !builderOpen ? <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{templateError}</p> : null}
-      <ContentSection
-        title="Template library"
-        metadata={<OwnedBadge variant="secondary">{templates.length} templates</OwnedBadge>}
-        aria-label="Project templates"
-        bodyClassName={`grid md:grid-cols-2 xl:grid-cols-3 ${settings.density === "Compact" ? "gap-3" : "gap-4"}`}
-      >
-        {templates.map((template) => (
-          <article
-            key={template.id}
-            data-slot="template-card"
-            className="group flex min-h-[250px] flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-4 text-foreground shadow-[var(--app-shadow-1)] transition-[background-color,border-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[var(--app-strong-border)] hover:bg-[var(--app-hover)] hover:shadow-[var(--app-shadow-2)] focus-within:border-[var(--app-accent)]"
+        {templateError && !builderOpen ? (
+          <p
+            role="alert"
+            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
-            <div>
-              <header className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold">{template.name}</h2>
-                    <OwnedBadge variant="secondary" className="rounded-md text-[10px] uppercase tracking-wide">
-                      {template.archived ? "Archived" : template.custom ? "Custom" : "Built-in"}
-                    </OwnedBadge>
+            {templateError}
+          </p>
+        ) : null}
+        <ContentSection
+          title="Template library"
+          metadata={
+            <OwnedBadge variant="secondary">
+              {templates.length} templates
+            </OwnedBadge>
+          }
+          aria-label="Project templates"
+          bodyClassName={`grid md:grid-cols-2 xl:grid-cols-3 ${settings.density === "Compact" ? "gap-3" : "gap-4"}`}
+        >
+          {templates.map((template) => (
+            <article
+              key={template.id}
+              data-slot="template-card"
+              className="group flex min-h-[250px] flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-4 text-foreground shadow-[var(--app-shadow-1)] transition-[background-color,border-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[var(--app-strong-border)] hover:bg-[var(--app-hover)] hover:shadow-[var(--app-shadow-2)] focus-within:border-[var(--app-accent)]"
+            >
+              <div>
+                <header className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-semibold">
+                        {template.name}
+                      </h2>
+                      <OwnedBadge
+                        variant="secondary"
+                        className="rounded-md text-[10px] uppercase tracking-wide"
+                      >
+                        {template.archived
+                          ? "Archived"
+                          : template.custom
+                            ? "Custom"
+                            : "Built-in"}
+                      </OwnedBadge>
+                    </div>
+                    <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                      {template.description}
+                    </p>
                   </div>
-                  <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">{template.description}</p>
-                </div>
-                <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)]">
-                  <FileText aria-hidden="true" className="size-4" />
-                </span>
-              </header>
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)]">
+                    <FileText aria-hidden="true" className="size-4" />
+                  </span>
+                </header>
 
-              <dl className="mt-4 grid grid-cols-2 gap-3 border-y border-[var(--app-border)] py-3 text-xs">
-                <div>
-                  <dt className="text-[10px] uppercase tracking-[0.12em] text-[var(--app-muted)]">Project type</dt>
-                  <dd className="mt-1 font-semibold text-[var(--app-highlight)]">{template.projectType}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase tracking-[0.12em] text-[var(--app-muted)]">Setup time</dt>
-                  <dd className="mt-1 text-foreground">{template.durationDays} days</dd>
-                </div>
-              </dl>
+                <dl className="mt-4 grid grid-cols-2 gap-3 border-y border-[var(--app-border)] py-3 text-xs">
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                      Project type
+                    </dt>
+                    <dd className="mt-1 font-semibold text-[var(--app-highlight)]">
+                      {template.projectType}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                      Setup time
+                    </dt>
+                    <dd className="mt-1 text-foreground">
+                      {template.durationDays} days
+                    </dd>
+                  </div>
+                </dl>
 
-              <div className="mt-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground">Workflow preview</h3>
-                  <span className="font-mono text-[10px] text-[var(--app-muted)]">{template.workflowStages.length} stages</span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label={`${template.name} workflow stages`} role="list">
-                  {(template.workflowStages.length ? template.workflowStages : [{ id: "empty", label: "Add stages after creating the project", purpose: "planned" as const }]).slice(0, 4).map((stage, index) => (
-                    <span key={`${template.id}-${stage.id}-${index}`} className="inline-flex items-center gap-1.5">
-                      <span role="listitem" className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground">{stage.label}</span>
-                      {index < Math.min(template.workflowStages.length, 4) - 1 ? <span aria-hidden="true" className="text-[var(--app-muted)]">→</span> : null}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground">
+                      Workflow preview
+                    </h3>
+                    <span className="font-mono text-[10px] text-[var(--app-muted)]">
+                      {template.workflowStages.length} stages
                     </span>
-                  ))}
-                  {template.workflowStages.length > 4 ? <span className="text-[11px] text-[var(--app-muted)]">+{template.workflowStages.length - 4}</span> : null}
+                  </div>
+                  <div
+                    className="mt-2 flex flex-wrap items-center gap-1.5"
+                    aria-label={`${template.name} workflow stages`}
+                    role="list"
+                  >
+                    {(template.workflowStages.length
+                      ? template.workflowStages
+                      : [
+                          {
+                            id: "empty",
+                            label: "Add stages after creating the project",
+                            purpose: "planned" as const,
+                          },
+                        ]
+                    )
+                      .slice(0, 4)
+                      .map((stage, index) => (
+                        <span
+                          key={`${template.id}-${stage.id}-${index}`}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <span
+                            role="listitem"
+                            className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-1 text-[11px] text-foreground"
+                          >
+                            {stage.label}
+                          </span>
+                          {index <
+                          Math.min(template.workflowStages.length, 4) - 1 ? (
+                            <span
+                              aria-hidden="true"
+                              className="text-[var(--app-muted)]"
+                            >
+                              →
+                            </span>
+                          ) : null}
+                        </span>
+                      ))}
+                    {template.workflowStages.length > 4 ? (
+                      <span className="text-[11px] text-[var(--app-muted)]">
+                        +{template.workflowStages.length - 4}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {template.deliverables.length} deliverables ·{" "}
+                    {template.checklistItems.length} checklist items
+                  </p>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {template.deliverables.length} deliverables · {template.checklistItems.length} checklist items
-                </p>
               </div>
-            </div>
 
-            <footer className="mt-5 flex flex-wrap items-center justify-between gap-2">
-              <OwnedButton
-                type="button"
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => onUseTemplate(template)}
-                disabled={template.archived}
-              >
+              <footer className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                <OwnedButton
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => onUseTemplate(template)}
+                  disabled={template.archived}
+                >
                   Use template
-                <Plus aria-hidden="true" />
-              </OwnedButton>
-              <OwnedButton type="button" size="sm" variant="ghost" aria-label={`Copy ${template.name} template`} onClick={() => copyTemplate(template)} disabled={!canManageTemplates}>
-                <Copy aria-hidden="true" />
-                Copy
-              </OwnedButton>
-              {template.custom && canManageTemplates ? (
-                <div className="flex items-center gap-1">
-                  <OwnedButton
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`Edit ${template.name} template`}
-                    onClick={() => openBuilder(template)}
-                  >
-                    <Pencil aria-hidden="true" />
-                    Edit
-                  </OwnedButton>
-                  <OwnedButton type="button" size="sm" variant="ghost" onClick={() => archiveTemplate(template)}>{template.archived ? "Restore" : "Archive"}</OwnedButton>
-                  <OwnedButton
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Delete ${template.name} template`}
-                    onClick={() => deleteTemplate(template.id)}
-                  >
-                    <Trash2 aria-hidden="true" />
-                    Delete
-                  </OwnedButton>
-                </div>
-              ) : null}
-            </footer>
-          </article>
-        ))}
-      </ContentSection>
+                  <Plus aria-hidden="true" />
+                </OwnedButton>
+                <OwnedButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Copy ${template.name} template`}
+                  onClick={() => copyTemplate(template)}
+                  disabled={!canManageTemplates}
+                >
+                  <Copy aria-hidden="true" />
+                  Copy
+                </OwnedButton>
+                {template.custom && canManageTemplates ? (
+                  <div className="flex items-center gap-1">
+                    <OwnedButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Edit ${template.name} template`}
+                      onClick={() => openBuilder(template)}
+                    >
+                      <Pencil aria-hidden="true" />
+                      Edit
+                    </OwnedButton>
+                    <OwnedButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => archiveTemplate(template)}
+                    >
+                      {template.archived ? "Restore" : "Archive"}
+                    </OwnedButton>
+                    <OwnedButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Delete ${template.name} template`}
+                      onClick={() => deleteTemplate(template.id)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      Delete
+                    </OwnedButton>
+                  </div>
+                ) : null}
+              </footer>
+            </article>
+          ))}
+        </ContentSection>
       </PageContent>
 
       <OwnedDialog open={builderOpen} onOpenChange={setBuilderOpen}>
         <OwnedDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-3xl">
           <OwnedDialogHeader>
-            <OwnedDialogTitle>{templateForm.id ? "Edit Custom Template" : "New Custom Template"}</OwnedDialogTitle>
+            <OwnedDialogTitle>
+              {templateForm.id ? "Edit Custom Template" : "New Custom Template"}
+            </OwnedDialogTitle>
             <OwnedDialogDescription>
-              Save a reusable project setup. Enter one workflow stage, deliverable, or checklist item per line.
+              Save a reusable project setup. Enter one workflow stage,
+              deliverable, or checklist item per line.
             </OwnedDialogDescription>
           </OwnedDialogHeader>
 
@@ -2162,14 +3179,24 @@ function TemplatesDesignPage({
                 <OwnedInput
                   value={templateForm.name}
                   maxLength={80}
-                  onChange={(event) => setTemplateForm({ ...templateForm, name: event.target.value })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      name: event.target.value,
+                    })
+                  }
                 />
               </FieldLayout>
               <FieldLayout label="Project type">
                 <OwnedInput
                   value={templateForm.projectType}
                   maxLength={80}
-                  onChange={(event) => setTemplateForm({ ...templateForm, projectType: event.target.value })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      projectType: event.target.value,
+                    })
+                  }
                 />
               </FieldLayout>
             </div>
@@ -2178,14 +3205,24 @@ function TemplatesDesignPage({
               <OwnedInput
                 value={templateForm.description}
                 maxLength={220}
-                onChange={(event) => setTemplateForm({ ...templateForm, description: event.target.value })}
+                onChange={(event) =>
+                  setTemplateForm({
+                    ...templateForm,
+                    description: event.target.value,
+                  })
+                }
               />
             </FieldLayout>
 
             <div className="grid gap-4 md:grid-cols-2">
               <OwnedSelect
                 value={templateForm.workType}
-                onValueChange={(value) => setTemplateForm({ ...templateForm, workType: value as "channel" | "freelance" })}
+                onValueChange={(value) =>
+                  setTemplateForm({
+                    ...templateForm,
+                    workType: value as "channel" | "freelance",
+                  })
+                }
               >
                 <FieldLayout label="Work type">
                   <OwnedSelectTrigger className="w-full">
@@ -2205,7 +3242,12 @@ function TemplatesDesignPage({
                   max={120}
                   step={1}
                   value={templateForm.durationDays}
-                  onChange={(event) => setTemplateForm({ ...templateForm, durationDays: Number(event.target.value) })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      durationDays: Number(event.target.value),
+                    })
+                  }
                 />
               </FieldLayout>
             </div>
@@ -2215,28 +3257,51 @@ function TemplatesDesignPage({
                 <OwnedTextarea
                   value={templateForm.workflowStagesText}
                   rows={5}
-                  onChange={(event) => setTemplateForm({ ...templateForm, workflowStagesText: event.target.value })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      workflowStagesText: event.target.value,
+                    })
+                  }
                 />
               </FieldLayout>
               <FieldLayout label="Deliverables" description="One per line">
                 <OwnedTextarea
                   value={templateForm.deliverablesText}
                   rows={5}
-                  onChange={(event) => setTemplateForm({ ...templateForm, deliverablesText: event.target.value })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      deliverablesText: event.target.value,
+                    })
+                  }
                 />
               </FieldLayout>
               <FieldLayout label="Checklist" description="One per line">
                 <OwnedTextarea
                   value={templateForm.checklistText}
                   rows={5}
-                  onChange={(event) => setTemplateForm({ ...templateForm, checklistText: event.target.value })}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      checklistText: event.target.value,
+                    })
+                  }
                 />
               </FieldLayout>
             </div>
 
-            {templateError ? <p role="alert" className="text-sm text-destructive">{templateError}</p> : null}
+            {templateError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {templateError}
+              </p>
+            ) : null}
             <OwnedDialogFooter>
-              <OwnedButton type="button" variant="outline" onClick={() => setBuilderOpen(false)}>
+              <OwnedButton
+                type="button"
+                variant="outline"
+                onClick={() => setBuilderOpen(false)}
+              >
                 Cancel
               </OwnedButton>
               <OwnedButton type="submit" disabled={!templateForm.name.trim()}>
@@ -2250,10 +3315,28 @@ function TemplatesDesignPage({
   );
 }
 
-function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings: SettingsState; setSettings: (settings: SettingsState) => void }) {
-  const { isSignedIn, isLoaded: isUserLoaded, openSignIn, openSignUp } = useOptionalAuth();
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const teamData = useQuery(api.team.getMyWorkspace, isConvexAuthenticated ? {} : "skip");
+function TeamDesignPage({
+  projects,
+  settings,
+}: {
+  projects: WorkItem[];
+  settings: SettingsState;
+  setSettings: (settings: SettingsState) => void;
+}) {
+  const {
+    isSignedIn,
+    isLoaded: isUserLoaded,
+    openSignIn,
+    openSignUp,
+  } = useOptionalAuth();
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
+  const teamData = useQuery(
+    api.team.getMyWorkspace,
+    isConvexAuthenticated ? {} : "skip"
+  );
   const createWorkspace = useMutation(api.team.createWorkspace);
   const joinWorkspace = useMutation(api.team.joinWorkspace);
   const inviteMember = useMutation(api.team.inviteMember);
@@ -2265,8 +3348,12 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const leaveWorkspace = useMutation(api.team.leaveWorkspace);
   const addProjectComment = useMutation(api.team.addProjectComment);
   const markNotificationRead = useMutation(api.team.markNotificationRead);
-  const markAllNotificationsRead = useMutation(api.team.markAllNotificationsRead);
-  const [workspaceName, setWorkspaceName] = useState(settings.studioName || "Relay Team");
+  const markAllNotificationsRead = useMutation(
+    api.team.markAllNotificationsRead
+  );
+  const [workspaceName, setWorkspaceName] = useState(
+    settings.studioName || "Relay Team"
+  );
   const [inviteCode, setInviteCode] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "Editor" });
   const [commentBody, setCommentBody] = useState("");
@@ -2276,20 +3363,43 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   const [inviteCopyLabel, setInviteCopyLabel] = useState("Copy Invite Code");
   const [busyAction, setBusyAction] = useState("");
   const teamId = teamData?.workspace?._id;
-  const teamProjects = useMemo(() => (teamId ? projects.filter((project) => project.teamId === teamId) : []), [projects, teamId]);
-  const teamProjectTitles = useMemo(() => Object.fromEntries(teamProjects.map((project) => [project.id, project.title])), [teamProjects]);
+  const teamProjects = useMemo(
+    () =>
+      teamId ? projects.filter((project) => project.teamId === teamId) : [],
+    [projects, teamId]
+  );
+  const teamProjectTitles = useMemo(
+    () =>
+      Object.fromEntries(
+        teamProjects.map((project) => [project.id, project.title])
+      ),
+    [teamProjects]
+  );
   const clients = buildClientSummaries(teamProjects, settings.customClients);
-  const selectedProject = teamProjects.find((project) => project.id === selectedProjectId) ?? teamProjects[0] ?? null;
+  const selectedProject =
+    teamProjects.find((project) => project.id === selectedProjectId) ??
+    teamProjects[0] ??
+    null;
   const projectComments = useQuery(
     api.team.listProjectComments,
-    isConvexAuthenticated && teamId && selectedProject ? { teamId, projectId: selectedProject.id } : "skip"
+    isConvexAuthenticated && teamId && selectedProject
+      ? { teamId, projectId: selectedProject.id }
+      : "skip"
   );
-  const activeMembers = teamData?.members.filter((member) => member.status === "active") ?? [];
-  const pendingInvites = teamData?.members.filter((member) => member.status === "invited") ?? [];
-  const unreadNotifications = teamData?.notifications.filter((notification) => !notification.read).length ?? 0;
+  const activeMembers =
+    teamData?.members.filter((member) => member.status === "active") ?? [];
+  const pendingInvites =
+    teamData?.members.filter((member) => member.status === "invited") ?? [];
+  const unreadNotifications =
+    teamData?.notifications.filter((notification) => !notification.read)
+      .length ?? 0;
   const canManageTeam = Boolean(teamData?.currentMember.permissions.manageTeam);
-  const canCommentProjects = Boolean(teamData?.currentMember.permissions.commentProjects);
-  const canLeaveWorkspace = Boolean(teamData && teamData.currentMember.role !== "Owner");
+  const canCommentProjects = Boolean(
+    teamData?.currentMember.permissions.commentProjects
+  );
+  const canLeaveWorkspace = Boolean(
+    teamData && teamData.currentMember.role !== "Owner"
+  );
   const inviteCodeIsValid = TEAM_INVITE_CODE_PATTERN.test(inviteCode.trim());
   const inviteEmailIsValid = isValidEmail(inviteForm.email);
 
@@ -2308,10 +3418,21 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   }, [selectedProjectId, teamProjects]);
 
   useEffect(() => {
-    if (!teamData?.workspace || !canManageTeam || !teamData.members.some((member) => member.role === "Client")) return;
-    void normalizeLegacyRoles({ teamId: teamData.workspace._id }).catch((error) => {
-      setTeamError(error instanceof Error ? error.message : "Legacy team roles could not be updated.");
-    });
+    if (
+      !teamData?.workspace ||
+      !canManageTeam ||
+      !teamData.members.some((member) => member.role === "Client")
+    )
+      return;
+    void normalizeLegacyRoles({ teamId: teamData.workspace._id }).catch(
+      (error) => {
+        setTeamError(
+          error instanceof Error
+            ? error.message
+            : "Legacy team roles could not be updated."
+        );
+      }
+    );
   }, [canManageTeam, normalizeLegacyRoles, teamData]);
 
   async function runTeamAction(label: string, action: () => Promise<unknown>) {
@@ -2320,14 +3441,21 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
     try {
       await action();
     } catch (error) {
-      setTeamError(error instanceof Error ? error.message : "Team action failed.");
+      setTeamError(
+        error instanceof Error ? error.message : "Team action failed."
+      );
     } finally {
       setBusyAction("");
     }
   }
 
   function formatActivityTime(value: string) {
-    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+    return new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(value));
   }
 
   async function copyInviteCode(code: string) {
@@ -2349,428 +3477,788 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
   return (
     <WorkspacePage family="administration">
       <PageHeader
-      eyebrow="Workspace / Team"
-      title="Team"
-      description="Manage members, shared project comments, notifications, and workspace activity."
+        eyebrow="Workspace / Team"
+        title="Team"
+        description="Manage members, shared project comments, notifications, and workspace activity."
       />
       <PageContent className="space-y-5">
-      <MetricStrip columns={4}>
-        {[
-          {
-            label: "Active members",
-            value: String(activeMembers.length),
-            helper: `${pendingInvites.length} pending invite${pendingInvites.length === 1 ? "" : "s"}`,
-            icon: Users,
-            highlighted: true,
-          },
-          { label: "Team projects", value: String(teamProjects.length), helper: "Shared production work", icon: FolderKanban },
-          { label: "Client contacts", value: String(clients.length), helper: "From shared projects", icon: UserRound },
-          { label: "Unread updates", value: String(unreadNotifications), helper: "Mentions and activity", icon: Bell, highlighted: unreadNotifications > 0 },
-        ].map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <MetricItem
-              key={metric.label}
-              label={metric.label}
-              value={metric.value}
-              supporting={metric.helper}
-              action={
-                <span className={metric.highlighted ? "rounded-md bg-primary/15 p-2 text-primary" : "rounded-md bg-muted p-2 text-muted-foreground"}>
-                  <Icon aria-hidden="true" className="size-5" />
-                </span>
-              }
-            />
-          );
-        })}
-      </MetricStrip>
+        <MetricStrip columns={4}>
+          {[
+            {
+              label: "Active members",
+              value: String(activeMembers.length),
+              helper: `${pendingInvites.length} pending invite${pendingInvites.length === 1 ? "" : "s"}`,
+              icon: Users,
+              highlighted: true,
+            },
+            {
+              label: "Team projects",
+              value: String(teamProjects.length),
+              helper: "Shared production work",
+              icon: FolderKanban,
+            },
+            {
+              label: "Client contacts",
+              value: String(clients.length),
+              helper: "From shared projects",
+              icon: UserRound,
+            },
+            {
+              label: "Unread updates",
+              value: String(unreadNotifications),
+              helper: "Mentions and activity",
+              icon: Bell,
+              highlighted: unreadNotifications > 0,
+            },
+          ].map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <MetricItem
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                supporting={metric.helper}
+                action={
+                  <span
+                    className={
+                      metric.highlighted
+                        ? "rounded-md bg-primary/15 p-2 text-primary"
+                        : "rounded-md bg-muted p-2 text-muted-foreground"
+                    }
+                  >
+                    <Icon aria-hidden="true" className="size-5" />
+                  </span>
+                }
+              />
+            );
+          })}
+        </MetricStrip>
 
-      {teamError ? (
-        <div role="alert" className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive shadow-sm">
-          {teamError}
-        </div>
-      ) : null}
-
-      {!isUserLoaded ? (
-          <ContentSection bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]" role="status">
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-primary" />
-          Checking account status...
-        </ContentSection>
-      ) : !isSignedIn ? (
-        <ContentSection title="Team access" description="Shared workspaces keep members, project comments, notifications, activity, and chat in sync." className="shadow-[var(--app-shadow-1)]">
-          <div className="max-w-3xl">
-            <h2 className="text-xl font-semibold leading-tight md:text-2xl">Team workspaces require an account</h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Local mode is available for solo tracking, but invites, shared projects, comments, notifications, activity, and chat need Clerk sign-in so Convex can sync the right team workspace.
-            </p>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              <OwnedButton type="button" onClick={() => openSignUp()}>Create Account</OwnedButton>
-              <OwnedButton type="button" variant="outline" onClick={() => openSignIn()}>Sign In</OwnedButton>
-            </div>
+        {teamError ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive shadow-sm"
+          >
+            {teamError}
           </div>
-        </ContentSection>
-      ) : isConvexAuthLoading ? (
-        <ContentSection bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]" role="status">
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-primary" />
-          Connecting your account to Team sync...
-        </ContentSection>
-      ) : !isConvexAuthenticated ? (
-        <ContentSection role="alert" className="border-destructive/50 bg-destructive/10 text-destructive" bodyClassName="p-6 shadow-sm md:p-8">
-          <h2 className="text-xl font-semibold">Team sync is not connected</h2>
-          <p className="mt-2 text-sm leading-relaxed">
-            Clerk sign-in is loaded, but Convex did not receive an authenticated token. Check `convex/auth.config.ts`, the Clerk JWT template audience, and the Clerk issuer environment variables before running the two-account Team smoke test.
-          </p>
-        </ContentSection>
-      ) : teamData === undefined ? (
-        <ContentSection bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]" role="status">
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-primary" />
-          Loading team workspace...
-        </ContentSection>
-      ) : !teamData ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <ContentSection className="md:col-span-2" bodyMode="flush">
-            <EmptyPanel
-              title="Invite your team"
-              body="Create a shared workspace or join one with an invite code to start collaborating."
-              assetKey="team"
-            />
-          </ContentSection>
-          <ContentSection title="Create a workspace" description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex.">
-            <FieldLayout className="mt-5" label="Workspace name" description={`${workspaceName.length}/${TEAM_WORKSPACE_NAME_LIMIT} characters`}>
-              <OwnedInput
-                value={workspaceName}
-                {...{ maxLength: TEAM_WORKSPACE_NAME_LIMIT }}
-                onChange={(event) => setWorkspaceName(event.target.value)}
-              />
-            </FieldLayout>
-            <OwnedButton type="button" className="mt-4" disabled={Boolean(busyAction)} onClick={() => runTeamAction("create", () => createWorkspace({ name: workspaceName }))}>
-              Create Team Workspace
-            </OwnedButton>
-          </ContentSection>
-          <ContentSection title="Join a workspace" description="Use the six-character code from your team owner. Your signed-in email must match a pending invite.">
-            <FieldLayout
-              className="mt-5"
-              label="Invite code"
-              description="Enter the six-character code from your team owner."
-              error={inviteCode.trim() && !inviteCodeIsValid ? "Invite code must contain six letters or numbers." : undefined}
-            >
-              <OwnedInput
-                value={inviteCode}
-                maxLength={6}
-                autoCapitalize="characters"
-                onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-              />
-            </FieldLayout>
-            <OwnedButton type="button" variant="outline" className="mt-4" disabled={Boolean(busyAction) || !inviteCodeIsValid} onClick={() => runTeamAction("join", () => joinWorkspace({ inviteCode }))}>
-              Join Workspace
-            </OwnedButton>
-          </ContentSection>
-        </div>
-      ) : (
-        <SplitPane
-          data-slot="team-administration"
-          ratio="supporting"
-          primary={(
-          <div className="grid min-w-0 content-start gap-4">
-            <ContentSection
-              title={teamData.workspace.name}
-              description={canManageTeam ? (
-                <span>Invite code <span className="font-mono font-bold tracking-widest text-[var(--app-highlight)]">{teamData.workspace.inviteCode}</span></span>
-              ) : "Invite code is visible to team owners only."}
-              actions={(
-                <div className="flex flex-wrap items-center gap-2">
-                  <OwnedBadge variant="secondary">{displayTeamRole(teamData.currentMember.role)} access</OwnedBadge>
-                  {canManageTeam ? (
-                    <OwnedButton type="button" size="sm" variant="outline" onClick={() => copyInviteCode(teamData.workspace.inviteCode)}>
-                      <Copy aria-hidden="true" />
-                      {inviteCopyLabel}
-                    </OwnedButton>
-                  ) : null}
-                  {canLeaveWorkspace ? (
-                    <OwnedButton
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={Boolean(busyAction)}
-                      onClick={() => runTeamAction("leave", () => leaveWorkspace({ teamId: teamData.workspace._id }))}
-                      className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      Leave Workspace
-                    </OwnedButton>
-                  ) : null}
-                </div>
-              )}
-              bodyMode="flush"
-            >
+        ) : null}
 
-              <div className="max-h-[min(560px,calc(100dvh-21rem))] divide-y divide-[var(--app-border)] overflow-y-auto overscroll-contain">
-                {teamData.members.map((member) => (
-                  <article key={member._id} className="flex flex-col justify-between gap-3 p-4 md:flex-row md:items-center">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold">{member.name}</h3>
-                        <OwnedBadge variant="outline" className="rounded-md text-[10px]">{displayTeamRole(member.role)}</OwnedBadge>
-                        <OwnedBadge
-                          variant="secondary"
-                          className={cn(
-                            "rounded-md",
-                            member.status === "active"
-                              ? "bg-[var(--status-success-bg)] text-[var(--status-success)]"
-                              : "bg-[var(--status-warning-bg)] text-[var(--status-warning)]",
-                          )}
+        {!isUserLoaded ? (
+          <ContentSection
+            bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]"
+            role="status"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-5 animate-spin text-primary"
+            />
+            Checking account status...
+          </ContentSection>
+        ) : !isSignedIn ? (
+          <ContentSection
+            title="Team access"
+            description="Shared workspaces keep members, project comments, notifications, activity, and chat in sync."
+            className="shadow-[var(--app-shadow-1)]"
+          >
+            <div className="max-w-3xl">
+              <h2 className="text-xl font-semibold leading-tight md:text-2xl">
+                Team workspaces require an account
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                Local mode is available for solo tracking, but invites, shared
+                projects, comments, notifications, activity, and chat need Clerk
+                sign-in so Convex can sync the right team workspace.
+              </p>
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                <OwnedButton type="button" onClick={() => openSignUp()}>
+                  Create Account
+                </OwnedButton>
+                <OwnedButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => openSignIn()}
+                >
+                  Sign In
+                </OwnedButton>
+              </div>
+            </div>
+          </ContentSection>
+        ) : isConvexAuthLoading ? (
+          <ContentSection
+            bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]"
+            role="status"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-5 animate-spin text-primary"
+            />
+            Connecting your account to Team sync...
+          </ContentSection>
+        ) : !isConvexAuthenticated ? (
+          <ContentSection
+            role="alert"
+            className="border-destructive/50 bg-destructive/10 text-destructive"
+            bodyClassName="p-6 shadow-sm md:p-8"
+          >
+            <h2 className="text-xl font-semibold">
+              Team sync is not connected
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed">
+              Clerk sign-in is loaded, but Convex did not receive an
+              authenticated token. Check `convex/auth.config.ts`, the Clerk JWT
+              template audience, and the Clerk issuer environment variables
+              before running the two-account Team smoke test.
+            </p>
+          </ContentSection>
+        ) : teamData === undefined ? (
+          <ContentSection
+            bodyClassName="flex min-h-28 items-center gap-3 p-6 text-sm text-[var(--app-muted)]"
+            role="status"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-5 animate-spin text-primary"
+            />
+            Loading team workspace...
+          </ContentSection>
+        ) : !teamData ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <ContentSection className="md:col-span-2" bodyMode="flush">
+              <EmptyPanel
+                title="Invite your team"
+                body="Create a shared workspace or join one with an invite code to start collaborating."
+                assetKey="team"
+              />
+            </ContentSection>
+            <ContentSection
+              title="Create a workspace"
+              description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex."
+            >
+              <FieldLayout
+                className="mt-5"
+                label="Workspace name"
+                description={`${workspaceName.length}/${TEAM_WORKSPACE_NAME_LIMIT} characters`}
+              >
+                <OwnedInput
+                  value={workspaceName}
+                  {...{ maxLength: TEAM_WORKSPACE_NAME_LIMIT }}
+                  onChange={(event) => setWorkspaceName(event.target.value)}
+                />
+              </FieldLayout>
+              <OwnedButton
+                type="button"
+                className="mt-4"
+                disabled={Boolean(busyAction)}
+                onClick={() =>
+                  runTeamAction("create", () =>
+                    createWorkspace({ name: workspaceName })
+                  )
+                }
+              >
+                Create Team Workspace
+              </OwnedButton>
+            </ContentSection>
+            <ContentSection
+              title="Join a workspace"
+              description="Use the six-character code from your team owner. Your signed-in email must match a pending invite."
+            >
+              <FieldLayout
+                className="mt-5"
+                label="Invite code"
+                description="Enter the six-character code from your team owner."
+                error={
+                  inviteCode.trim() && !inviteCodeIsValid
+                    ? "Invite code must contain six letters or numbers."
+                    : undefined
+                }
+              >
+                <OwnedInput
+                  value={inviteCode}
+                  maxLength={6}
+                  autoCapitalize="characters"
+                  onChange={(event) =>
+                    setInviteCode(
+                      event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
+                    )
+                  }
+                />
+              </FieldLayout>
+              <OwnedButton
+                type="button"
+                variant="outline"
+                className="mt-4"
+                disabled={Boolean(busyAction) || !inviteCodeIsValid}
+                onClick={() =>
+                  runTeamAction("join", () => joinWorkspace({ inviteCode }))
+                }
+              >
+                Join Workspace
+              </OwnedButton>
+            </ContentSection>
+          </div>
+        ) : (
+          <SplitPane
+            data-slot="team-administration"
+            ratio="supporting"
+            primary={
+              <div className="grid min-w-0 content-start gap-4">
+                <ContentSection
+                  title={teamData.workspace.name}
+                  description={
+                    canManageTeam ? (
+                      <span>
+                        Invite code{" "}
+                        <span className="font-mono font-bold tracking-widest text-[var(--app-highlight)]">
+                          {teamData.workspace.inviteCode}
+                        </span>
+                      </span>
+                    ) : (
+                      "Invite code is visible to team owners only."
+                    )
+                  }
+                  actions={
+                    <div className="flex flex-wrap items-center gap-2">
+                      <OwnedBadge variant="secondary">
+                        {displayTeamRole(teamData.currentMember.role)} access
+                      </OwnedBadge>
+                      {canManageTeam ? (
+                        <OwnedButton
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            copyInviteCode(teamData.workspace.inviteCode)
+                          }
                         >
-                          {member.status}
-                        </OwnedBadge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{member.email || "No email on profile"}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                      {canManageTeam && member.role !== "Owner" ? (
-                        <div className="w-full sm:w-40">
-                          <ProjectSelect
-                            label="Role"
-                            value={displayTeamRole(member.role)}
-                            options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
-                            onChange={(role) => runTeamAction("role", () => updateMemberRole({ teamId: teamData.workspace._id, memberId: member._id, role: (role === "Viewer" ? "Reviewer" : role) as "Editor" | "Reviewer" }))}
-                            compact
-                          />
-                        </div>
-                      ) : Object.entries(member.permissions).filter(([, enabled]) => enabled).slice(0, 4).map(([permission]) => (
-                        <OwnedBadge key={permission} variant="secondary" className="rounded-md text-[10px]">{permission}</OwnedBadge>
-                      ))}
-                      {canManageTeam && member.role !== "Owner" ? (
-                        <div className="grid w-full gap-2 sm:grid-cols-2">
-                          {TEAM_MEMBER_PERMISSION_LABELS.map(([permission, label]) => (
-                            <label key={permission} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <OwnedSwitch
-                                checked={Boolean(member.permissions[permission])}
-                                aria-label={`${label} for ${member.name}`}
-                                onCheckedChange={(checked) => runTeamAction("permission", () => updateMemberPermissions({ teamId: teamData.workspace._id, memberId: member._id, permissions: { ...member.permissions, [permission]: checked } }))}
-                              />
-                              {label}
-                            </label>
-                          ))}
-                        </div>
+                          <Copy aria-hidden="true" />
+                          {inviteCopyLabel}
+                        </OwnedButton>
                       ) : null}
-                      {canManageTeam && member.status === "active" && member.role !== "Owner" ? (
+                      {canLeaveWorkspace ? (
                         <OwnedButton
                           type="button"
                           size="sm"
                           variant="outline"
                           disabled={Boolean(busyAction)}
-                          onClick={() => {
-                            if (window.confirm(`Transfer workspace ownership to ${member.name}?`)) {
-                              void runTeamAction("transfer", () => transferOwnership({ teamId: teamData.workspace._id, memberId: member._id }));
-                            }
-                          }}
+                          onClick={() =>
+                            runTeamAction("leave", () =>
+                              leaveWorkspace({ teamId: teamData.workspace._id })
+                            )
+                          }
+                          className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         >
-                          Transfer ownership
-                        </OwnedButton>
-                      ) : null}
-                      {canManageTeam && member.role !== "Owner" ? (
-                        <OwnedButton
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={Boolean(busyAction)}
-                          onClick={() => runTeamAction("remove", () => removeMember({ teamId: teamData.workspace._id, memberId: member._id }))}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          {member.status === "invited" ? "Cancel Invite" : "Remove"}
+                          Leave Workspace
                         </OwnedButton>
                       ) : null}
                     </div>
-                  </article>
-                ))}
-              </div>
-
-              {canManageTeam ? (
-              <div className="border-t border-[var(--app-border)] p-5">
-                  <h3 className="text-sm font-semibold">Invite member</h3>
-                  <div className="mt-3 grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_160px_120px]">
-                    <FieldLayout
-                      label="Email"
-                      error={inviteForm.email.trim() && !isValidEmail(inviteForm.email) ? "Enter a valid email address." : undefined}
-                    >
-                      <OwnedInput
-                        type="email"
-                        value={inviteForm.email}
-                        onChange={(event) => setInviteForm({ ...inviteForm, email: event.target.value })}
-                      />
-                    </FieldLayout>
-                    <ProjectSelect
-                      label="Role"
-                      value={inviteForm.role}
-                      options={teamRoleOptions.filter((role) => role !== "Owner").map(displayTeamRole)}
-                      onChange={(value) => setInviteForm({ ...inviteForm, role: value === "Viewer" ? "Reviewer" : value })}
-                    />
-                    <OwnedButton type="button" variant="outline" disabled={Boolean(busyAction) || !inviteEmailIsValid} onClick={() => runTeamAction("invite", async () => {
-                      await inviteMember({ teamId: teamData.workspace._id, email: inviteForm.email, role: inviteForm.role as "Editor" | "Reviewer" });
-                      setInviteForm({ email: "", role: "Editor" });
-                    })}>
-                      Invite
-                    </OwnedButton>
-                  </div>
-                </div>
-              ) : null}
-            </ContentSection>
-
-            <ContentSection
-              title="Project Comments"
-              description="Leave notes for the team. Use @name or @emailname to notify someone."
-              actions={(
-                <div className="w-full md:w-64">
-                  <ProjectSelect
-                    label="Project"
-                    value={selectedProject?.id ?? ""}
-                    options={teamProjects.map((project) => project.id)}
-                    labels={Object.fromEntries(teamProjects.map((project) => [project.id, project.title]))}
-                    onChange={setSelectedProjectId}
-                  />
-                </div>
-              )}
-              bodyClassName="grid gap-4"
-            >
-              {selectedProject ? (
-                <div className="grid gap-4">
-                  <div className="rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3">
-                    <p className="text-sm font-semibold">{selectedProject.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{selectedProject.client || "No client"} · {selectedProject.status} · Due {formatDate(selectedProject.dueDate, settings.dateFormat)}</p>
-                  </div>
-                  <div className="grid max-h-[min(320px,40dvh)] gap-3 overflow-y-auto overscroll-contain" aria-live="polite">
-                    {projectComments === undefined ? (
-                      <p className="text-sm text-muted-foreground">Loading comments...</p>
-                    ) : projectComments.length ? projectComments.map((comment) => (
-                      <article key={comment._id} className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3">
-                        <p className="text-sm font-semibold">
-                          {comment.authorName} <time className="text-xs font-normal text-muted-foreground">{formatActivityTime(comment.createdAt)}</time>
-                        </p>
-                        {comment.timecode ? (
-                          <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">
-                            <Clock3 aria-hidden="true" className="size-3.5" />
-                            {comment.timecode}
-                          </span>
-                        ) : null}
-                        <p className="mt-2 whitespace-pre-wrap text-sm">{comment.body}</p>
+                  }
+                  bodyMode="flush"
+                >
+                  <div className="max-h-[min(560px,calc(100dvh-21rem))] divide-y divide-[var(--app-border)] overflow-y-auto overscroll-contain">
+                    {teamData.members.map((member) => (
+                      <article
+                        key={member._id}
+                        className="flex flex-col justify-between gap-3 p-4 md:flex-row md:items-center"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold">
+                              {member.name}
+                            </h3>
+                            <OwnedBadge
+                              variant="outline"
+                              className="rounded-md text-[10px]"
+                            >
+                              {displayTeamRole(member.role)}
+                            </OwnedBadge>
+                            <OwnedBadge
+                              variant="secondary"
+                              className={cn(
+                                "rounded-md",
+                                member.status === "active"
+                                  ? "bg-[var(--status-success-bg)] text-[var(--status-success)]"
+                                  : "bg-[var(--status-warning-bg)] text-[var(--status-warning)]"
+                              )}
+                            >
+                              {member.status}
+                            </OwnedBadge>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {member.email || "No email on profile"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                          {canManageTeam && member.role !== "Owner" ? (
+                            <div className="w-full sm:w-40">
+                              <ProjectSelect
+                                label="Role"
+                                value={displayTeamRole(member.role)}
+                                options={teamRoleOptions
+                                  .filter((role) => role !== "Owner")
+                                  .map(displayTeamRole)}
+                                onChange={(role) =>
+                                  runTeamAction("role", () =>
+                                    updateMemberRole({
+                                      teamId: teamData.workspace._id,
+                                      memberId: member._id,
+                                      role: (role === "Viewer"
+                                        ? "Reviewer"
+                                        : role) as "Editor" | "Reviewer",
+                                    })
+                                  )
+                                }
+                                compact
+                              />
+                            </div>
+                          ) : (
+                            Object.entries(member.permissions)
+                              .filter(([, enabled]) => enabled)
+                              .slice(0, 4)
+                              .map(([permission]) => (
+                                <OwnedBadge
+                                  key={permission}
+                                  variant="secondary"
+                                  className="rounded-md text-[10px]"
+                                >
+                                  {permission}
+                                </OwnedBadge>
+                              ))
+                          )}
+                          {canManageTeam && member.role !== "Owner" ? (
+                            <div className="grid w-full gap-2 sm:grid-cols-2">
+                              {TEAM_MEMBER_PERMISSION_LABELS.map(
+                                ([permission, label]) => (
+                                  <label
+                                    key={permission}
+                                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                                  >
+                                    <OwnedSwitch
+                                      checked={Boolean(
+                                        member.permissions[permission]
+                                      )}
+                                      aria-label={`${label} for ${member.name}`}
+                                      onCheckedChange={(checked) =>
+                                        runTeamAction("permission", () =>
+                                          updateMemberPermissions({
+                                            teamId: teamData.workspace._id,
+                                            memberId: member._id,
+                                            permissions: {
+                                              ...member.permissions,
+                                              [permission]: checked,
+                                            },
+                                          })
+                                        )
+                                      }
+                                    />
+                                    {label}
+                                  </label>
+                                )
+                              )}
+                            </div>
+                          ) : null}
+                          {canManageTeam &&
+                          member.status === "active" &&
+                          member.role !== "Owner" ? (
+                            <OwnedButton
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={Boolean(busyAction)}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Transfer workspace ownership to ${member.name}?`
+                                  )
+                                ) {
+                                  void runTeamAction("transfer", () =>
+                                    transferOwnership({
+                                      teamId: teamData.workspace._id,
+                                      memberId: member._id,
+                                    })
+                                  );
+                                }
+                              }}
+                            >
+                              Transfer ownership
+                            </OwnedButton>
+                          ) : null}
+                          {canManageTeam && member.role !== "Owner" ? (
+                            <OwnedButton
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              disabled={Boolean(busyAction)}
+                              onClick={() =>
+                                runTeamAction("remove", () =>
+                                  removeMember({
+                                    teamId: teamData.workspace._id,
+                                    memberId: member._id,
+                                  })
+                                )
+                              }
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              {member.status === "invited"
+                                ? "Cancel Invite"
+                                : "Remove"}
+                            </OwnedButton>
+                          ) : null}
+                        </div>
                       </article>
-                    )) : <EmptyPanel title="No project comments yet" body="Team notes for this project will appear here in real time." />}
+                    ))}
                   </div>
-                  {canCommentProjects ? (
-                    <div className="grid items-start gap-3 md:grid-cols-[180px_minmax(0,1fr)_112px]">
-                      <FieldLayout label="Timecode (optional)" description="MM:SS or HH:MM:SS">
-                        <OwnedInput
-                          value={commentTimecode}
-                          placeholder="00:12"
-                          maxLength={8}
-                          inputMode="text"
-                          onChange={(event) => setCommentTimecode(event.target.value)}
+
+                  {canManageTeam ? (
+                    <div className="border-t border-[var(--app-border)] p-5">
+                      <h3 className="text-sm font-semibold">Invite member</h3>
+                      <div className="mt-3 grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_160px_120px]">
+                        <FieldLayout
+                          label="Email"
+                          error={
+                            inviteForm.email.trim() &&
+                            !isValidEmail(inviteForm.email)
+                              ? "Enter a valid email address."
+                              : undefined
+                          }
+                        >
+                          <OwnedInput
+                            type="email"
+                            value={inviteForm.email}
+                            onChange={(event) =>
+                              setInviteForm({
+                                ...inviteForm,
+                                email: event.target.value,
+                              })
+                            }
+                          />
+                        </FieldLayout>
+                        <ProjectSelect
+                          label="Role"
+                          value={inviteForm.role}
+                          options={teamRoleOptions
+                            .filter((role) => role !== "Owner")
+                            .map(displayTeamRole)}
+                          onChange={(value) =>
+                            setInviteForm({
+                              ...inviteForm,
+                              role: value === "Viewer" ? "Reviewer" : value,
+                            })
+                          }
                         />
-                      </FieldLayout>
-                      <FieldLayout label="Project comment" description={`${commentBody.length}/${TEAM_PROJECT_COMMENT_LIMIT} characters`}>
-                        <OwnedTextarea
-                          value={commentBody}
-                          rows={2}
-                          {...{ maxLength: TEAM_PROJECT_COMMENT_LIMIT }}
-                          onChange={(event) => setCommentBody(event.target.value)}
-                        />
-                      </FieldLayout>
-                      <OwnedButton type="button" className="md:mt-6" disabled={Boolean(busyAction) || !commentBody.trim()} onClick={() => runTeamAction("comment", async () => {
-                        const normalizedTimecode = normalizeOptionalTimecode(commentTimecode);
-                        await addProjectComment({
-                          teamId: teamData.workspace._id,
-                          projectId: selectedProject.id,
-                          body: commentBody,
-                          ...(normalizedTimecode ? { timecode: normalizedTimecode } : {}),
-                        });
-                        trackOptionalEvent("comment_added", { surface: "team" });
-                        setCommentBody("");
-                        setCommentTimecode("");
-                      })}>
-                        Post
-                      </OwnedButton>
+                        <OwnedButton
+                          type="button"
+                          variant="outline"
+                          disabled={Boolean(busyAction) || !inviteEmailIsValid}
+                          onClick={() =>
+                            runTeamAction("invite", async () => {
+                              await inviteMember({
+                                teamId: teamData.workspace._id,
+                                email: inviteForm.email,
+                                role: inviteForm.role as "Editor" | "Reviewer",
+                              });
+                              setInviteForm({ email: "", role: "Editor" });
+                            })
+                          }
+                        >
+                          Invite
+                        </OwnedButton>
+                      </div>
                     </div>
                   ) : null}
-                </div>
-              ) : <EmptyPanel title="No team projects yet" body="Create a team project to start leaving shared comments." />}
-            </ContentSection>
-          </div>
-          )}
-          secondary={(
-          <aside className="grid min-w-0 content-start gap-4">
-            <ContentSection
-              title="Notifications"
-              description="Unread mentions and project updates that need your attention."
-              actions={unreadNotifications ? (
-                <OwnedButton
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => runTeamAction("read-all", () => markAllNotificationsRead({ teamId: teamData.workspace._id }))}
-                >
-                  Mark all read
-                </OwnedButton>
-              ) : null}
-              bodyClassName="grid max-h-[min(460px,50dvh)] gap-2 overflow-y-auto overscroll-contain"
-            >
-                {teamData.notifications.length ? teamData.notifications.map((notification) => (
-                  <article key={notification._id} className={notification.read ? "flex justify-between gap-3 rounded-md border border-[var(--app-border)] p-3" : "flex justify-between gap-3 rounded-md border border-[var(--app-accent)] bg-[var(--app-active)] p-3"}>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{notification.message}</p>
-                      {notification.projectId ? <p className="mt-1 text-xs font-semibold text-primary">Project: {teamProjectLabel(notification.projectId)}</p> : null}
-                      <time className="mt-1 block text-xs text-muted-foreground">{formatActivityTime(notification.createdAt)}</time>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {notification.projectId && teamProjectTitles[notification.projectId] ? (
-                        <OwnedButton
-                          type="button"
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => {
-                            showTeamProject(notification.projectId);
-                            if (!notification.read) {
-                              void markNotificationRead({ notificationId: notification._id });
-                            }
-                          }}
-                        >
-                          View
-                        </OwnedButton>
-                      ) : null}
-                      {!notification.read ? (
-                        <OwnedButton type="button" size="xs" variant="ghost" onClick={() => runTeamAction("read", () => markNotificationRead({ notificationId: notification._id }))}>
-                          Mark read
-                        </OwnedButton>
-                      ) : null}
-                    </div>
-                  </article>
-                )) : <EmptyPanel title="No notifications" body="Mentions and project notifications will appear here." />}
-            </ContentSection>
+                </ContentSection>
 
-            <ContentSection
-              title="Activity Feed"
-              description="Workspace creation, invites, comments, and project updates."
-              bodyClassName="grid max-h-[min(460px,50dvh)] gap-2 overflow-y-auto overscroll-contain"
-            >
-                {teamData.activity.length ? teamData.activity.map((activity) => (
-                  <article key={activity._id} className="rounded-md border-l-2 border-[var(--app-accent)] bg-[var(--app-soft-panel)] p-3">
-                    <p className="text-sm font-medium">{activity.message}</p>
-                    {activity.projectId ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <p className="text-xs font-semibold text-primary">Project: {teamProjectLabel(activity.projectId)}</p>
-                        {teamProjectTitles[activity.projectId] ? (
-                          <OwnedButton type="button" size="xs" variant="link" className="h-auto p-0" onClick={() => showTeamProject(activity.projectId)}>
-                            View
-                          </OwnedButton>
-                        ) : null}
+                <ContentSection
+                  title="Project Comments"
+                  description="Leave notes for the team. Use @name or @emailname to notify someone."
+                  actions={
+                    <div className="w-full md:w-64">
+                      <ProjectSelect
+                        label="Project"
+                        value={selectedProject?.id ?? ""}
+                        options={teamProjects.map((project) => project.id)}
+                        labels={Object.fromEntries(
+                          teamProjects.map((project) => [
+                            project.id,
+                            project.title,
+                          ])
+                        )}
+                        onChange={setSelectedProjectId}
+                      />
+                    </div>
+                  }
+                  bodyClassName="grid gap-4"
+                >
+                  {selectedProject ? (
+                    <div className="grid gap-4">
+                      <div className="rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3">
+                        <p className="text-sm font-semibold">
+                          {selectedProject.title}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {selectedProject.client || "No client"} ·{" "}
+                          {selectedProject.status} · Due{" "}
+                          {formatDate(
+                            selectedProject.dueDate,
+                            settings.dateFormat
+                          )}
+                        </p>
                       </div>
-                    ) : null}
-                    <time className="mt-1 block text-xs text-muted-foreground">{formatActivityTime(activity.createdAt)}</time>
-                  </article>
-                )) : <EmptyPanel title="No activity yet" body="Workspace creation, invites, comments, and project updates will appear here." />}
-            </ContentSection>
-          </aside>
-          )}
-        />
-      )}
+                      <div
+                        className="grid max-h-[min(320px,40dvh)] gap-3 overflow-y-auto overscroll-contain"
+                        aria-live="polite"
+                      >
+                        {projectComments === undefined ? (
+                          <p className="text-sm text-muted-foreground">
+                            Loading comments...
+                          </p>
+                        ) : projectComments.length ? (
+                          projectComments.map((comment) => (
+                            <article
+                              key={comment._id}
+                              className="rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-3"
+                            >
+                              <p className="text-sm font-semibold">
+                                {comment.authorName}{" "}
+                                <time className="text-xs font-normal text-muted-foreground">
+                                  {formatActivityTime(comment.createdAt)}
+                                </time>
+                              </p>
+                              {comment.timecode ? (
+                                <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">
+                                  <Clock3
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  {comment.timecode}
+                                </span>
+                              ) : null}
+                              <p className="mt-2 whitespace-pre-wrap text-sm">
+                                {comment.body}
+                              </p>
+                            </article>
+                          ))
+                        ) : (
+                          <EmptyPanel
+                            title="No project comments yet"
+                            body="Team notes for this project will appear here in real time."
+                          />
+                        )}
+                      </div>
+                      {canCommentProjects ? (
+                        <div className="grid items-start gap-3 md:grid-cols-[180px_minmax(0,1fr)_112px]">
+                          <FieldLayout
+                            label="Timecode (optional)"
+                            description="MM:SS or HH:MM:SS"
+                          >
+                            <OwnedInput
+                              value={commentTimecode}
+                              placeholder="00:12"
+                              maxLength={8}
+                              inputMode="text"
+                              onChange={(event) =>
+                                setCommentTimecode(event.target.value)
+                              }
+                            />
+                          </FieldLayout>
+                          <FieldLayout
+                            label="Project comment"
+                            description={`${commentBody.length}/${TEAM_PROJECT_COMMENT_LIMIT} characters`}
+                          >
+                            <OwnedTextarea
+                              value={commentBody}
+                              rows={2}
+                              {...{ maxLength: TEAM_PROJECT_COMMENT_LIMIT }}
+                              onChange={(event) =>
+                                setCommentBody(event.target.value)
+                              }
+                            />
+                          </FieldLayout>
+                          <OwnedButton
+                            type="button"
+                            className="md:mt-6"
+                            disabled={
+                              Boolean(busyAction) || !commentBody.trim()
+                            }
+                            onClick={() =>
+                              runTeamAction("comment", async () => {
+                                const normalizedTimecode =
+                                  normalizeOptionalTimecode(commentTimecode);
+                                await addProjectComment({
+                                  teamId: teamData.workspace._id,
+                                  projectId: selectedProject.id,
+                                  body: commentBody,
+                                  ...(normalizedTimecode
+                                    ? { timecode: normalizedTimecode }
+                                    : {}),
+                                });
+                                trackOptionalEvent("comment_added", {
+                                  surface: "team",
+                                });
+                                setCommentBody("");
+                                setCommentTimecode("");
+                              })
+                            }
+                          >
+                            Post
+                          </OwnedButton>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <EmptyPanel
+                      title="No team projects yet"
+                      body="Create a team project to start leaving shared comments."
+                    />
+                  )}
+                </ContentSection>
+              </div>
+            }
+            secondary={
+              <aside className="grid min-w-0 content-start gap-4">
+                <ContentSection
+                  title="Notifications"
+                  description="Unread mentions and project updates that need your attention."
+                  actions={
+                    unreadNotifications ? (
+                      <OwnedButton
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={Boolean(busyAction)}
+                        onClick={() =>
+                          runTeamAction("read-all", () =>
+                            markAllNotificationsRead({
+                              teamId: teamData.workspace._id,
+                            })
+                          )
+                        }
+                      >
+                        Mark all read
+                      </OwnedButton>
+                    ) : null
+                  }
+                  bodyClassName="grid max-h-[min(460px,50dvh)] gap-2 overflow-y-auto overscroll-contain"
+                >
+                  {teamData.notifications.length ? (
+                    teamData.notifications.map((notification) => (
+                      <article
+                        key={notification._id}
+                        className={
+                          notification.read
+                            ? "flex justify-between gap-3 rounded-md border border-[var(--app-border)] p-3"
+                            : "flex justify-between gap-3 rounded-md border border-[var(--app-accent)] bg-[var(--app-active)] p-3"
+                        }
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            {notification.message}
+                          </p>
+                          {notification.projectId ? (
+                            <p className="mt-1 text-xs font-semibold text-primary">
+                              Project:{" "}
+                              {teamProjectLabel(notification.projectId)}
+                            </p>
+                          ) : null}
+                          <time className="mt-1 block text-xs text-muted-foreground">
+                            {formatActivityTime(notification.createdAt)}
+                          </time>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          {notification.projectId &&
+                          teamProjectTitles[notification.projectId] ? (
+                            <OwnedButton
+                              type="button"
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => {
+                                showTeamProject(notification.projectId);
+                                if (!notification.read) {
+                                  void markNotificationRead({
+                                    notificationId: notification._id,
+                                  });
+                                }
+                              }}
+                            >
+                              View
+                            </OwnedButton>
+                          ) : null}
+                          {!notification.read ? (
+                            <OwnedButton
+                              type="button"
+                              size="xs"
+                              variant="ghost"
+                              onClick={() =>
+                                runTeamAction("read", () =>
+                                  markNotificationRead({
+                                    notificationId: notification._id,
+                                  })
+                                )
+                              }
+                            >
+                              Mark read
+                            </OwnedButton>
+                          ) : null}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <EmptyPanel
+                      title="No notifications"
+                      body="Mentions and project notifications will appear here."
+                    />
+                  )}
+                </ContentSection>
+
+                <ContentSection
+                  title="Activity Feed"
+                  description="Workspace creation, invites, comments, and project updates."
+                  bodyClassName="grid max-h-[min(460px,50dvh)] gap-2 overflow-y-auto overscroll-contain"
+                >
+                  {teamData.activity.length ? (
+                    teamData.activity.map((activity) => (
+                      <article
+                        key={activity._id}
+                        className="rounded-md border-l-2 border-[var(--app-accent)] bg-[var(--app-soft-panel)] p-3"
+                      >
+                        <p className="text-sm font-medium">
+                          {activity.message}
+                        </p>
+                        {activity.projectId ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-semibold text-primary">
+                              Project: {teamProjectLabel(activity.projectId)}
+                            </p>
+                            {teamProjectTitles[activity.projectId] ? (
+                              <OwnedButton
+                                type="button"
+                                size="xs"
+                                variant="link"
+                                className="h-auto p-0"
+                                onClick={() =>
+                                  showTeamProject(activity.projectId)
+                                }
+                              >
+                                View
+                              </OwnedButton>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <time className="mt-1 block text-xs text-muted-foreground">
+                          {formatActivityTime(activity.createdAt)}
+                        </time>
+                      </article>
+                    ))
+                  ) : (
+                    <EmptyPanel
+                      title="No activity yet"
+                      body="Workspace creation, invites, comments, and project updates will appear here."
+                    />
+                  )}
+                </ContentSection>
+              </aside>
+            }
+          />
+        )}
       </PageContent>
     </WorkspacePage>
   );
@@ -2778,8 +4266,14 @@ function TeamDesignPage({ projects, settings }: { projects: WorkItem[]; settings
 
 function TeamChatPage() {
   const { isSignedIn, isLoaded: isUserLoaded, openSignIn } = useOptionalAuth();
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const teamData = useQuery(api.team.getMyWorkspace, isConvexAuthenticated ? {} : "skip");
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
+  const teamData = useQuery(
+    api.team.getMyWorkspace,
+    isConvexAuthenticated ? {} : "skip"
+  );
   const sendChatMessage = useMutation(api.team.sendChatMessage);
   const messageInputId = useId();
   const messageCountId = `${messageInputId}-count`;
@@ -2788,10 +4282,22 @@ function TeamChatPage() {
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState("");
   const canUseChat = Boolean(teamData?.currentMember.permissions.useChat);
-  const chatReady = Boolean(isUserLoaded && isSignedIn && !isConvexAuthLoading && isConvexAuthenticated && teamData && canUseChat);
+  const chatReady = Boolean(
+    isUserLoaded &&
+    isSignedIn &&
+    !isConvexAuthLoading &&
+    isConvexAuthenticated &&
+    teamData &&
+    canUseChat
+  );
 
   function formatChatTime(value: string) {
-    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+    return new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(value));
   }
 
   async function submitMessage() {
@@ -2803,7 +4309,9 @@ function TeamChatPage() {
       await sendChatMessage({ teamId: teamData.workspace._id, body });
       setMessage("");
     } catch (error) {
-      setChatError(error instanceof Error ? error.message : "Message could not be sent.");
+      setChatError(
+        error instanceof Error ? error.message : "Message could not be sent."
+      );
     } finally {
       setSending(false);
     }
@@ -2812,136 +4320,265 @@ function TeamChatPage() {
   return (
     <WorkspacePage family="conversation" mode="fill">
       <PageHeader
-      title="Team Chat"
-      description="Quick handoffs, production updates, and Manage Team access for your current workspace."
+        title="Team Chat"
+        description="Quick handoffs, production updates, and Manage Team access for your current workspace."
       />
       <PageContent mode="fill" className="min-h-0">
-      <FillViewport
-        bodyLabel="Team chat workspace"
-        bodyClassName="overflow-auto rounded-[6px] border border-border bg-card lg:overflow-hidden"
-        header={chatReady && teamData ? (
-          <div data-slot="conversation-header" className="flex flex-col justify-between gap-3 border-b border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-4 sm:flex-row sm:items-center sm:px-5">
-            <div>
-              <h2 className="text-lg font-semibold">{teamData.workspace.name}</h2>
-              <p className="mt-1 text-xs text-[var(--app-muted)]">{teamData.members.filter((member) => member.status === "active").length} active members · Use @name to notify someone</p>
-            </div>
-            <OwnedBadge variant="secondary" className="self-start sm:self-auto">{teamData.currentMember.role === "Reviewer" ? "Viewer" : teamData.currentMember.role} access</OwnedBadge>
-          </div>
-        ) : undefined}
-        footer={chatReady && teamData ? (
-          <form
-            data-slot="conversation-composer"
-            className="team-chat-composer border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitMessage();
-            }}
-          >
-            {chatError ? <p role="alert" className="mb-2 text-xs font-semibold text-destructive">{chatError}</p> : null}
-            <div className="grid gap-2">
-              <label htmlFor={messageInputId} className="text-sm font-medium">Message</label>
-              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
-                <OwnedTextarea
-                  id={messageInputId}
-                  aria-describedby={messageCountId}
-                  aria-invalid={Boolean(chatError)}
-                  value={message}
-                  rows={2}
-                  {...chatInputProps}
-                  className="max-h-28 min-h-10 flex-1 bg-background"
-                  onChange={(event) => {
-                    setMessage(event.target.value);
-                    if (chatError) setChatError("");
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void submitMessage();
-                    }
-                  }}
-                />
-                <OwnedButton type="submit" disabled={sending || !message.trim()} className="min-w-28">
-                  {sending ? <LoaderCircle aria-hidden="true" /> : <Send aria-hidden="true" />}
-                  {sending ? "Sending..." : "Send"}
-                </OwnedButton>
+        <FillViewport
+          bodyLabel="Team chat workspace"
+          bodyClassName="overflow-auto rounded-[6px] border border-border bg-card lg:overflow-hidden"
+          header={
+            chatReady && teamData ? (
+              <div
+                data-slot="conversation-header"
+                className="flex flex-col justify-between gap-3 border-b border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-4 sm:flex-row sm:items-center sm:px-5"
+              >
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {teamData.workspace.name}
+                  </h2>
+                  <p className="mt-1 text-xs text-[var(--app-muted)]">
+                    {
+                      teamData.members.filter(
+                        (member) => member.status === "active"
+                      ).length
+                    }{" "}
+                    active members · Use @name to notify someone
+                  </p>
+                </div>
+                <OwnedBadge
+                  variant="secondary"
+                  className="self-start sm:self-auto"
+                >
+                  {teamData.currentMember.role === "Reviewer"
+                    ? "Viewer"
+                    : teamData.currentMember.role}{" "}
+                  access
+                </OwnedBadge>
               </div>
-              <p id={messageCountId} className="text-xs text-[var(--app-muted)]">{message.length}/{TEAM_CHAT_MESSAGE_LIMIT} characters</p>
+            ) : undefined
+          }
+          footer={
+            chatReady && teamData ? (
+              <form
+                data-slot="conversation-composer"
+                className="team-chat-composer border-t border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3 sm:p-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitMessage();
+                }}
+              >
+                {chatError ? (
+                  <p
+                    role="alert"
+                    className="mb-2 text-xs font-semibold text-destructive"
+                  >
+                    {chatError}
+                  </p>
+                ) : null}
+                <div className="grid gap-2">
+                  <label
+                    htmlFor={messageInputId}
+                    className="text-sm font-medium"
+                  >
+                    Message
+                  </label>
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
+                    <OwnedTextarea
+                      id={messageInputId}
+                      aria-describedby={messageCountId}
+                      aria-invalid={Boolean(chatError)}
+                      value={message}
+                      rows={2}
+                      {...chatInputProps}
+                      className="max-h-28 min-h-10 flex-1 bg-background"
+                      onChange={(event) => {
+                        setMessage(event.target.value);
+                        if (chatError) setChatError("");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void submitMessage();
+                        }
+                      }}
+                    />
+                    <OwnedButton
+                      type="submit"
+                      disabled={sending || !message.trim()}
+                      className="min-w-28"
+                    >
+                      {sending ? (
+                        <LoaderCircle aria-hidden="true" />
+                      ) : (
+                        <Send aria-hidden="true" />
+                      )}
+                      {sending ? "Sending..." : "Send"}
+                    </OwnedButton>
+                  </div>
+                  <p
+                    id={messageCountId}
+                    className="text-xs text-[var(--app-muted)]"
+                  >
+                    {message.length}/{TEAM_CHAT_MESSAGE_LIMIT} characters
+                  </p>
+                </div>
+              </form>
+            ) : undefined
+          }
+        >
+          {!isUserLoaded ? (
+            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+              <div
+                role="status"
+                className="flex items-center gap-3 text-sm text-muted-foreground"
+              >
+                <LoaderCircle
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                Checking account status...
+              </div>
+            </section>
+          ) : !isSignedIn ? (
+            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+              <h2 className="text-xl font-semibold">
+                Sign in to open Team Chat
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Chat is tied to your authenticated team workspace and is not
+                available in local mode.
+              </p>
+              <OwnedButton
+                type="button"
+                className="mt-5"
+                onClick={() => openSignIn()}
+              >
+                Sign In
+              </OwnedButton>
+            </section>
+          ) : isConvexAuthLoading ? (
+            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+              <div
+                role="status"
+                className="flex items-center gap-3 text-sm text-muted-foreground"
+              >
+                <LoaderCircle
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                Connecting Team Chat...
+              </div>
+            </section>
+          ) : !isConvexAuthenticated ? (
+            <section
+              role="alert"
+              className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-destructive shadow-sm"
+            >
+              <h2 className="text-lg font-semibold">
+                Team Chat is not connected
+              </h2>
+              <p className="mt-2 text-sm">
+                Convex has not received your Clerk session. Sign out and back
+                in, then retry.
+              </p>
+            </section>
+          ) : teamData === undefined ? (
+            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+              <div
+                role="status"
+                className="flex items-center gap-3 text-sm text-muted-foreground"
+              >
+                <LoaderCircle
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+                Loading messages...
+              </div>
+            </section>
+          ) : !teamData ? (
+            <section className="grid min-h-72 place-items-center rounded-xl border border-border bg-card p-6 text-center text-card-foreground shadow-[var(--app-shadow-1)]">
+              <div className="max-w-md">
+                <Users
+                  className="mx-auto size-8 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <h2 className="mt-4 text-lg font-semibold">
+                  No team workspace yet
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Create or join a workspace before using Team Chat.
+                </p>
+              </div>
+            </section>
+          ) : !canUseChat ? (
+            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+              <h2 className="text-xl font-semibold">
+                Chat unavailable for your role
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your current role can access the workspace but does not have
+                permission to view or send chat messages.
+              </p>
+            </section>
+          ) : (
+            <div
+              data-slot="conversation-history"
+              className="min-h-full bg-[var(--app-panel)]"
+            >
+              <ol
+                aria-label="Team chat messages"
+                className="flex min-h-full flex-col gap-3 px-3 py-5 md:px-5"
+              >
+                {teamData.chat.length ? (
+                  teamData.chat.map((chatMessage) => {
+                    const isOwnMessage =
+                      chatMessage.authorUserId ===
+                      teamData.currentMember.userId;
+                    return (
+                      <li
+                        key={chatMessage._id}
+                        className={`w-[min(680px,88%)] ${isOwnMessage ? "self-end" : "self-start"}`}
+                      >
+                        <div
+                          className={`mb-1 flex items-center gap-2 ${isOwnMessage ? "justify-end" : "justify-between"}`}
+                        >
+                          {!isOwnMessage ? (
+                            <span className="text-xs font-semibold">
+                              {chatMessage.authorName}
+                            </span>
+                          ) : null}
+                          <time className="text-[11px] text-muted-foreground">
+                            {formatChatTime(chatMessage.createdAt)}
+                          </time>
+                        </div>
+                        <div
+                          className={`rounded-lg border px-3 py-2.5 ${isOwnMessage ? "border-primary bg-primary/10" : "border-border bg-muted"}`}
+                        >
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
+                            {chatMessage.body}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })
+                ) : (
+                  <li className="m-auto max-w-md list-none text-center">
+                    <MessageSquare
+                      className="mx-auto size-8 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <h3 className="mt-4 font-semibold">No messages yet</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Start with a handoff, blocker, review update, or delivery
+                      note.
+                    </p>
+                  </li>
+                )}
+              </ol>
             </div>
-          </form>
-        ) : undefined}
-      >
-      {!isUserLoaded ? (
-        <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Checking account status...
-          </div>
-        </section>
-      ) : !isSignedIn ? (
-        <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <h2 className="text-xl font-semibold">Sign in to open Team Chat</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Chat is tied to your authenticated team workspace and is not available in local mode.</p>
-          <OwnedButton type="button" className="mt-5" onClick={() => openSignIn()}>Sign In</OwnedButton>
-        </section>
-      ) : isConvexAuthLoading ? (
-        <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Connecting Team Chat...
-          </div>
-        </section>
-      ) : !isConvexAuthenticated ? (
-        <section role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-destructive shadow-sm">
-          <h2 className="text-lg font-semibold">Team Chat is not connected</h2>
-          <p className="mt-2 text-sm">Convex has not received your Clerk session. Sign out and back in, then retry.</p>
-        </section>
-      ) : teamData === undefined ? (
-        <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div role="status" className="flex items-center gap-3 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Loading messages...
-          </div>
-        </section>
-      ) : !teamData ? (
-        <section className="grid min-h-72 place-items-center rounded-xl border border-border bg-card p-6 text-center text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div className="max-w-md">
-            <Users className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
-            <h2 className="mt-4 text-lg font-semibold">No team workspace yet</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Create or join a workspace before using Team Chat.</p>
-          </div>
-        </section>
-      ) : !canUseChat ? (
-        <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <h2 className="text-xl font-semibold">Chat unavailable for your role</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Your current role can access the workspace but does not have permission to view or send chat messages.</p>
-        </section>
-      ) : (
-        <div data-slot="conversation-history" className="min-h-full bg-[var(--app-panel)]">
-          <ol aria-label="Team chat messages" className="flex min-h-full flex-col gap-3 px-3 py-5 md:px-5">
-            {teamData.chat.length ? teamData.chat.map((chatMessage) => {
-              const isOwnMessage = chatMessage.authorUserId === teamData.currentMember.userId;
-              return (
-                <li key={chatMessage._id} className={`w-[min(680px,88%)] ${isOwnMessage ? "self-end" : "self-start"}`}>
-                  <div className={`mb-1 flex items-center gap-2 ${isOwnMessage ? "justify-end" : "justify-between"}`}>
-                    {!isOwnMessage ? <span className="text-xs font-semibold">{chatMessage.authorName}</span> : null}
-                    <time className="text-[11px] text-muted-foreground">{formatChatTime(chatMessage.createdAt)}</time>
-                  </div>
-                  <div className={`rounded-lg border px-3 py-2.5 ${isOwnMessage ? "border-primary bg-primary/10" : "border-border bg-muted"}`}>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">{chatMessage.body}</p>
-                  </div>
-                </li>
-              );
-            }) : (
-              <li className="m-auto max-w-md list-none text-center">
-                <MessageSquare className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
-                <h3 className="mt-4 font-semibold">No messages yet</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Start with a handoff, blocker, review update, or delivery note.</p>
-              </li>
-            )}
-          </ol>
-        </div>
-      )}
-      </FillViewport>
+          )}
+        </FillViewport>
       </PageContent>
     </WorkspacePage>
   );
@@ -2952,7 +4589,7 @@ function IntegrationsDesignPage({
   settings,
   setSettings,
   notify,
-  onEditProject
+  onEditProject,
 }: {
   projects: WorkItem[];
   settings: SettingsState;
@@ -2960,12 +4597,17 @@ function IntegrationsDesignPage({
   notify: (message: string, tone?: ToastState["tone"]) => void;
   onEditProject: (item: WorkItem) => void;
 }) {
-  const [integrationDialog, setIntegrationDialog] = useState<{ name: string; config: IntegrationConfig } | null>(null);
+  const [integrationDialog, setIntegrationDialog] = useState<{
+    name: string;
+    config: IntegrationConfig;
+  } | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<string | null>(null);
   const [configError, setConfigError] = useState("");
   const [integrationSearch, setIntegrationSearch] = useState("");
   const [integrationFilter, setIntegrationFilter] = useState("all");
-  const projectLinks = projects.filter((project) => configuredIntegrationCount(project.integrationLinks) > 0);
+  const projectLinks = projects.filter(
+    (project) => configuredIntegrationCount(project.integrationLinks) > 0
+  );
   const connectedCount = integrationNames.filter((name) => {
     const config = settings.integrationConfigs[name];
     return Boolean(settings.integrations[name] || config?.connected);
@@ -2974,24 +4616,39 @@ function IntegrationsDesignPage({
     const config = settings.integrationConfigs[name] ?? emptyIntegrationConfig;
     const connected = Boolean(settings.integrations[name] || config.connected);
     const query = integrationSearch.trim().toLowerCase();
-    const matchesSearch = !query || [name, integrationDescriptions[name], config.account || settings.integrationAccounts[name] || ""].some((value) => value.toLowerCase().includes(query));
-    const matchesFilter = integrationFilter === "all" || (integrationFilter === "connected" ? connected : !connected);
+    const matchesSearch =
+      !query ||
+      [
+        name,
+        integrationDescriptions[name],
+        config.account || settings.integrationAccounts[name] || "",
+      ].some((value) => value.toLowerCase().includes(query));
+    const matchesFilter =
+      integrationFilter === "all" ||
+      (integrationFilter === "connected" ? connected : !connected);
     return matchesSearch && matchesFilter;
   });
   const visibleProjectLinks = projectLinks.filter((project) => {
     const query = integrationSearch.trim().toLowerCase();
-    return !query || [project.title, project.client || ""].some((value) => value.toLowerCase().includes(query));
+    return (
+      !query ||
+      [project.title, project.client || ""].some((value) =>
+        value.toLowerCase().includes(query)
+      )
+    );
   });
 
   function openIntegration(name: string) {
-    const existing = settings.integrationConfigs[name] ?? { ...emptyIntegrationConfig };
+    const existing = settings.integrationConfigs[name] ?? {
+      ...emptyIntegrationConfig,
+    };
     setIntegrationDialog({
       name,
       config: {
         ...existing,
         connected: Boolean(settings.integrations[name] || existing.connected),
-        account: existing.account || settings.integrationAccounts[name] || ""
-      }
+        account: existing.account || settings.integrationAccounts[name] || "",
+      },
     });
     setConfigError("");
   }
@@ -3002,9 +4659,9 @@ function IntegrationsDesignPage({
   }
 
   function updateIntegrationConfig(next: Partial<IntegrationConfig>) {
-    setIntegrationDialog((current) => current
-      ? { ...current, config: { ...current.config, ...next } }
-      : current);
+    setIntegrationDialog((current) =>
+      current ? { ...current, config: { ...current.config, ...next } } : current
+    );
     setConfigError("");
   }
 
@@ -3021,13 +4678,22 @@ function IntegrationsDesignPage({
       connected: true,
       account,
       connectedAt: integrationDialog.config.connectedAt || now,
-      lastSyncAt: now
+      lastSyncAt: now,
     };
     setSettings({
       ...settings,
-      integrations: { ...settings.integrations, [integrationDialog.name]: true },
-      integrationAccounts: { ...settings.integrationAccounts, [integrationDialog.name]: account },
-      integrationConfigs: { ...settings.integrationConfigs, [integrationDialog.name]: updatedConfig }
+      integrations: {
+        ...settings.integrations,
+        [integrationDialog.name]: true,
+      },
+      integrationAccounts: {
+        ...settings.integrationAccounts,
+        [integrationDialog.name]: account,
+      },
+      integrationConfigs: {
+        ...settings.integrationConfigs,
+        [integrationDialog.name]: updatedConfig,
+      },
     });
     notify(`${integrationDialog.name} connected successfully.`, "success");
     closeIntegrationDialog();
@@ -3038,11 +4704,14 @@ function IntegrationsDesignPage({
     setSettings({
       ...settings,
       integrations: { ...settings.integrations, [disconnectTarget]: false },
-      integrationAccounts: { ...settings.integrationAccounts, [disconnectTarget]: "" },
+      integrationAccounts: {
+        ...settings.integrationAccounts,
+        [disconnectTarget]: "",
+      },
       integrationConfigs: {
         ...settings.integrationConfigs,
-        [disconnectTarget]: { ...emptyIntegrationConfig }
-      }
+        [disconnectTarget]: { ...emptyIntegrationConfig },
+      },
     });
     notify(`${disconnectTarget} disconnected.`, "warning");
     setDisconnectTarget(null);
@@ -3051,16 +4720,19 @@ function IntegrationsDesignPage({
   return (
     <WorkspacePage family="library">
       <PageHeader
-      eyebrow="Workspace / Integrations"
-      title="Integrations"
-      description="Manage local service records and save external links for your workspace and individual projects."
+        eyebrow="Workspace / Integrations"
+        title="Integrations"
+        description="Manage local service records and save external links for your workspace and individual projects."
       />
       <PageContent className="space-y-5">
         <PageToolbar
           data-family-toolbar="integrations"
           primary={
             <div className="relative min-w-0 flex-1 sm:max-w-md">
-              <Plug aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--app-muted)]" />
+              <Plug
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--app-muted)]"
+              />
               <OwnedInput
                 aria-label="Search integrations"
                 value={integrationSearch}
@@ -3071,14 +4743,22 @@ function IntegrationsDesignPage({
             </div>
           }
           secondary={
-            <OwnedSelect value={integrationFilter} onValueChange={setIntegrationFilter}>
-              <OwnedSelectTrigger aria-label="Filter integrations" className="h-10 w-full sm:w-40">
+            <OwnedSelect
+              value={integrationFilter}
+              onValueChange={setIntegrationFilter}
+            >
+              <OwnedSelectTrigger
+                aria-label="Filter integrations"
+                className="h-10 w-full sm:w-40"
+              >
                 <OwnedSelectValue />
               </OwnedSelectTrigger>
               <OwnedSelectContent position="popper">
                 <OwnedSelectItem value="all">All services</OwnedSelectItem>
                 <OwnedSelectItem value="connected">Connected</OwnedSelectItem>
-                <OwnedSelectItem value="available">Not connected</OwnedSelectItem>
+                <OwnedSelectItem value="available">
+                  Not connected
+                </OwnedSelectItem>
               </OwnedSelectContent>
             </OwnedSelect>
           }
@@ -3093,14 +4773,20 @@ function IntegrationsDesignPage({
             </OwnedBadge>
           }
         >
-
           <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border shadow-[var(--app-shadow-1)]">
             {visibleIntegrationNames.map((name) => {
-              const config = settings.integrationConfigs[name] ?? emptyIntegrationConfig;
-              const connected = Boolean(settings.integrations[name] || config.connected);
-              const account = config.account || settings.integrationAccounts[name];
+              const config =
+                settings.integrationConfigs[name] ?? emptyIntegrationConfig;
+              const connected = Boolean(
+                settings.integrations[name] || config.connected
+              );
+              const account =
+                config.account || settings.integrationAccounts[name];
               return (
-                <li key={name} className="flex flex-col justify-between gap-3 bg-[var(--app-soft-panel)] p-4 transition-colors hover:bg-[var(--app-hover)] focus-within:bg-[var(--app-hover)] sm:flex-row sm:items-center">
+                <li
+                  key={name}
+                  className="flex flex-col justify-between gap-3 bg-[var(--app-soft-panel)] p-4 transition-colors hover:bg-[var(--app-hover)] focus-within:bg-[var(--app-hover)] sm:flex-row sm:items-center"
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       aria-hidden="true"
@@ -3117,7 +4803,9 @@ function IntegrationsDesignPage({
                         </OwnedBadge>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {connected ? account || "Connected locally" : integrationDescriptions[name]}
+                        {connected
+                          ? account || "Connected locally"
+                          : integrationDescriptions[name]}
                       </p>
                     </div>
                   </div>
@@ -3151,7 +4839,10 @@ function IntegrationsDesignPage({
             })}
           </ul>
           {!visibleIntegrationNames.length ? (
-            <PageEmptyState title="No matching services" description="Try a different search or connection filter." />
+            <PageEmptyState
+              title="No matching services"
+              description="Try a different search or connection filter."
+            />
           ) : null}
         </ContentSection>
 
@@ -3170,7 +4861,12 @@ function IntegrationsDesignPage({
         <ContentSection
           title="Cloudflare R2 Storage"
           description="Upcoming. Large-file storage through Cloudflare R2 is being prepared for a future release. Project uploads currently use Relay's Convex Storage."
-          metadata={<Cloud aria-hidden="true" className="size-4 text-muted-foreground" />}
+          metadata={
+            <Cloud
+              aria-hidden="true"
+              className="size-4 text-muted-foreground"
+            />
+          }
           actions={<OwnedBadge variant="secondary">Upcoming</OwnedBadge>}
           bodyMode="flush"
         />
@@ -3179,7 +4875,9 @@ function IntegrationsDesignPage({
           title="Project Integrations"
           description="Project-specific links stay attached to each project record."
           actions={
-            <OwnedBadge variant={visibleProjectLinks.length ? "default" : "secondary"}>
+            <OwnedBadge
+              variant={visibleProjectLinks.length ? "default" : "secondary"}
+            >
               <Link2 aria-hidden="true" />
               {visibleProjectLinks.length} projects linked
             </OwnedBadge>
@@ -3188,16 +4886,32 @@ function IntegrationsDesignPage({
           {visibleProjectLinks.length ? (
             <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border shadow-[var(--app-shadow-1)]">
               {visibleProjectLinks.map((project) => (
-                <li key={project.id} className="flex flex-col justify-between gap-3 bg-[var(--app-soft-panel)] p-4 transition-colors hover:bg-[var(--app-hover)] focus-within:bg-[var(--app-hover)] md:flex-row md:items-center">
+                <li
+                  key={project.id}
+                  className="flex flex-col justify-between gap-3 bg-[var(--app-soft-panel)] p-4 transition-colors hover:bg-[var(--app-hover)] focus-within:bg-[var(--app-hover)] md:flex-row md:items-center"
+                >
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold">{project.title}</h3>
+                    <h3 className="truncate text-sm font-semibold">
+                      {project.title}
+                    </h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {configuredIntegrationCount(project.integrationLinks)} saved {configuredIntegrationCount(project.integrationLinks) === 1 ? "link" : "links"}
+                      {configuredIntegrationCount(project.integrationLinks)}{" "}
+                      saved{" "}
+                      {configuredIntegrationCount(project.integrationLinks) ===
+                      1
+                        ? "link"
+                        : "links"}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {integrationServices.map((service) => hasIntegrationLink(project.integrationLinks?.[service.id]) ? (
-                        <OwnedBadge key={service.id} variant="secondary">{service.shortName}</OwnedBadge>
-                      ) : null)}
+                      {integrationServices.map((service) =>
+                        hasIntegrationLink(
+                          project.integrationLinks?.[service.id]
+                        ) ? (
+                          <OwnedBadge key={service.id} variant="secondary">
+                            {service.shortName}
+                          </OwnedBadge>
+                        ) : null
+                      )}
                     </div>
                   </div>
                   <OwnedButton
@@ -3214,7 +4928,18 @@ function IntegrationsDesignPage({
             </ul>
           ) : (
             <div className="mt-4 rounded-lg border border-dashed border-border">
-              <EmptyPanel title={projectLinks.length ? "No matching project links" : "No project integration links"} body={projectLinks.length ? "Try a different search term." : "Open a project and add service links for folders, review pages, channels, or calendar events."} />
+              <EmptyPanel
+                title={
+                  projectLinks.length
+                    ? "No matching project links"
+                    : "No project integration links"
+                }
+                body={
+                  projectLinks.length
+                    ? "Try a different search term."
+                    : "Open a project and add service links for folders, review pages, channels, or calendar events."
+                }
+              />
             </div>
           )}
         </ContentSection>
@@ -3229,10 +4954,14 @@ function IntegrationsDesignPage({
         <OwnedDialogContent className="sm:max-w-xl">
           <OwnedDialogHeader>
             <OwnedDialogTitle>
-              {integrationDialog ? `${integrationDialog.config.connected ? "Manage" : "Connect"} ${integrationDialog.name}` : "Connect integration"}
+              {integrationDialog
+                ? `${integrationDialog.config.connected ? "Manage" : "Connect"} ${integrationDialog.name}`
+                : "Connect integration"}
             </OwnedDialogTitle>
             <OwnedDialogDescription>
-              {integrationDialog ? integrationDescriptions[integrationDialog.name] : "Configure your locally saved integration details."}
+              {integrationDialog
+                ? integrationDescriptions[integrationDialog.name]
+                : "Configure your locally saved integration details."}
             </OwnedDialogDescription>
           </OwnedDialogHeader>
           <form
@@ -3242,28 +4971,51 @@ function IntegrationsDesignPage({
               saveIntegration();
             }}
           >
-            <FieldLayout label="Account email or name" required error={configError || undefined}>
+            <FieldLayout
+              label="Account email or name"
+              required
+              error={configError || undefined}
+            >
               <OwnedInput
                 value={integrationDialog?.config.account ?? ""}
-                onChange={(event) => updateIntegrationConfig({ account: event.target.value })}
+                onChange={(event) =>
+                  updateIntegrationConfig({ account: event.target.value })
+                }
                 autoFocus
                 placeholder="you@example.com"
               />
             </FieldLayout>
-            {integrationDialog?.name === "Google Drive" || integrationDialog?.name === "Dropbox" || integrationDialog?.name === "Frame.io" ? (
-              <FieldLayout label={integrationDialog.name === "Frame.io" ? "Project folder" : "Folder path"}>
+            {integrationDialog?.name === "Google Drive" ||
+            integrationDialog?.name === "Dropbox" ||
+            integrationDialog?.name === "Frame.io" ? (
+              <FieldLayout
+                label={
+                  integrationDialog.name === "Frame.io"
+                    ? "Project folder"
+                    : "Folder path"
+                }
+              >
                 <OwnedInput
                   value={integrationDialog.config.folder}
-                  onChange={(event) => updateIntegrationConfig({ folder: event.target.value })}
-                  placeholder={integrationDialog.name === "Google Drive" ? "/Projects/Video Edits" : "/Deliverables"}
+                  onChange={(event) =>
+                    updateIntegrationConfig({ folder: event.target.value })
+                  }
+                  placeholder={
+                    integrationDialog.name === "Google Drive"
+                      ? "/Projects/Video Edits"
+                      : "/Deliverables"
+                  }
                 />
               </FieldLayout>
             ) : null}
-            {integrationDialog?.name === "Slack" || integrationDialog?.name === "Frame.io" ? (
+            {integrationDialog?.name === "Slack" ||
+            integrationDialog?.name === "Frame.io" ? (
               <FieldLayout label="Workspace name">
                 <OwnedInput
                   value={integrationDialog.config.workspace}
-                  onChange={(event) => updateIntegrationConfig({ workspace: event.target.value })}
+                  onChange={(event) =>
+                    updateIntegrationConfig({ workspace: event.target.value })
+                  }
                   placeholder="Studio Workspace"
                 />
               </FieldLayout>
@@ -3273,23 +5025,41 @@ function IntegrationsDesignPage({
                 <FieldLayout label="Channel">
                   <OwnedInput
                     value={integrationDialog.config.channel}
-                    onChange={(event) => updateIntegrationConfig({ channel: event.target.value })}
+                    onChange={(event) =>
+                      updateIntegrationConfig({ channel: event.target.value })
+                    }
                     placeholder="#project-updates"
                   />
                 </FieldLayout>
-                <FieldLayout label="Webhook URL" description="Optional. Stored locally and never called by Relay.">
+                <FieldLayout
+                  label="Webhook URL"
+                  description="Optional. Stored locally and never called by Relay."
+                >
                   <OwnedInput
                     type="url"
                     value={integrationDialog.config.webhookUrl}
-                    onChange={(event) => updateIntegrationConfig({ webhookUrl: event.target.value })}
+                    onChange={(event) =>
+                      updateIntegrationConfig({
+                        webhookUrl: event.target.value,
+                      })
+                    }
                     placeholder="https://hooks.slack.com/services/..."
                   />
                 </FieldLayout>
               </>
             ) : null}
             <OwnedDialogFooter>
-              <OwnedButton type="button" variant="outline" onClick={closeIntegrationDialog}>Cancel</OwnedButton>
-              <OwnedButton type="submit" disabled={!integrationDialog?.config.account.trim()}>
+              <OwnedButton
+                type="button"
+                variant="outline"
+                onClick={closeIntegrationDialog}
+              >
+                Cancel
+              </OwnedButton>
+              <OwnedButton
+                type="submit"
+                disabled={!integrationDialog?.config.account.trim()}
+              >
                 <Plug aria-hidden="true" />
                 Save Connection
               </OwnedButton>
@@ -3298,12 +5068,18 @@ function IntegrationsDesignPage({
         </OwnedDialogContent>
       </OwnedDialog>
 
-      <OwnedAlertDialog open={Boolean(disconnectTarget)} onOpenChange={(open) => !open && setDisconnectTarget(null)}>
+      <OwnedAlertDialog
+        open={Boolean(disconnectTarget)}
+        onOpenChange={(open) => !open && setDisconnectTarget(null)}
+      >
         <OwnedAlertDialogContent>
           <OwnedAlertDialogHeader>
-            <OwnedAlertDialogTitle>Disconnect {disconnectTarget}?</OwnedAlertDialogTitle>
+            <OwnedAlertDialogTitle>
+              Disconnect {disconnectTarget}?
+            </OwnedAlertDialogTitle>
             <OwnedAlertDialogDescription>
-              This removes all saved account and configuration details for {disconnectTarget}. You can reconnect it at any time.
+              This removes all saved account and configuration details for{" "}
+              {disconnectTarget}. You can reconnect it at any time.
             </OwnedAlertDialogDescription>
           </OwnedAlertDialogHeader>
           <OwnedAlertDialogFooter>
@@ -3327,7 +5103,7 @@ function IntegrationLinkManager({
   links,
   emptyTitle,
   emptyBody,
-  onChange
+  onChange,
 }: {
   title: string;
   subtitle: string;
@@ -3336,12 +5112,21 @@ function IntegrationLinkManager({
   emptyBody: string;
   onChange: (links: IntegrationLinks) => void;
 }) {
-  const [editing, setEditing] = useState<{ serviceId: IntegrationServiceId; link: IntegrationLink } | null>(null);
+  const [editing, setEditing] = useState<{
+    serviceId: IntegrationServiceId;
+    link: IntegrationLink;
+  } | null>(null);
   const [error, setError] = useState("");
   const configuredCount = configuredIntegrationCount(links);
 
   function openEditor(serviceId: IntegrationServiceId) {
-    setEditing({ serviceId, link: { ...emptyIntegrationLink, ...normalizeIntegrationLink(links?.[serviceId]) } });
+    setEditing({
+      serviceId,
+      link: {
+        ...emptyIntegrationLink,
+        ...normalizeIntegrationLink(links?.[serviceId]),
+      },
+    });
     setError("");
   }
 
@@ -3356,8 +5141,8 @@ function IntegrationLinkManager({
       ...(links ?? {}),
       [editing.serviceId]: {
         ...link,
-        updatedAt: new Date().toISOString()
-      }
+        updatedAt: new Date().toISOString(),
+      },
     });
     setEditing(null);
     setError("");
@@ -3395,7 +5180,10 @@ function IntegrationLinkManager({
           const link = links?.[service.id];
           const linked = hasIntegrationLink(link);
           return (
-            <li key={service.id} className="flex flex-col justify-between gap-3 bg-card p-4 sm:flex-row sm:items-center">
+            <li
+              key={service.id}
+              className="flex flex-col justify-between gap-3 bg-card p-4 sm:flex-row sm:items-center"
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <span
                   aria-hidden="true"
@@ -3449,7 +5237,11 @@ function IntegrationLinkManager({
                   aria-label={`${linked ? "Edit" : "Add"} ${service.name} link`}
                   onClick={() => openEditor(service.id)}
                 >
-                  {linked ? <Pencil aria-hidden="true" /> : <Plus aria-hidden="true" />}
+                  {linked ? (
+                    <Pencil aria-hidden="true" />
+                  ) : (
+                    <Plus aria-hidden="true" />
+                  )}
                   {linked ? "Edit" : "Add Link"}
                 </OwnedButton>
               </div>
@@ -3470,10 +5262,13 @@ function IntegrationLinkManager({
         <OwnedDialogContent className="sm:max-w-xl">
           <OwnedDialogHeader>
             <OwnedDialogTitle>
-              {editing ? `${hasIntegrationLink(links?.[editing.serviceId]) ? "Edit" : "Add"} ${integrationServices.find((service) => service.id === editing.serviceId)?.name} Link` : "Integration Link"}
+              {editing
+                ? `${hasIntegrationLink(links?.[editing.serviceId]) ? "Edit" : "Add"} ${integrationServices.find((service) => service.id === editing.serviceId)?.name} Link`
+                : "Integration Link"}
             </OwnedDialogTitle>
             <OwnedDialogDescription>
-              Store a direct link and optional context. Relay will not authenticate, browse files, sync data, or call this service.
+              Store a direct link and optional context. Relay will not
+              authenticate, browse files, sync data, or call this service.
             </OwnedDialogDescription>
           </OwnedDialogHeader>
           <form
@@ -3488,7 +5283,14 @@ function IntegrationLinkManager({
                 type="url"
                 value={editing?.link.url ?? ""}
                 onChange={(event) => {
-                  setEditing((current) => current ? { ...current, link: { ...current.link, url: event.target.value } } : current);
+                  setEditing((current) =>
+                    current
+                      ? {
+                          ...current,
+                          link: { ...current.link, url: event.target.value },
+                        }
+                      : current
+                  );
                   setError("");
                 }}
                 autoFocus
@@ -3498,14 +5300,32 @@ function IntegrationLinkManager({
             <FieldLayout label="Label">
               <OwnedInput
                 value={editing?.link.label ?? ""}
-                onChange={(event) => setEditing((current) => current ? { ...current, link: { ...current.link, label: event.target.value } } : current)}
+                onChange={(event) =>
+                  setEditing((current) =>
+                    current
+                      ? {
+                          ...current,
+                          link: { ...current.link, label: event.target.value },
+                        }
+                      : current
+                  )
+                }
                 placeholder="Client review folder"
               />
             </FieldLayout>
             <FieldLayout label="Notes">
               <OwnedTextarea
                 value={editing?.link.notes ?? ""}
-                onChange={(event) => setEditing((current) => current ? { ...current, link: { ...current.link, notes: event.target.value } } : current)}
+                onChange={(event) =>
+                  setEditing((current) =>
+                    current
+                      ? {
+                          ...current,
+                          link: { ...current.link, notes: event.target.value },
+                        }
+                      : current
+                  )
+                }
                 placeholder="Optional context for this link"
               />
             </FieldLayout>
@@ -3532,19 +5352,44 @@ function IntegrationLinkManager({
   );
 }
 
-function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canManageWorkspace = false }: { settings: SettingsState; setSettings: (settings: SettingsState | ((current: SettingsState) => SettingsState)) => void; notify: (message: string, tone?: ToastState["tone"]) => void; teamWorkspace?: TeamWorkspaceContract; canManageWorkspace?: boolean }) {
+function SettingsDesignPage({
+  settings,
+  setSettings,
+  notify,
+  teamWorkspace,
+  canManageWorkspace = false,
+}: {
+  settings: SettingsState;
+  setSettings: (
+    settings: SettingsState | ((current: SettingsState) => SettingsState)
+  ) => void;
+  notify: (message: string, tone?: ToastState["tone"]) => void;
+  teamWorkspace?: TeamWorkspaceContract;
+  canManageWorkspace?: boolean;
+}) {
   const { exportBackup, importBackup } = useData();
-  const [optionalAnalytics, setOptionalAnalytics] = useState(() => getAnalyticsConsent() === "granted");
+  const [optionalAnalytics, setOptionalAnalytics] = useState(
+    () => getAnalyticsConsent() === "granted"
+  );
   const updateWorkspaceSettings = useMutation(teamApi.updateWorkspaceSettings);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [workspaceDraft, setWorkspaceDraft] = useState(() => ({
     name: teamWorkspace?.name ?? settings.studioName,
     currencyCode: teamWorkspace?.currencyCode ?? settings.currencyCode,
     timeZone: teamWorkspace?.timeZone ?? settings.timeZone,
-    defaultWorkflowTemplateId: teamWorkspace?.defaultWorkflowTemplateId ?? "relay-default-workflow",
+    defaultWorkflowTemplateId:
+      teamWorkspace?.defaultWorkflowTemplateId ?? "relay-default-workflow",
     allowAllTeamProjects: teamWorkspace?.allowAllTeamProjects ?? false,
   }));
-  const [activeSection, setActiveSection] = useState<"workspace" | "workflow" | "notifications" | "permissions" | "integrations" | "appearance" | "regional">("workspace");
+  const [activeSection, setActiveSection] = useState<
+    | "workspace"
+    | "workflow"
+    | "notifications"
+    | "permissions"
+    | "integrations"
+    | "appearance"
+    | "regional"
+  >("workspace");
   const stageColors = [
     "var(--workflow-stage-1)",
     "var(--workflow-stage-2)",
@@ -3556,16 +5401,48 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
   const stageIssues = projectStageIssues(settings.projectStages);
   const tagIssues = projectTagIssues(settings.projectTags);
   const rolePolicy = [
-    { role: "Owner", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat", "Manage members and roles"] },
-    { role: "Editor", permissions: ["Create and edit projects", "Update project stages", "Leave project notes", "Assign work", "Mention teammates", "Use team chat"] },
-    { role: "Viewer", permissions: ["View team projects", "Review assigned work", "Use team chat"] }
+    {
+      role: "Owner",
+      permissions: [
+        "Create and edit projects",
+        "Update project stages",
+        "Leave project notes",
+        "Assign work",
+        "Mention teammates",
+        "Use team chat",
+        "Manage members and roles",
+      ],
+    },
+    {
+      role: "Editor",
+      permissions: [
+        "Create and edit projects",
+        "Update project stages",
+        "Leave project notes",
+        "Assign work",
+        "Mention teammates",
+        "Use team chat",
+      ],
+    },
+    {
+      role: "Viewer",
+      permissions: [
+        "View team projects",
+        "Review assigned work",
+        "Use team chat",
+      ],
+    },
   ];
   const workflowTemplateOptions = [
     ...PROJECT_TEMPLATES,
     ...settings.customProjectTemplates,
   ];
-  const workflowTemplateIds = workflowTemplateOptions.map((template) => template.id);
-  const workflowTemplateLabels = Object.fromEntries(workflowTemplateOptions.map((template) => [template.id, template.name]));
+  const workflowTemplateIds = workflowTemplateOptions.map(
+    (template) => template.id
+  );
+  const workflowTemplateLabels = Object.fromEntries(
+    workflowTemplateOptions.map((template) => [template.id, template.name])
+  );
 
   useEffect(() => {
     if (!teamWorkspace) return;
@@ -3573,20 +5450,36 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
       name: teamWorkspace.name,
       currencyCode: teamWorkspace.currencyCode ?? settings.currencyCode,
       timeZone: teamWorkspace.timeZone ?? settings.timeZone,
-      defaultWorkflowTemplateId: teamWorkspace.defaultWorkflowTemplateId ?? "relay-default-workflow",
+      defaultWorkflowTemplateId:
+        teamWorkspace.defaultWorkflowTemplateId ?? "relay-default-workflow",
       allowAllTeamProjects: teamWorkspace.allowAllTeamProjects ?? false,
     });
   }, [settings.currencyCode, settings.timeZone, teamWorkspace]);
 
-  async function saveWorkspaceSettings(overrides: Partial<typeof workspaceDraft> = {}) {
+  async function saveWorkspaceSettings(
+    overrides: Partial<typeof workspaceDraft> = {}
+  ) {
     if (!teamWorkspace) return;
     const nextDraft = { ...workspaceDraft, ...overrides };
     try {
-      await updateWorkspaceSettings({ teamId: teamWorkspace._id, ...nextDraft });
-      setSettings((current) => ({ ...current, studioName: nextDraft.name, currencyCode: nextDraft.currencyCode, timeZone: nextDraft.timeZone }));
+      await updateWorkspaceSettings({
+        teamId: teamWorkspace._id,
+        ...nextDraft,
+      });
+      setSettings((current) => ({
+        ...current,
+        studioName: nextDraft.name,
+        currencyCode: nextDraft.currencyCode,
+        timeZone: nextDraft.timeZone,
+      }));
       notify("Workspace settings saved.", "success");
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Workspace settings could not be saved.", "warning");
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Workspace settings could not be saved.",
+        "warning"
+      );
     }
   }
   const settingsNavigation = [
@@ -3600,8 +5493,14 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
   ];
 
   function updateNotification(name: string, enabled: boolean) {
-    setSettings({ ...settings, notifications: { ...settings.notifications, [name]: enabled } });
-    notify(`${name} notifications ${enabled ? "enabled" : "disabled"}.`, "info");
+    setSettings({
+      ...settings,
+      notifications: { ...settings.notifications, [name]: enabled },
+    });
+    notify(
+      `${name} notifications ${enabled ? "enabled" : "disabled"}.`,
+      "info"
+    );
   }
 
   function updateStage(index: number, value: string) {
@@ -3611,43 +5510,102 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
   }
 
   function removeStage(index: number) {
-    setSettings({ ...settings, projectStages: settings.projectStages.filter((_, stageIndex) => stageIndex !== index) });
+    setSettings({
+      ...settings,
+      projectStages: settings.projectStages.filter(
+        (_, stageIndex) => stageIndex !== index
+      ),
+    });
   }
 
   function updateProjectTag(index: number, value: string) {
     const projectTags = [...settings.projectTags];
     const previous = projectTags[index];
     projectTags[index] = value;
-    const nextSalaryWorkType = previous && previous === settings.salaryWorkType ? value : settings.salaryWorkType;
-    setSettings({ ...settings, projectTags, salaryWorkType: nextSalaryWorkType });
+    const nextSalaryWorkType =
+      previous && previous === settings.salaryWorkType
+        ? value
+        : settings.salaryWorkType;
+    setSettings({
+      ...settings,
+      projectTags,
+      salaryWorkType: nextSalaryWorkType,
+    });
   }
 
   function addProjectTag() {
-    setSettings({ ...settings, projectTags: [...settings.projectTags, nextProjectTagName(settings.projectTags)] });
+    setSettings({
+      ...settings,
+      projectTags: [
+        ...settings.projectTags,
+        nextProjectTagName(settings.projectTags),
+      ],
+    });
   }
 
   function removeProjectTag(index: number) {
     const removed = settings.projectTags[index];
-    const projectTags = settings.projectTags.filter((_, tagIndex) => tagIndex !== index);
-    const salaryWorkType = removed === settings.salaryWorkType ? projectTags[0] : settings.salaryWorkType;
+    const projectTags = settings.projectTags.filter(
+      (_, tagIndex) => tagIndex !== index
+    );
+    const salaryWorkType =
+      removed === settings.salaryWorkType
+        ? projectTags[0]
+        : settings.salaryWorkType;
     setSettings({ ...settings, projectTags, salaryWorkType });
   }
 
   function updateSalaryBatchSize(value: string) {
-    setSettings({ ...settings, salaryBatchSize: normalizedSalaryBatchSize(Number(value || defaultSalaryBatchSize)) });
+    setSettings({
+      ...settings,
+      salaryBatchSize: normalizedSalaryBatchSize(
+        Number(value || defaultSalaryBatchSize)
+      ),
+    });
   }
 
   function updateSalaryBatchAmount(value: string) {
-    setSettings({ ...settings, salaryBatchAmount: normalizedSalaryBatchAmount(Number(value || defaultSalaryBatchAmount)) });
+    setSettings({
+      ...settings,
+      salaryBatchAmount: normalizedSalaryBatchAmount(
+        Number(value || defaultSalaryBatchAmount)
+      ),
+    });
   }
 
   function resetSettings() {
-    setSettings({ ...defaultSettings, customClients: [...defaultSettings.customClients], clients: defaultSettings.clients.map((client) => ({ ...client })), customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: template.workflowStages.map((stage) => ({ ...stage })), deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })), projectTags: [...defaultSettings.projectTags], projectStages: [...defaultSettings.projectStages], notifications: { ...defaultSettings.notifications }, integrations: { ...defaultSettings.integrations }, integrationAccounts: { ...defaultSettings.integrationAccounts }, integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)), integrationLinks: {}, teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })), editorPermissions: { ...defaultSettings.editorPermissions }, rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)) });
+    setSettings({
+      ...defaultSettings,
+      customClients: [...defaultSettings.customClients],
+      clients: defaultSettings.clients.map((client) => ({ ...client })),
+      customProjectTemplates: defaultSettings.customProjectTemplates.map(
+        (template) => ({
+          ...template,
+          workflowStages: template.workflowStages.map((stage) => ({
+            ...stage,
+          })),
+          deliverables: template.deliverables.map((item) => ({ ...item })),
+          checklistItems: [...template.checklistItems],
+        })
+      ),
+      projectTags: [...defaultSettings.projectTags],
+      projectStages: [...defaultSettings.projectStages],
+      notifications: { ...defaultSettings.notifications },
+      integrations: { ...defaultSettings.integrations },
+      integrationAccounts: { ...defaultSettings.integrationAccounts },
+      integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
+      integrationLinks: {},
+      teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })),
+      editorPermissions: { ...defaultSettings.editorPermissions },
+      rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
+    });
     notify("Settings reset to defaults.", "warning");
   }
 
   function downloadBackup() {
-    const url = URL.createObjectURL(new Blob([exportBackup()], { type: "application/json" }));
+    const url = URL.createObjectURL(
+      new Blob([exportBackup()], { type: "application/json" })
+    );
     const link = document.createElement("a");
     link.href = url;
     link.download = `relay-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -3658,9 +5616,14 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
   async function restoreBackup(file: File) {
     try {
       const counts = await importBackup(await file.text());
-      notify(`Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.projectGroups} Project Groups, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`);
+      notify(
+        `Imported ${counts.projects} projects, ${counts.clients} clients, ${counts.projectGroups} Project Groups, ${counts.resources} resources, and ${counts.salaryBatches} salary batches.`
+      );
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Backup import failed.", "warning");
+      notify(
+        error instanceof Error ? error.message : "Backup import failed.",
+        "warning"
+      );
     } finally {
       if (backupInputRef.current) backupInputRef.current.value = "";
     }
@@ -3670,8 +5633,16 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
     if (!iso) return "";
     try {
       const date = new Date(iso);
-      return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
-    } catch { return ""; }
+      return new Intl.DateTimeFormat("en", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
+    } catch {
+      return "";
+    }
   }
 
   return (
@@ -3680,465 +5651,890 @@ function SettingsDesignPage({ settings, setSettings, notify, teamWorkspace, canM
         title="Settings"
         description="Manage workspace identity, production defaults, and team-wide behavior."
         actions={
-        <div className="flex flex-wrap justify-end gap-2">
-          <span className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-medium text-[var(--app-muted)]">
-            <CircleCheckBig className="size-4 text-[var(--app-success)]" />
-            Saved automatically
-          </span>
-          <OwnedButton type="button" variant="outline" onClick={resetSettings} className="text-destructive hover:text-destructive">Reset</OwnedButton>
-        </div>
-      }
-      />
-      <PageContent mode="fill" className="min-h-0">
-      <PageToolbar className="lg:hidden" data-family-toolbar="settings">
-        <OwnedSelect value={activeSection} onValueChange={(value) => setActiveSection(value as typeof activeSection)}>
-          <OwnedSelectTrigger aria-label="Choose settings section" className="w-full">
-            <OwnedSelectValue />
-          </OwnedSelectTrigger>
-          <OwnedSelectContent>
-            {settingsNavigation.map(({ id, label }) => (
-              <OwnedSelectItem key={id} value={id}>{label}</OwnedSelectItem>
-            ))}
-          </OwnedSelectContent>
-        </OwnedSelect>
-      </PageToolbar>
-      <FillViewport bodyLabel="Settings workspace" bodyClassName="overflow-visible rounded-[6px] border border-border bg-muted/10 lg:overflow-hidden">
-      <MasterDetail
-        className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
-        master={(
-        <nav
-          aria-label="Settings sections"
-          data-slot="settings-navigation"
-          data-navigation-kind="icon-index"
-          className="hidden h-full overflow-hidden rounded-[6px] border bg-card text-card-foreground lg:flex lg:flex-col"
-        >
-          <div className="border-b border-border px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--app-accent)]">Settings index</p>
-          </div>
-          <div className="grid flex-1 content-start gap-1 overflow-y-auto p-2 overscroll-contain">
-            {settingsNavigation.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                aria-current={activeSection === id ? "page" : undefined}
-                onClick={() => setActiveSection(id)}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-[6px] px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  activeSection === id
-                    ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
-                    : "text-muted-foreground hover:bg-accent hover:text-primary",
-                )}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="border-t border-border p-4 text-[11px] leading-5 text-muted-foreground">Changes save automatically to the active workspace.</p>
-        </nav>
-        )}
-        detail={(
-        <section
-          aria-label={`${settingsNavigation.find((item) => item.id === activeSection)?.label} settings`}
-          className={cn(
-            "grid min-h-0 min-w-0 content-start overflow-visible p-1 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pr-2",
-            settings.density === "Compact" ? "gap-2" : "gap-3",
-          )}
-          tabIndex={0}
-        >
-          {activeSection === "workspace" ? (
-          <>
-          <SettingsPanel id="workspace-profile" title="Workspace profile" subtitle="Shown across project pages, team spaces, and client handoffs.">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FieldLayout label="Workspace name">
-                <OwnedInput
-                  value={teamWorkspace ? workspaceDraft.name : settings.studioName}
-                  disabled={Boolean(teamWorkspace) && !canManageWorkspace}
-                  onChange={(event) => teamWorkspace
-                    ? setWorkspaceDraft((current) => ({ ...current, name: event.target.value }))
-                    : setSettings({ ...settings, studioName: event.target.value })}
-                  onBlur={() => { if (teamWorkspace && canManageWorkspace) void saveWorkspaceSettings(); }}
-                />
-              </FieldLayout>
-              <FieldLayout label="Workspace owner">
-                <OwnedInput
-                  value={settings.profileName}
-                  onChange={(event) => setSettings({ ...settings, profileName: event.target.value })}
-                />
-              </FieldLayout>
-              <FieldLayout label="Workspace role" className="sm:col-span-2">
-                <OwnedInput
-                  value={settings.profileTitle}
-                  onChange={(event) => setSettings({ ...settings, profileTitle: event.target.value })}
-                />
-              </FieldLayout>
-            </div>
-            {teamWorkspace ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <ProjectSelect
-                  label="Workspace currency"
-                  value={workspaceDraft.currencyCode}
-                  options={["USD", "EUR", "GBP", "INR", "AED", "SAR"]}
-                  disabled={!canManageWorkspace}
-                  onChange={(value) => {
-                    setWorkspaceDraft((current) => ({ ...current, currencyCode: value }));
-                    if (canManageWorkspace) void saveWorkspaceSettings({ currencyCode: value });
-                  }}
-                />
-                <FieldLayout label="Time zone">
-                  <OwnedInput
-                    value={workspaceDraft.timeZone}
-                    disabled={!canManageWorkspace}
-                    onChange={(event) => setWorkspaceDraft((current) => ({ ...current, timeZone: event.target.value }))}
-                    onBlur={() => { if (canManageWorkspace) void saveWorkspaceSettings(); }}
-                  />
-                </FieldLayout>
-                <ProjectSelect
-                  label="Default workflow template"
-                  value={workflowTemplateIds.includes(workspaceDraft.defaultWorkflowTemplateId) ? workspaceDraft.defaultWorkflowTemplateId : workflowTemplateIds[0] ?? "relay-default-workflow"}
-                  options={workflowTemplateIds.length ? workflowTemplateIds : ["relay-default-workflow"]}
-                  labels={workflowTemplateLabels}
-                  disabled={!canManageWorkspace}
-                  onChange={(value) => {
-                    setWorkspaceDraft((current) => ({ ...current, defaultWorkflowTemplateId: value }));
-                    if (canManageWorkspace) void saveWorkspaceSettings({ defaultWorkflowTemplateId: value });
-                  }}
-                />
-                <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
-                  <span>
-                    <span className="block font-medium">Editors see all Team Projects</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">Otherwise Editors see owned or assigned work.</span>
-                  </span>
-                  <OwnedSwitch
-                    checked={workspaceDraft.allowAllTeamProjects}
-                    disabled={!canManageWorkspace}
-                    aria-label="Editors see all Team Projects"
-                    onCheckedChange={(checked) => {
-                      setWorkspaceDraft((current) => ({ ...current, allowAllTeamProjects: checked }));
-                      if (canManageWorkspace) void saveWorkspaceSettings({ allowAllTeamProjects: checked });
-                    }}
-                  />
-                </label>
-              </div>
-            ) : null}
-          </SettingsPanel>
-          <SettingsPanel id="workspace-backup" title="Backup and restore" subtitle="Export local Workspace data without account or connected-service details.">
-            <div className="flex flex-wrap gap-2">
-              <OwnedButton type="button" variant="outline" onClick={downloadBackup}><Download aria-hidden="true" /> Export backup</OwnedButton>
-              <OwnedButton type="button" variant="outline" onClick={() => backupInputRef.current?.click()}><Upload aria-hidden="true" /> Import backup</OwnedButton>
-              <input ref={backupInputRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Choose Relay backup" onChange={(event) => { const file = event.target.files?.[0]; if (file) void restoreBackup(file); }} />
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">Import replaces Local Mode data. Cloud import works only when the Workspace has no projects, files, or Salary Batches.</p>
-          </SettingsPanel>
-          <SettingsPanel id="project-rules" title="Production defaults" subtitle="Legacy local fallback for project tags and salary batch defaults. Authenticated owners should use Salary Plans below.">
-            <div className="grid gap-3">
-              {settings.projectTags.map((tag, index) => (
-                <div key={`project-tag-${index}`} className="flex min-w-0 items-end gap-3">
-                  <FieldLayout label={`Tag ${index + 1}`} className="min-w-0 flex-1">
-                    <OwnedInput
-                      value={tag}
-                      aria-label={`Project tag ${index + 1}`}
-                      aria-invalid={Boolean(tagIssues && !tag.trim())}
-                      onChange={(event) => updateProjectTag(index, event.target.value)}
-                    />
-                  </FieldLayout>
-                  <OwnedButton
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove project tag ${index + 1}`}
-                      title="Remove tag"
-                      disabled={settings.projectTags.length <= 1}
-                      onClick={() => removeProjectTag(index)}
-                      className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </OwnedButton>
-                </div>
-              ))}
-              <OwnedButton type="button" variant="outline" onClick={addProjectTag} className="justify-self-start">
-                <Plus aria-hidden="true" />
-                Add Tag
-              </OwnedButton>
-              {tagIssues ? <p role="alert" className="text-sm text-destructive">{tagIssues}</p> : null}
-              <div className="grid gap-3 pt-1 md:grid-cols-3">
-                <ProjectSelect
-                  label="Salary Tag"
-                  value={canonicalWorkType(settings.salaryWorkType, settings.projectTags)}
-                  options={settings.projectTags}
-                  onChange={(value) => setSettings({ ...settings, salaryWorkType: value })}
-                />
-                <FieldLayout label="Legacy videos per batch">
-                  <OwnedInput
-                    type="number"
-                    value={normalizedSalaryBatchSize(settings.salaryBatchSize)}
-                    min={1}
-                    step={1}
-                    onChange={(event) => updateSalaryBatchSize(event.target.value)}
-                  />
-                </FieldLayout>
-                <FieldLayout label="Legacy salary per batch">
-                  <OwnedInput
-                    type="number"
-                    value={normalizedSalaryBatchAmount(settings.salaryBatchAmount)}
-                    min={1}
-                    step={1}
-                    onChange={(event) => updateSalaryBatchAmount(event.target.value)}
-                  />
-                </FieldLayout>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Completed projects tagged "{canonicalWorkType(settings.salaryWorkType, settings.projectTags)}" count toward {normalizedSalaryBatchSize(settings.salaryBatchSize)} videos per salary batch worth {money(normalizedSalaryBatchAmount(settings.salaryBatchAmount), settings.currencyCode)}.
-              </p>
-            </div>
-          </SettingsPanel>
-          </>
-          ) : null}
-          {activeSection === "workflow" ? (
-          <SettingsPanel id="workflow" title="Project Stages" subtitle="Default workflow stages for new work.">
-            {settings.projectStages.map((stage, index) => (
-              <div key={`project-stage-${index}`} className="flex items-center gap-3">
-                <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: stageColors[index % stageColors.length] }} />
-                <OwnedInput
-                  value={stage}
-                  aria-label={`Workflow stage ${index + 1}`}
-                  aria-invalid={Boolean(stageIssues && !stage.trim())}
-                  onChange={(event) => updateStage(index, event.target.value)}
-                  className="min-w-0 flex-1"
-                />
-                <OwnedButton
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove workflow stage ${index + 1}`}
-                    title="Remove stage"
-                    disabled={settings.projectStages.length <= 1}
-                    onClick={() => removeStage(index)}
-                    className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 aria-hidden="true" />
-                </OwnedButton>
-              </div>
-            ))}
+          <div className="flex flex-wrap justify-end gap-2">
+            <span className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-medium text-[var(--app-muted)]">
+              <CircleCheckBig className="size-4 text-[var(--app-success)]" />
+              Saved automatically
+            </span>
             <OwnedButton
               type="button"
               variant="outline"
-              onClick={() => setSettings({ ...settings, projectStages: [...settings.projectStages, nextStageName(settings.projectStages)] })}
-              className="justify-self-start"
+              onClick={resetSettings}
+              className="text-destructive hover:text-destructive"
             >
-              <Plus aria-hidden="true" />
-              Add Stage
+              Reset
             </OwnedButton>
-            {stageIssues ? <p role="alert" className="text-sm text-destructive">{stageIssues}</p> : null}
-          </SettingsPanel>
-          ) : null}
-          {activeSection === "notifications" ? (
-          <SettingsPanel id="notifications" title="Notifications" subtitle="Choose when project and team events should surface.">
-            {Object.keys(defaultSettings.notifications).map((item) => (
-              <div key={item} className="flex items-center justify-between gap-4 border-b py-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{item}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{notificationCopy(item)}</p>
-                </div>
-                <OwnedSwitch
-                  checked={Boolean(settings.notifications[item])}
-                  aria-label={`${item} notifications`}
-                  onCheckedChange={(checked) => updateNotification(item, checked)}
-                />
-              </div>
-            ))}
-            <SettingsLink label="Toggle weekly summary" onClick={() => updateNotification("Weekly summary", !settings.notifications["Weekly summary"])} />
-            <div className="flex items-center justify-between gap-4 border-t pt-4">
-              <div><p className="text-sm font-semibold">Optional product analytics</p><p className="mt-0.5 text-xs text-muted-foreground">Anonymous feature-use events only. Work content and money never leave the privacy boundary.</p></div>
-              <OwnedSwitch checked={optionalAnalytics} aria-label="Optional product analytics" onCheckedChange={(checked) => { setOptionalAnalytics(checked); setAnalyticsConsent(checked ? "granted" : "denied"); }} />
-            </div>
-          </SettingsPanel>
-          ) : null}
-          {activeSection === "permissions" ? (
-          <SettingsPanel id="permissions" title="Team Roles & Permissions" subtitle="Convex enforces these fixed workspace roles on every shared action.">
-            <div className="grid gap-3 lg:grid-cols-3">
-              {rolePolicy.map(({ role, permissions }) => (
-                <div key={role} className="border-t-2 bg-muted p-4" style={{ borderTopColor: role === "Owner" ? accent : role === "Editor" ? warningColor : successColor }}>
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: role === "Owner" ? accent : role === "Editor" ? warningColor : successColor }} />
-                    <h3 className="text-sm font-semibold text-foreground">{role}</h3>
-                  </div>
-                  <ul className="mt-3 grid gap-2">
-                    {permissions.map((permission) => (
-                      <li key={permission} className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-                        <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
-                        <span>{permission}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">Clients collaborate through private Client Portal links and are not workspace members.</p>
-          </SettingsPanel>
-          ) : null}
-          {activeSection === "integrations" ? (
-          <div id="integrations" className="scroll-mt-6">
-            <IntegrationLinkManager
-              title="Integrations"
-              subtitle="Save workspace-level links for storage, messaging, calendars, and review tools."
-              links={settings.integrationLinks}
-              emptyTitle="No integration links configured"
-              emptyBody="Add links to shared folders, calendars, review pages, or team channels. This does not connect to external APIs."
-              onChange={(integrationLinks) => {
-                setSettings({ ...settings, integrationLinks });
-                notify("Integration links updated.", "success");
-              }}
-            />
           </div>
-          ) : null}
-          {activeSection === "appearance" ? (
-          <SettingsPanel id="appearance" title="Appearance" subtitle="Customize how Relay looks and feels for your tracker.">
-            <div className="grid items-end gap-5 md:grid-cols-3">
-              <SegmentedSetting label="Theme" options={["Light", "Dark", "System"]} active={settings.theme} onChange={(value) => setSettings({ ...settings, theme: value })} />
-              <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Accent Color</p>
-                <div className="flex gap-3">
-                  {[cutlab.color.teal, cutlab.color.cyan, cutlab.color.sky, cutlab.color.indigo, cutlab.color.pink, cutlab.color.deepTeal].map((color) => (
+        }
+      />
+      <PageContent mode="fill" className="min-h-0">
+        <PageToolbar className="lg:hidden" data-family-toolbar="settings">
+          <OwnedSelect
+            value={activeSection}
+            onValueChange={(value) =>
+              setActiveSection(value as typeof activeSection)
+            }
+          >
+            <OwnedSelectTrigger
+              aria-label="Choose settings section"
+              className="w-full"
+            >
+              <OwnedSelectValue />
+            </OwnedSelectTrigger>
+            <OwnedSelectContent>
+              {settingsNavigation.map(({ id, label }) => (
+                <OwnedSelectItem key={id} value={id}>
+                  {label}
+                </OwnedSelectItem>
+              ))}
+            </OwnedSelectContent>
+          </OwnedSelect>
+        </PageToolbar>
+        <FillViewport
+          bodyLabel="Settings workspace"
+          bodyClassName="overflow-visible rounded-[6px] border border-border bg-muted/10 lg:overflow-hidden"
+        >
+          <MasterDetail
+            className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
+            master={
+              <nav
+                aria-label="Settings sections"
+                data-slot="settings-navigation"
+                data-navigation-kind="icon-index"
+                className="hidden h-full overflow-hidden rounded-[6px] border bg-card text-card-foreground lg:flex lg:flex-col"
+              >
+                <div className="border-b border-border px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--app-accent)]">
+                    Settings index
+                  </p>
+                </div>
+                <div className="grid flex-1 content-start gap-1 overflow-y-auto p-2 overscroll-contain">
+                  {settingsNavigation.map(({ id, label, icon: Icon }) => (
                     <button
-                      key={color}
+                      key={id}
                       type="button"
-                      aria-label={`Use accent color ${color}`}
-                      aria-pressed={settings.accentColor === color}
-                      onClick={() => setSettings({ ...settings, accentColor: color })}
-                      className={`size-7 cursor-pointer rounded-full border transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${settings.accentColor === color ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-card" : "border-border"}`}
-                      style={{ backgroundColor: color }}
-                    />
+                      aria-current={activeSection === id ? "page" : undefined}
+                      onClick={() => setActiveSection(id)}
+                      className={cn(
+                        "flex min-h-11 items-center gap-3 rounded-[6px] px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        activeSection === id
+                          ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
+                          : "text-muted-foreground hover:bg-accent hover:text-primary"
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      {label}
+                    </button>
                   ))}
                 </div>
-              </div>
-              <SegmentedSetting label="Density" options={["Comfortable", "Compact"]} active={settings.density} onChange={(value) => setSettings({ ...settings, density: value })} />
-            </div>
-          </SettingsPanel>
-          ) : null}
-          {activeSection === "regional" ? (
-          <SettingsPanel id="regional" title="Regional Preferences" subtitle="Choose the currency used for earnings and payout totals.">
-            <div className="grid gap-5 md:grid-cols-2">
-              <ProjectSelect
-                label="Currency"
-                value={currencyLabels[settings.currencyCode] ?? settings.currencyCode}
-                options={currencyOptions.map((code) => currencyLabels[code])}
-                onChange={(value) => {
-                  const nextCode = Object.entries(currencyLabels).find(([, label]) => label === value)?.[0] ?? settings.currencyCode;
-                  setSettings({ ...settings, currencyCode: nextCode });
-                  notify(`Currency changed to ${nextCode}.`, "info");
-                }}
-              />
-              <FieldLayout label="Preview">
-                <OwnedInput value={money(12500, settings.currencyCode)} readOnly />
-              </FieldLayout>
-            </div>
-          </SettingsPanel>
-          ) : null}
-        </section>
-        )}
-      />
-      </FillViewport>
+                <p className="border-t border-border p-4 text-[11px] leading-5 text-muted-foreground">
+                  Changes save automatically to the active workspace.
+                </p>
+              </nav>
+            }
+            detail={
+              <section
+                aria-label={`${settingsNavigation.find((item) => item.id === activeSection)?.label} settings`}
+                className={cn(
+                  "grid min-h-0 min-w-0 content-start overflow-visible p-1 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pr-2",
+                  settings.density === "Compact" ? "gap-2" : "gap-3"
+                )}
+                tabIndex={0}
+              >
+                {activeSection === "workspace" ? (
+                  <>
+                    <SettingsPanel
+                      id="workspace-profile"
+                      title="Workspace profile"
+                      subtitle="Shown across project pages, team spaces, and client handoffs."
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <FieldLayout label="Workspace name">
+                          <OwnedInput
+                            value={
+                              teamWorkspace
+                                ? workspaceDraft.name
+                                : settings.studioName
+                            }
+                            disabled={
+                              Boolean(teamWorkspace) && !canManageWorkspace
+                            }
+                            onChange={(event) =>
+                              teamWorkspace
+                                ? setWorkspaceDraft((current) => ({
+                                    ...current,
+                                    name: event.target.value,
+                                  }))
+                                : setSettings({
+                                    ...settings,
+                                    studioName: event.target.value,
+                                  })
+                            }
+                            onBlur={() => {
+                              if (teamWorkspace && canManageWorkspace)
+                                void saveWorkspaceSettings();
+                            }}
+                          />
+                        </FieldLayout>
+                        <FieldLayout label="Workspace owner">
+                          <OwnedInput
+                            value={settings.profileName}
+                            onChange={(event) =>
+                              setSettings({
+                                ...settings,
+                                profileName: event.target.value,
+                              })
+                            }
+                          />
+                        </FieldLayout>
+                        <FieldLayout
+                          label="Workspace role"
+                          className="sm:col-span-2"
+                        >
+                          <OwnedInput
+                            value={settings.profileTitle}
+                            onChange={(event) =>
+                              setSettings({
+                                ...settings,
+                                profileTitle: event.target.value,
+                              })
+                            }
+                          />
+                        </FieldLayout>
+                      </div>
+                      {teamWorkspace ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <ProjectSelect
+                            label="Workspace currency"
+                            value={workspaceDraft.currencyCode}
+                            options={["USD", "EUR", "GBP", "INR", "AED", "SAR"]}
+                            disabled={!canManageWorkspace}
+                            onChange={(value) => {
+                              setWorkspaceDraft((current) => ({
+                                ...current,
+                                currencyCode: value,
+                              }));
+                              if (canManageWorkspace)
+                                void saveWorkspaceSettings({
+                                  currencyCode: value,
+                                });
+                            }}
+                          />
+                          <FieldLayout label="Time zone">
+                            <OwnedInput
+                              value={workspaceDraft.timeZone}
+                              disabled={!canManageWorkspace}
+                              onChange={(event) =>
+                                setWorkspaceDraft((current) => ({
+                                  ...current,
+                                  timeZone: event.target.value,
+                                }))
+                              }
+                              onBlur={() => {
+                                if (canManageWorkspace)
+                                  void saveWorkspaceSettings();
+                              }}
+                            />
+                          </FieldLayout>
+                          <ProjectSelect
+                            label="Default workflow template"
+                            value={
+                              workflowTemplateIds.includes(
+                                workspaceDraft.defaultWorkflowTemplateId
+                              )
+                                ? workspaceDraft.defaultWorkflowTemplateId
+                                : (workflowTemplateIds[0] ??
+                                  "relay-default-workflow")
+                            }
+                            options={
+                              workflowTemplateIds.length
+                                ? workflowTemplateIds
+                                : ["relay-default-workflow"]
+                            }
+                            labels={workflowTemplateLabels}
+                            disabled={!canManageWorkspace}
+                            onChange={(value) => {
+                              setWorkspaceDraft((current) => ({
+                                ...current,
+                                defaultWorkflowTemplateId: value,
+                              }));
+                              if (canManageWorkspace)
+                                void saveWorkspaceSettings({
+                                  defaultWorkflowTemplateId: value,
+                                });
+                            }}
+                          />
+                          <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                            <span>
+                              <span className="block font-medium">
+                                Editors see all Team Projects
+                              </span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">
+                                Otherwise Editors see owned or assigned work.
+                              </span>
+                            </span>
+                            <OwnedSwitch
+                              checked={workspaceDraft.allowAllTeamProjects}
+                              disabled={!canManageWorkspace}
+                              aria-label="Editors see all Team Projects"
+                              onCheckedChange={(checked) => {
+                                setWorkspaceDraft((current) => ({
+                                  ...current,
+                                  allowAllTeamProjects: checked,
+                                }));
+                                if (canManageWorkspace)
+                                  void saveWorkspaceSettings({
+                                    allowAllTeamProjects: checked,
+                                  });
+                              }}
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </SettingsPanel>
+                    <SettingsPanel
+                      id="workspace-backup"
+                      title="Backup and restore"
+                      subtitle="Export local Workspace data without account or connected-service details."
+                    >
+                      <div className="flex flex-wrap gap-2">
+                        <OwnedButton
+                          type="button"
+                          variant="outline"
+                          onClick={downloadBackup}
+                        >
+                          <Download aria-hidden="true" /> Export backup
+                        </OwnedButton>
+                        <OwnedButton
+                          type="button"
+                          variant="outline"
+                          onClick={() => backupInputRef.current?.click()}
+                        >
+                          <Upload aria-hidden="true" /> Import backup
+                        </OwnedButton>
+                        <input
+                          ref={backupInputRef}
+                          type="file"
+                          accept="application/json,.json"
+                          className="sr-only"
+                          aria-label="Choose Relay backup"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void restoreBackup(file);
+                          }}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Import replaces Local Mode data. Cloud import works only
+                        when the Workspace has no projects, files, or Salary
+                        Batches.
+                      </p>
+                    </SettingsPanel>
+                    <SettingsPanel
+                      id="project-rules"
+                      title="Production defaults"
+                      subtitle="Legacy local fallback for project tags and salary batch defaults. Authenticated owners should use Salary Plans below."
+                    >
+                      <div className="grid gap-3">
+                        {settings.projectTags.map((tag, index) => (
+                          <div
+                            key={`project-tag-${index}`}
+                            className="flex min-w-0 items-end gap-3"
+                          >
+                            <FieldLayout
+                              label={`Tag ${index + 1}`}
+                              className="min-w-0 flex-1"
+                            >
+                              <OwnedInput
+                                value={tag}
+                                aria-label={`Project tag ${index + 1}`}
+                                aria-invalid={Boolean(tagIssues && !tag.trim())}
+                                onChange={(event) =>
+                                  updateProjectTag(index, event.target.value)
+                                }
+                              />
+                            </FieldLayout>
+                            <OwnedButton
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Remove project tag ${index + 1}`}
+                              title="Remove tag"
+                              disabled={settings.projectTags.length <= 1}
+                              onClick={() => removeProjectTag(index)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </OwnedButton>
+                          </div>
+                        ))}
+                        <OwnedButton
+                          type="button"
+                          variant="outline"
+                          onClick={addProjectTag}
+                          className="justify-self-start"
+                        >
+                          <Plus aria-hidden="true" />
+                          Add Tag
+                        </OwnedButton>
+                        {tagIssues ? (
+                          <p role="alert" className="text-sm text-destructive">
+                            {tagIssues}
+                          </p>
+                        ) : null}
+                        <div className="grid gap-3 pt-1 md:grid-cols-3">
+                          <ProjectSelect
+                            label="Salary Tag"
+                            value={canonicalWorkType(
+                              settings.salaryWorkType,
+                              settings.projectTags
+                            )}
+                            options={settings.projectTags}
+                            onChange={(value) =>
+                              setSettings({
+                                ...settings,
+                                salaryWorkType: value,
+                              })
+                            }
+                          />
+                          <FieldLayout label="Legacy videos per batch">
+                            <OwnedInput
+                              type="number"
+                              value={normalizedSalaryBatchSize(
+                                settings.salaryBatchSize
+                              )}
+                              min={1}
+                              step={1}
+                              onChange={(event) =>
+                                updateSalaryBatchSize(event.target.value)
+                              }
+                            />
+                          </FieldLayout>
+                          <FieldLayout label="Legacy salary per batch">
+                            <OwnedInput
+                              type="number"
+                              value={normalizedSalaryBatchAmount(
+                                settings.salaryBatchAmount
+                              )}
+                              min={1}
+                              step={1}
+                              onChange={(event) =>
+                                updateSalaryBatchAmount(event.target.value)
+                              }
+                            />
+                          </FieldLayout>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Completed projects tagged "
+                          {canonicalWorkType(
+                            settings.salaryWorkType,
+                            settings.projectTags
+                          )}
+                          " count toward{" "}
+                          {normalizedSalaryBatchSize(settings.salaryBatchSize)}{" "}
+                          videos per salary batch worth{" "}
+                          {money(
+                            normalizedSalaryBatchAmount(
+                              settings.salaryBatchAmount
+                            ),
+                            settings.currencyCode
+                          )}
+                          .
+                        </p>
+                      </div>
+                    </SettingsPanel>
+                  </>
+                ) : null}
+                {activeSection === "workflow" ? (
+                  <SettingsPanel
+                    id="workflow"
+                    title="Project Stages"
+                    subtitle="Default workflow stages for new work."
+                  >
+                    {settings.projectStages.map((stage, index) => (
+                      <div
+                        key={`project-stage-${index}`}
+                        className="flex items-center gap-3"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              stageColors[index % stageColors.length],
+                          }}
+                        />
+                        <OwnedInput
+                          value={stage}
+                          aria-label={`Workflow stage ${index + 1}`}
+                          aria-invalid={Boolean(stageIssues && !stage.trim())}
+                          onChange={(event) =>
+                            updateStage(index, event.target.value)
+                          }
+                          className="min-w-0 flex-1"
+                        />
+                        <OwnedButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove workflow stage ${index + 1}`}
+                          title="Remove stage"
+                          disabled={settings.projectStages.length <= 1}
+                          onClick={() => removeStage(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </OwnedButton>
+                      </div>
+                    ))}
+                    <OwnedButton
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setSettings({
+                          ...settings,
+                          projectStages: [
+                            ...settings.projectStages,
+                            nextStageName(settings.projectStages),
+                          ],
+                        })
+                      }
+                      className="justify-self-start"
+                    >
+                      <Plus aria-hidden="true" />
+                      Add Stage
+                    </OwnedButton>
+                    {stageIssues ? (
+                      <p role="alert" className="text-sm text-destructive">
+                        {stageIssues}
+                      </p>
+                    ) : null}
+                  </SettingsPanel>
+                ) : null}
+                {activeSection === "notifications" ? (
+                  <SettingsPanel
+                    id="notifications"
+                    title="Notifications"
+                    subtitle="Choose when project and team events should surface."
+                  >
+                    {Object.keys(defaultSettings.notifications).map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center justify-between gap-4 border-b py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {item}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {notificationCopy(item)}
+                          </p>
+                        </div>
+                        <OwnedSwitch
+                          checked={Boolean(settings.notifications[item])}
+                          aria-label={`${item} notifications`}
+                          onCheckedChange={(checked) =>
+                            updateNotification(item, checked)
+                          }
+                        />
+                      </div>
+                    ))}
+                    <SettingsLink
+                      label="Toggle weekly summary"
+                      onClick={() =>
+                        updateNotification(
+                          "Weekly summary",
+                          !settings.notifications["Weekly summary"]
+                        )
+                      }
+                    />
+                    <div className="flex items-center justify-between gap-4 border-t pt-4">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          Optional product analytics
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Anonymous feature-use events only. Work content and
+                          money never leave the privacy boundary.
+                        </p>
+                      </div>
+                      <OwnedSwitch
+                        checked={optionalAnalytics}
+                        aria-label="Optional product analytics"
+                        onCheckedChange={(checked) => {
+                          setOptionalAnalytics(checked);
+                          setAnalyticsConsent(checked ? "granted" : "denied");
+                        }}
+                      />
+                    </div>
+                  </SettingsPanel>
+                ) : null}
+                {activeSection === "permissions" ? (
+                  <SettingsPanel
+                    id="permissions"
+                    title="Team Roles & Permissions"
+                    subtitle="Convex enforces these fixed workspace roles on every shared action."
+                  >
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      {rolePolicy.map(({ role, permissions }) => (
+                        <div
+                          key={role}
+                          className="border-t-2 bg-muted p-4"
+                          style={{
+                            borderTopColor:
+                              role === "Owner"
+                                ? accent
+                                : role === "Editor"
+                                  ? warningColor
+                                  : successColor,
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="size-2 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  role === "Owner"
+                                    ? accent
+                                    : role === "Editor"
+                                      ? warningColor
+                                      : successColor,
+                              }}
+                            />
+                            <h3 className="text-sm font-semibold text-foreground">
+                              {role}
+                            </h3>
+                          </div>
+                          <ul className="mt-3 grid gap-2">
+                            {permissions.map((permission) => (
+                              <li
+                                key={permission}
+                                className="flex items-start gap-2 text-xs leading-5 text-muted-foreground"
+                              >
+                                <Check
+                                  aria-hidden="true"
+                                  className="mt-0.5 size-4 shrink-0 text-primary"
+                                />
+                                <span>{permission}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Clients collaborate through private Client Portal links
+                      and are not workspace members.
+                    </p>
+                  </SettingsPanel>
+                ) : null}
+                {activeSection === "integrations" ? (
+                  <div id="integrations" className="scroll-mt-6">
+                    <IntegrationLinkManager
+                      title="Integrations"
+                      subtitle="Save workspace-level links for storage, messaging, calendars, and review tools."
+                      links={settings.integrationLinks}
+                      emptyTitle="No integration links configured"
+                      emptyBody="Add links to shared folders, calendars, review pages, or team channels. This does not connect to external APIs."
+                      onChange={(integrationLinks) => {
+                        setSettings({ ...settings, integrationLinks });
+                        notify("Integration links updated.", "success");
+                      }}
+                    />
+                  </div>
+                ) : null}
+                {activeSection === "appearance" ? (
+                  <SettingsPanel
+                    id="appearance"
+                    title="Appearance"
+                    subtitle="Customize how Relay looks and feels for your tracker."
+                  >
+                    <div className="grid items-end gap-5 md:grid-cols-3">
+                      <SegmentedSetting
+                        label="Theme"
+                        options={["Light", "Dark", "System"]}
+                        active={settings.theme}
+                        onChange={(value) =>
+                          setSettings({ ...settings, theme: value })
+                        }
+                      />
+                      <div>
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
+                          Accent Color
+                        </p>
+                        <div className="flex gap-3">
+                          {[
+                            cutlab.color.teal,
+                            cutlab.color.cyan,
+                            cutlab.color.sky,
+                            cutlab.color.indigo,
+                            cutlab.color.pink,
+                            cutlab.color.deepTeal,
+                          ].map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              aria-label={`Use accent color ${color}`}
+                              aria-pressed={settings.accentColor === color}
+                              onClick={() =>
+                                setSettings({ ...settings, accentColor: color })
+                              }
+                              className={`size-7 cursor-pointer rounded-full border transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${settings.accentColor === color ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-card" : "border-border"}`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <SegmentedSetting
+                        label="Density"
+                        options={["Comfortable", "Compact"]}
+                        active={settings.density}
+                        onChange={(value) =>
+                          setSettings({ ...settings, density: value })
+                        }
+                      />
+                    </div>
+                  </SettingsPanel>
+                ) : null}
+                {activeSection === "regional" ? (
+                  <SettingsPanel
+                    id="regional"
+                    title="Regional Preferences"
+                    subtitle="Choose the currency used for earnings and payout totals."
+                  >
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <ProjectSelect
+                        label="Currency"
+                        value={
+                          currencyLabels[settings.currencyCode] ??
+                          settings.currencyCode
+                        }
+                        options={currencyOptions.map(
+                          (code) => currencyLabels[code]
+                        )}
+                        onChange={(value) => {
+                          const nextCode =
+                            Object.entries(currencyLabels).find(
+                              ([, label]) => label === value
+                            )?.[0] ?? settings.currencyCode;
+                          setSettings({ ...settings, currencyCode: nextCode });
+                          notify(`Currency changed to ${nextCode}.`, "info");
+                        }}
+                      />
+                      <FieldLayout label="Preview">
+                        <OwnedInput
+                          value={money(12500, settings.currencyCode)}
+                          readOnly
+                        />
+                      </FieldLayout>
+                    </div>
+                  </SettingsPanel>
+                ) : null}
+              </section>
+            }
+          />
+        </FillViewport>
       </PageContent>
     </WorkspacePage>
   );
 }
 
-function OrganizationProfilePage({ projects, settings, stats }: { projects: WorkItem[]; settings: SettingsState; stats: { active: number; delivered: number; earned: number; salaryEdits: number } }) {
-  const membersByRole = settings.teamMembers.reduce<Record<string, number>>((roles, member) => {
-    roles[member.role] = (roles[member.role] || 0) + 1;
-    return roles;
-  }, {});
-  const activeProjects = projects.filter((project) => !isDoneStatus(project.status)).slice(0, 6);
+function OrganizationProfilePage({
+  projects,
+  settings,
+  stats,
+}: {
+  projects: WorkItem[];
+  settings: SettingsState;
+  stats: {
+    active: number;
+    delivered: number;
+    earned: number;
+    salaryEdits: number;
+  };
+}) {
+  const membersByRole = settings.teamMembers.reduce<Record<string, number>>(
+    (roles, member) => {
+      roles[member.role] = (roles[member.role] || 0) + 1;
+      return roles;
+    },
+    {}
+  );
+  const activeProjects = projects
+    .filter((project) => !isDoneStatus(project.status))
+    .slice(0, 6);
 
   return (
     <WorkspacePage family="administration">
       <PageHeader
-      eyebrow="Workspace / Organization"
-      title="Organization Profile"
-      description="Studio-level view for team ownership, delivery context, and active work."
+        eyebrow="Workspace / Organization"
+        title="Organization Profile"
+        description="Studio-level view for team ownership, delivery context, and active work."
       />
       <PageContent className="space-y-5">
-      <MetricStrip columns={4} aria-label="Organization metrics">
-        <MetricItem icon={<Building2 aria-hidden="true" />} label="Studio" value={settings.studioName} supporting="Local tracker" />
-        <MetricItem icon={<Users aria-hidden="true" />} label="Team Members" value={String(settings.teamMembers.length)} supporting={`${Object.keys(membersByRole).length} active roles`} />
-        <MetricItem icon={<FolderKanban aria-hidden="true" />} label="Active Work" value={String(stats.active)} supporting={`${stats.delivered} delivered`} />
-        <MetricItem icon={<BadgeDollarSign aria-hidden="true" />} label="Tracked Value" value={money(stats.earned, settings.currencyCode)} supporting={`${stats.salaryEdits} salary edits`} />
-      </MetricStrip>
+        <MetricStrip columns={4} aria-label="Organization metrics">
+          <MetricItem
+            icon={<Building2 aria-hidden="true" />}
+            label="Studio"
+            value={settings.studioName}
+            supporting="Local tracker"
+          />
+          <MetricItem
+            icon={<Users aria-hidden="true" />}
+            label="Team Members"
+            value={String(settings.teamMembers.length)}
+            supporting={`${Object.keys(membersByRole).length} active roles`}
+          />
+          <MetricItem
+            icon={<FolderKanban aria-hidden="true" />}
+            label="Active Work"
+            value={String(stats.active)}
+            supporting={`${stats.delivered} delivered`}
+          />
+          <MetricItem
+            icon={<BadgeDollarSign aria-hidden="true" />}
+            label="Tracked Value"
+            value={money(stats.earned, settings.currencyCode)}
+            supporting={`${stats.salaryEdits} salary edits`}
+          />
+        </MetricStrip>
 
-      <SplitPane
-        ratio="balanced"
-        primary={(
-        <section aria-labelledby="organization-team-heading" className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div className="flex items-center gap-2">
-            <Users className="size-5 text-primary" aria-hidden="true" />
-            <h2 id="organization-team-heading" className="text-xl font-semibold tracking-tight">Team access</h2>
-          </div>
-          <p className="mt-1.5 text-[13px] text-muted-foreground">Members and permissions are stored locally for this team.</p>
-          {settings.teamMembers.length ? (
-            <ul aria-label="Organization team members" className="mt-4 max-h-[min(460px,55dvh)] space-y-2.5 overflow-y-auto overscroll-contain pr-1">
-              {settings.teamMembers.map((member) => (
-                <li key={member.id} className="grid grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-muted/30 p-2.5">
-                  <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {initials(member.name)}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-semibold">{member.name}</span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">{member.email || "No email saved"}</span>
-                  </span>
-                  <OwnedBadge variant="outline" className="rounded-md bg-card">{member.role}</OwnedBadge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <OrganizationEmptyState
-              icon={<Users aria-hidden="true" />}
-              title="No team members yet"
-              body="Add team members from the Team page to populate this organization view."
-            />
-          )}
-        </section>
-        )}
-        secondary={(
-        <section aria-labelledby="organization-work-heading" className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)]">
-          <div className="flex items-center gap-2">
-            <FolderKanban className="size-5 text-primary" aria-hidden="true" />
-            <div>
-              <h2 id="organization-work-heading" className="text-xl font-semibold tracking-tight">Active organization work</h2>
-              <p className="mt-1 text-[13px] text-muted-foreground">Current queue across the studio.</p>
-            </div>
-          </div>
-          {activeProjects.length ? (
-            <ul aria-label="Active organization projects" className="mt-4 max-h-[min(460px,55dvh)] divide-y divide-border overflow-y-auto overscroll-contain pr-1">
-              {activeProjects.map((project) => (
-                <li key={project.id} className="grid items-center gap-2 py-3 md:grid-cols-[minmax(0,1fr)_160px_130px] md:gap-4">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{project.title}</span>
-                    <span className="mt-1 block truncate text-xs text-muted-foreground">{project.client || project.workType}</span>
-                  </span>
-                  <time dateTime={project.dueDate} className="text-[13px] text-muted-foreground">
-                    {formatDate(project.dueDate, settings.dateFormat)}
-                  </time>
-                  <OrganizationStatusBadge status={project.status} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <OrganizationEmptyState
-              icon={<FolderKanban aria-hidden="true" />}
-              title="No active organization work"
-              body="Active projects appear here after new work is planned."
-            />
-          )}
-        </section>
-        )}
-      />
+        <SplitPane
+          ratio="balanced"
+          primary={
+            <section
+              aria-labelledby="organization-team-heading"
+              className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)]"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="size-5 text-primary" aria-hidden="true" />
+                <h2
+                  id="organization-team-heading"
+                  className="text-xl font-semibold tracking-tight"
+                >
+                  Team access
+                </h2>
+              </div>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">
+                Members and permissions are stored locally for this team.
+              </p>
+              {settings.teamMembers.length ? (
+                <ul
+                  aria-label="Organization team members"
+                  className="mt-4 max-h-[min(460px,55dvh)] space-y-2.5 overflow-y-auto overscroll-contain pr-1"
+                >
+                  {settings.teamMembers.map((member) => (
+                    <li
+                      key={member.id}
+                      className="grid grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-muted/30 p-2.5"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="grid size-9 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+                      >
+                        {initials(member.name)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-semibold">
+                          {member.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {member.email || "No email saved"}
+                        </span>
+                      </span>
+                      <OwnedBadge
+                        variant="outline"
+                        className="rounded-md bg-card"
+                      >
+                        {member.role}
+                      </OwnedBadge>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <OrganizationEmptyState
+                  icon={<Users aria-hidden="true" />}
+                  title="No team members yet"
+                  body="Add team members from the Team page to populate this organization view."
+                />
+              )}
+            </section>
+          }
+          secondary={
+            <section
+              aria-labelledby="organization-work-heading"
+              className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)]"
+            >
+              <div className="flex items-center gap-2">
+                <FolderKanban
+                  className="size-5 text-primary"
+                  aria-hidden="true"
+                />
+                <div>
+                  <h2
+                    id="organization-work-heading"
+                    className="text-xl font-semibold tracking-tight"
+                  >
+                    Active organization work
+                  </h2>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Current queue across the studio.
+                  </p>
+                </div>
+              </div>
+              {activeProjects.length ? (
+                <ul
+                  aria-label="Active organization projects"
+                  className="mt-4 max-h-[min(460px,55dvh)] divide-y divide-border overflow-y-auto overscroll-contain pr-1"
+                >
+                  {activeProjects.map((project) => (
+                    <li
+                      key={project.id}
+                      className="grid items-center gap-2 py-3 md:grid-cols-[minmax(0,1fr)_160px_130px] md:gap-4"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {project.title}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-muted-foreground">
+                          {project.client || project.workType}
+                        </span>
+                      </span>
+                      <time
+                        dateTime={project.dueDate}
+                        className="text-[13px] text-muted-foreground"
+                      >
+                        {formatDate(project.dueDate, settings.dateFormat)}
+                      </time>
+                      <OrganizationStatusBadge status={project.status} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <OrganizationEmptyState
+                  icon={<FolderKanban aria-hidden="true" />}
+                  title="No active organization work"
+                  body="Active projects appear here after new work is planned."
+                />
+              )}
+            </section>
+          }
+        />
       </PageContent>
     </WorkspacePage>
   );
 }
 
-function OrganizationEmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+function OrganizationEmptyState({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
   return (
     <div className="mt-4 grid min-h-40 place-items-center rounded-md border border-dashed border-border bg-muted/20 p-6 text-center">
       <div>
@@ -4146,7 +6542,9 @@ function OrganizationEmptyState({ icon, title, body }: { icon: React.ReactNode; 
           {icon}
         </span>
         <h3 className="mt-3 text-sm font-semibold">{title}</h3>
-        <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-muted-foreground">{body}</p>
+        <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-muted-foreground">
+          {body}
+        </p>
       </div>
     </div>
   );
@@ -4155,7 +6553,15 @@ function OrganizationEmptyState({ icon, title, body }: { icon: React.ReactNode; 
 function OrganizationStatusBadge({ status }: { status: string }) {
   return (
     <OwnedBadge
-      variant={isDoneStatus(status) ? "default" : status === "Cancelled" ? "destructive" : status === "In Progress" ? "secondary" : "outline"}
+      variant={
+        isDoneStatus(status)
+          ? "default"
+          : status === "Cancelled"
+            ? "destructive"
+            : status === "In Progress"
+              ? "secondary"
+              : "outline"
+      }
       className="rounded-md px-2 py-1 font-semibold"
     >
       {status}
@@ -4163,7 +6569,15 @@ function OrganizationStatusBadge({ status }: { status: string }) {
   );
 }
 
-function ProfileDesignPage({ projects, stats, settings }: { projects: WorkItem[]; stats: { active: number; delivered: number; avgTurnaroundDays: number }; settings: SettingsState }) {
+function ProfileDesignPage({
+  projects,
+  stats,
+  settings,
+}: {
+  projects: WorkItem[];
+  stats: { active: number; delivered: number; avgTurnaroundDays: number };
+  settings: SettingsState;
+}) {
   const { isSignedIn } = useData();
   const publishPublicProfile = useMutation(api.publicProfiles.publish);
   const timeline = [...projects]
@@ -4171,7 +6585,10 @@ function ProfileDesignPage({ projects, stats, settings }: { projects: WorkItem[]
     .slice(0, 5);
   const publicActiveProjects = publicMetric(settings.publicActiveProjects);
   const publicDeliveredEdits = publicMetric(settings.publicDeliveredEdits);
-  const publicTurnaroundDays = Math.max(1, publicMetric(settings.publicTurnaroundDays, 3));
+  const publicTurnaroundDays = Math.max(
+    1,
+    publicMetric(settings.publicTurnaroundDays, 3)
+  );
   const currentTurnaround = `${publicTurnaroundDays}`;
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
@@ -4215,7 +6632,11 @@ function ProfileDesignPage({ projects, stats, settings }: { projects: WorkItem[]
       }
     } catch (error) {
       setShareCopied(false);
-      setShareMessage(error instanceof Error ? error.message : "Could not publish public profile.");
+      setShareMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not publish public profile."
+      );
     }
   }
 
@@ -4223,7 +6644,12 @@ function ProfileDesignPage({ projects, stats, settings }: { projects: WorkItem[]
     <div className="mx-auto min-h-dvh w-full max-w-[1480px] bg-background px-4 py-5 text-foreground md:px-8 md:py-7 xl:px-10">
       <header className="flex flex-col items-stretch justify-between gap-4 border-b border-border pb-5 sm:flex-row sm:items-center">
         <CutLabLockup compact subtitle="Video editing tracker" />
-        <OwnedButton type="button" variant="outline" className="min-h-10" onClick={shareProfile}>
+        <OwnedButton
+          type="button"
+          variant="outline"
+          className="min-h-10"
+          onClick={shareProfile}
+        >
           <Share2 aria-hidden="true" />
           {shareCopied ? "Published + Copied" : "Share Profile"}
         </OwnedButton>
@@ -4239,77 +6665,167 @@ function ProfileDesignPage({ projects, stats, settings }: { projects: WorkItem[]
       ) : null}
 
       <main className="mt-5">
-        <section aria-labelledby="public-profile-name" className="grid items-center gap-8 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] md:p-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(420px,0.8fr)] lg:gap-14">
+        <section
+          aria-labelledby="public-profile-name"
+          className="grid items-center gap-8 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] md:p-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(420px,0.8fr)] lg:gap-14"
+        >
           <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
             <PublicProfileAvatar settings={settings} size={128} fontSize={36} />
             <div>
-              <h1 id="public-profile-name" className="text-[34px] font-bold leading-[1.1] tracking-[-0.03em]">{profileDisplayName(settings)}</h1>
-              {displayUsername(settings) ? <p className="mt-1.5 text-sm font-semibold text-primary">{displayUsername(settings)}</p> : null}
+              <h1
+                id="public-profile-name"
+                className="text-[34px] font-bold leading-[1.1] tracking-[-0.03em]"
+              >
+                {profileDisplayName(settings)}
+              </h1>
+              {displayUsername(settings) ? (
+                <p className="mt-1.5 text-sm font-semibold text-primary">
+                  {displayUsername(settings)}
+                </p>
+              ) : null}
               <p className="mt-2 text-[15px]">{settings.profileTitle}</p>
-              <p className="mt-4 max-w-[420px] text-sm leading-relaxed text-muted-foreground">{settings.profileBio}</p>
+              <p className="mt-4 max-w-[420px] text-sm leading-relaxed text-muted-foreground">
+                {settings.profileBio}
+              </p>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-muted-foreground">
-                <ProfileDetail icon={<MapPin />} text={settings.profileLocation} />
+                <ProfileDetail
+                  icon={<MapPin />}
+                  text={settings.profileLocation}
+                />
                 <ProfileDetail icon={<Globe2 />} text={settings.timeZone} />
               </div>
             </div>
           </div>
           <dl className="grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/20 py-4">
-            <ProfileMetric icon={<Play />} label="Active" sublabel="projects" value={String(publicActiveProjects)} />
-            <ProfileMetric icon={<CircleCheckBig />} label="Delivered" sublabel="edits" value={String(publicDeliveredEdits)} />
-            <ProfileMetric icon={<Clock3 />} label="Turnaround" sublabel="average" value={`${currentTurnaround}d`} />
+            <ProfileMetric
+              icon={<Play />}
+              label="Active"
+              sublabel="projects"
+              value={String(publicActiveProjects)}
+            />
+            <ProfileMetric
+              icon={<CircleCheckBig />}
+              label="Delivered"
+              sublabel="edits"
+              value={String(publicDeliveredEdits)}
+            />
+            <ProfileMetric
+              icon={<Clock3 />}
+              label="Turnaround"
+              sublabel="average"
+              value={`${currentTurnaround}d`}
+            />
           </dl>
         </section>
 
-        <section aria-labelledby="recent-work-heading" className="mt-5 grid items-start gap-6 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] md:p-8 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
+        <section
+          aria-labelledby="recent-work-heading"
+          className="mt-5 grid items-start gap-6 rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] md:p-8 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12"
+        >
           <div className="xl:sticky xl:top-6">
-            <h2 id="recent-work-heading" className="text-2xl font-semibold leading-tight tracking-[-0.025em]">Recent work</h2>
-            <p className="mt-2 max-w-[230px] text-[13px] leading-relaxed text-muted-foreground">Recent delivery history and near-term work from the tracker.</p>
+            <h2
+              id="recent-work-heading"
+              className="text-2xl font-semibold leading-tight tracking-[-0.025em]"
+            >
+              Recent work
+            </h2>
+            <p className="mt-2 max-w-[230px] text-[13px] leading-relaxed text-muted-foreground">
+              Recent delivery history and near-term work from the tracker.
+            </p>
           </div>
           {timeline.length ? (
-            <ol className="relative md:pl-6" aria-label="Recent project timeline">
-              <span aria-hidden="true" className="absolute bottom-3 left-2 top-3 hidden w-0.5 rounded-full bg-border md:block" />
+            <ol
+              className="relative md:pl-6"
+              aria-label="Recent project timeline"
+            >
+              <span
+                aria-hidden="true"
+                className="absolute bottom-3 left-2 top-3 hidden w-0.5 rounded-full bg-border md:block"
+              />
               {timeline.map((project) => (
-                <li key={project.id} className="relative grid items-start gap-3 border-b py-5 last:border-b-0 md:grid-cols-[120px_minmax(0,1fr)_130px] md:gap-5">
+                <li
+                  key={project.id}
+                  className="relative grid items-start gap-3 border-b py-5 last:border-b-0 md:grid-cols-[120px_minmax(0,1fr)_130px] md:gap-5"
+                >
                   <span
                     aria-hidden="true"
                     className="absolute left-[-24px] top-[22px] hidden size-3.5 rounded-full border-[3px] border-card ring-1 ring-border md:block"
-                    style={{ backgroundColor: projectTimelineColor(project.status) }}
+                    style={{
+                      backgroundColor: projectTimelineColor(project.status),
+                    }}
                   />
                   <div>
-                    <p className="text-xs font-semibold" style={{ color: projectTimelineColor(project.status) }}>{profileStatusLabel(project.status)}</p>
-                    <time dateTime={project.dueDate} className="mt-1 block text-xs text-muted-foreground">{formatDate(project.dueDate, settings.dateFormat)}</time>
+                    <p
+                      className="text-xs font-semibold"
+                      style={{ color: projectTimelineColor(project.status) }}
+                    >
+                      {profileStatusLabel(project.status)}
+                    </p>
+                    <time
+                      dateTime={project.dueDate}
+                      className="mt-1 block text-xs text-muted-foreground"
+                    >
+                      {formatDate(project.dueDate, settings.dateFormat)}
+                    </time>
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold">{project.title}</h3>
-                    <p className="mt-1 text-[13px] text-muted-foreground">{project.client || project.workType}</p>
-                    <p className="mt-2 max-w-[620px] text-[13px] leading-relaxed text-muted-foreground">{project.notes || "No notes saved for this project."}</p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      {project.client || project.workType}
+                    </p>
+                    <p className="mt-2 max-w-[620px] text-[13px] leading-relaxed text-muted-foreground">
+                      {project.notes || "No notes saved for this project."}
+                    </p>
                   </div>
                   <div className="md:text-right">
-                    <p className="text-[13px] font-semibold">{Math.max(1, daysBetween(project.startDate, project.dueDate))} days</p>
-                    <p className="mt-1 text-xs text-muted-foreground">turnaround</p>
+                    <p className="text-[13px] font-semibold">
+                      {Math.max(
+                        1,
+                        daysBetween(project.startDate, project.dueDate)
+                      )}{" "}
+                      days
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      turnaround
+                    </p>
                   </div>
                 </li>
               ))}
             </ol>
           ) : (
-            <ProfileEmptyState title="No projects available" body="Projects will appear here once the tracker has saved records." />
+            <ProfileEmptyState
+              title="No projects available"
+              body="Projects will appear here once the tracker has saved records."
+            />
           )}
         </section>
       </main>
       <footer className="mt-6 text-center text-[13px] text-muted-foreground">
-        Shared from {settings.studioName} - Video Editing Tracker &nbsp; | &nbsp; Updated {formatDate(iso(todayDate()), settings.dateFormat)}, {todayDate().getFullYear()}
+        Shared from {settings.studioName} - Video Editing Tracker &nbsp; |
+        &nbsp; Updated {formatDate(iso(todayDate()), settings.dateFormat)},{" "}
+        {todayDate().getFullYear()}
       </footer>
     </div>
   );
 }
 
-function ProfileEditPage({ settings, setSettings }: { settings: SettingsState; setSettings: (settings: SettingsState) => void }) {
+function ProfileEditPage({
+  settings,
+  setSettings,
+}: {
+  settings: SettingsState;
+  setSettings: (settings: SettingsState) => void;
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageUrlError = settings.profileImageUrl.trim() && !isValidProfileImageSource(settings.profileImageUrl)
-    ? "Use an http(s) image URL or upload an image file."
-    : undefined;
+  const imageUrlError =
+    settings.profileImageUrl.trim() &&
+    !isValidProfileImageSource(settings.profileImageUrl)
+      ? "Use an http(s) image URL or upload an image file."
+      : undefined;
 
-  async function uploadProfileImage(event: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadProfileImage(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -4331,165 +6847,248 @@ function ProfileEditPage({ settings, setSettings }: { settings: SettingsState; s
       />
 
       <PageContent className="space-y-5">
-      <MasterDetail
-        master={(
-        <aside aria-label="Profile photo" className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6">
-          <div className="grid place-items-center">
-            <ProfileEditAvatar settings={settings} />
-          </div>
-          <input
-            ref={fileInputRef}
-            hidden
-            type="file"
-            accept="image/*"
-            onChange={uploadProfileImage}
-          />
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <OwnedButton type="button" variant="outline" className="min-h-10" onClick={() => fileInputRef.current?.click()}>
-              <Upload aria-hidden="true" />
-              Upload Photo
-            </OwnedButton>
-            <OwnedButton
-              type="button"
-              variant="outline"
-              disabled={!settings.profileImageUrl}
-              onClick={() => setSettings({ ...settings, profileImageUrl: "" })}
+        <MasterDetail
+          master={
+            <aside
+              aria-label="Profile photo"
+              className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6"
             >
-              <Trash2 aria-hidden="true" />
-              Clear
-            </OwnedButton>
-          </div>
-          <p className="mx-auto mt-4 max-w-[260px] text-center text-[13px] leading-relaxed text-muted-foreground">
-            Upload an image or paste an image URL below. The latest saved photo will appear anywhere your profile is shown.
-          </p>
-        </aside>
-        )}
-        detail={(
-        <div className="grid gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FieldLayout label="Profile Name">
-              <OwnedInput
-                value={settings.profileName}
-                onChange={(event) => setSettings({ ...settings, profileName: event.target.value })}
+              <div className="grid place-items-center">
+                <ProfileEditAvatar settings={settings} />
+              </div>
+              <input
+                ref={fileInputRef}
+                hidden
+                type="file"
+                accept="image/*"
+                onChange={uploadProfileImage}
               />
-            </FieldLayout>
-            <FieldLayout label="Username" description={`Public profile: /u/${publicProfileSlug(settings)}`}>
-              <OwnedInput
-                value={settings.profileUsername}
-                placeholder="@yourname"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                onChange={(event) => setSettings({ ...settings, profileUsername: sanitizeUsername(event.target.value) })}
-              />
-            </FieldLayout>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FieldLayout label="Profile Title">
-              <OwnedInput
-                value={settings.profileTitle}
-                onChange={(event) => setSettings({ ...settings, profileTitle: event.target.value })}
-              />
-            </FieldLayout>
-            <FieldLayout label="Profile Image URL" error={imageUrlError}>
-              <OwnedInput
-                inputMode="url"
-                value={settings.profileImageUrl}
-                placeholder="https://example.com/photo.jpg"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                onChange={(event) => setSettings({ ...settings, profileImageUrl: event.target.value.trim() })}
-              />
-            </FieldLayout>
-          </div>
-
-          <FieldLayout label="Profile Bio">
-            <OwnedTextarea
-              rows={3}
-              value={settings.profileBio}
-              onChange={(event) => setSettings({ ...settings, profileBio: event.target.value })}
-            />
-          </FieldLayout>
-          <FieldLayout label="Profile Location">
-            <OwnedInput
-              value={settings.profileLocation}
-              onChange={(event) => setSettings({ ...settings, profileLocation: event.target.value })}
-            />
-          </FieldLayout>
-
-          <ContentSection
-            title="Public Profile Stats"
-            description="These are portfolio-facing numbers. They do not need to match your private tracker totals."
-            className="shadow-none"
-          >
-            <div className="grid gap-3 sm:grid-cols-3">
-              <FieldLayout label="Active Projects">
-                <OwnedInput
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={publicMetric(settings.publicActiveProjects)}
-                  onChange={(event) => setSettings({ ...settings, publicActiveProjects: publicMetric(Number(event.target.value)) })}
-                />
-              </FieldLayout>
-              <FieldLayout label="Delivered Edits">
-                <OwnedInput
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={publicMetric(settings.publicDeliveredEdits)}
-                  onChange={(event) => setSettings({ ...settings, publicDeliveredEdits: publicMetric(Number(event.target.value)) })}
-                />
-              </FieldLayout>
-              <FieldLayout label="Turnaround Days">
-                <OwnedInput
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={Math.max(1, publicMetric(settings.publicTurnaroundDays, 3))}
-                  onChange={(event) => setSettings({ ...settings, publicTurnaroundDays: Math.max(1, publicMetric(Number(event.target.value), 3)) })}
-                />
-              </FieldLayout>
-            </div>
-          </ContentSection>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ProfileEditSelect
-              label="Time Zone"
-              value={settings.timeZone}
-              options={["Asia/Dubai", "Pacific Time", "Eastern Time", "UTC"]}
-              onChange={(value) => setSettings({ ...settings, timeZone: value })}
-            />
-            <ProfileEditSelect
-              label="Date Format"
-              value={settings.dateFormat}
-              options={["Month Day, Year", "Day Month Year", "YYYY-MM-DD"]}
-              onChange={(value) => setSettings({ ...settings, dateFormat: value })}
-            />
-          </div>
-
-          <fieldset>
-            <legend className="mb-2 text-sm font-medium">Week Start Day</legend>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <OwnedButton
                   type="button"
-                  key={day}
-                  variant={settings.weekStart === day ? "default" : "outline"}
-                  aria-pressed={settings.weekStart === day}
-                  onClick={() => setSettings({ ...settings, weekStart: day })}
-                  className="min-w-0 px-2 text-xs"
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  {day}
+                  <Upload aria-hidden="true" />
+                  Upload Photo
                 </OwnedButton>
-              ))}
+                <OwnedButton
+                  type="button"
+                  variant="outline"
+                  disabled={!settings.profileImageUrl}
+                  onClick={() =>
+                    setSettings({ ...settings, profileImageUrl: "" })
+                  }
+                >
+                  <Trash2 aria-hidden="true" />
+                  Clear
+                </OwnedButton>
+              </div>
+              <p className="mx-auto mt-4 max-w-[260px] text-center text-[13px] leading-relaxed text-muted-foreground">
+                Upload an image or paste an image URL below. The latest saved
+                photo will appear anywhere your profile is shown.
+              </p>
+            </aside>
+          }
+          detail={
+            <div className="grid gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldLayout label="Profile Name">
+                  <OwnedInput
+                    value={settings.profileName}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        profileName: event.target.value,
+                      })
+                    }
+                  />
+                </FieldLayout>
+                <FieldLayout
+                  label="Username"
+                  description={`Public profile: /u/${publicProfileSlug(settings)}`}
+                >
+                  <OwnedInput
+                    value={settings.profileUsername}
+                    placeholder="@yourname"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        profileUsername: sanitizeUsername(event.target.value),
+                      })
+                    }
+                  />
+                </FieldLayout>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FieldLayout label="Profile Title">
+                  <OwnedInput
+                    value={settings.profileTitle}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        profileTitle: event.target.value,
+                      })
+                    }
+                  />
+                </FieldLayout>
+                <FieldLayout label="Profile Image URL" error={imageUrlError}>
+                  <OwnedInput
+                    inputMode="url"
+                    value={settings.profileImageUrl}
+                    placeholder="https://example.com/photo.jpg"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        profileImageUrl: event.target.value.trim(),
+                      })
+                    }
+                  />
+                </FieldLayout>
+              </div>
+
+              <FieldLayout label="Profile Bio">
+                <OwnedTextarea
+                  rows={3}
+                  value={settings.profileBio}
+                  onChange={(event) =>
+                    setSettings({ ...settings, profileBio: event.target.value })
+                  }
+                />
+              </FieldLayout>
+              <FieldLayout label="Profile Location">
+                <OwnedInput
+                  value={settings.profileLocation}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      profileLocation: event.target.value,
+                    })
+                  }
+                />
+              </FieldLayout>
+
+              <ContentSection
+                title="Public Profile Stats"
+                description="These are portfolio-facing numbers. They do not need to match your private tracker totals."
+                className="shadow-none"
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FieldLayout label="Active Projects">
+                    <OwnedInput
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={publicMetric(settings.publicActiveProjects)}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          publicActiveProjects: publicMetric(
+                            Number(event.target.value)
+                          ),
+                        })
+                      }
+                    />
+                  </FieldLayout>
+                  <FieldLayout label="Delivered Edits">
+                    <OwnedInput
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={publicMetric(settings.publicDeliveredEdits)}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          publicDeliveredEdits: publicMetric(
+                            Number(event.target.value)
+                          ),
+                        })
+                      }
+                    />
+                  </FieldLayout>
+                  <FieldLayout label="Turnaround Days">
+                    <OwnedInput
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={Math.max(
+                        1,
+                        publicMetric(settings.publicTurnaroundDays, 3)
+                      )}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          publicTurnaroundDays: Math.max(
+                            1,
+                            publicMetric(Number(event.target.value), 3)
+                          ),
+                        })
+                      }
+                    />
+                  </FieldLayout>
+                </div>
+              </ContentSection>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ProfileEditSelect
+                  label="Time Zone"
+                  value={settings.timeZone}
+                  options={[
+                    "Asia/Dubai",
+                    "Pacific Time",
+                    "Eastern Time",
+                    "UTC",
+                  ]}
+                  onChange={(value) =>
+                    setSettings({ ...settings, timeZone: value })
+                  }
+                />
+                <ProfileEditSelect
+                  label="Date Format"
+                  value={settings.dateFormat}
+                  options={["Month Day, Year", "Day Month Year", "YYYY-MM-DD"]}
+                  onChange={(value) =>
+                    setSettings({ ...settings, dateFormat: value })
+                  }
+                />
+              </div>
+
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium">
+                  Week Start Day
+                </legend>
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                    (day) => (
+                      <OwnedButton
+                        type="button"
+                        key={day}
+                        variant={
+                          settings.weekStart === day ? "default" : "outline"
+                        }
+                        aria-pressed={settings.weekStart === day}
+                        onClick={() =>
+                          setSettings({ ...settings, weekStart: day })
+                        }
+                        className="min-w-0 px-2 text-xs"
+                      >
+                        {day}
+                      </OwnedButton>
+                    )
+                  )}
+                </div>
+              </fieldset>
             </div>
-          </fieldset>
-        </div>
-        )}
-      />
+          }
+        />
       </PageContent>
     </WorkspacePage>
   );
@@ -4501,7 +7100,11 @@ function ProfileEditAvatar({ settings }: { settings: SettingsState }) {
   return (
     <div className="grid size-40 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-5xl font-bold text-foreground">
       {imageUrl ? (
-        <img className="size-full object-cover" src={imageUrl} alt={profileDisplayName(settings)} />
+        <img
+          className="size-full object-cover"
+          src={imageUrl}
+          alt={profileDisplayName(settings)}
+        />
       ) : (
         <span aria-hidden="true">{initials(settings.profileName)}</span>
       )}
@@ -4509,9 +7112,22 @@ function ProfileEditAvatar({ settings }: { settings: SettingsState }) {
   );
 }
 
-function ProfileEditSelect<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly T[]; onChange: (value: T) => void }) {
+function ProfileEditSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  onChange: (value: T) => void;
+}) {
   return (
-    <OwnedSelect value={value} onValueChange={(nextValue) => onChange(nextValue as T)}>
+    <OwnedSelect
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+    >
       <FieldLayout label={label}>
         <OwnedSelectTrigger className="w-full">
           <OwnedSelectValue>{value}</OwnedSelectValue>
@@ -4519,7 +7135,9 @@ function ProfileEditSelect<T extends string>({ label, value, options, onChange }
       </FieldLayout>
       <OwnedSelectContent position="popper">
         {options.map((option) => (
-          <OwnedSelectItem key={option} value={option}>{option}</OwnedSelectItem>
+          <OwnedSelectItem key={option} value={option}>
+            {option}
+          </OwnedSelectItem>
         ))}
       </OwnedSelectContent>
     </OwnedSelect>
@@ -4529,14 +7147,28 @@ function ProfileEditSelect<T extends string>({ label, value, options, onChange }
 function NotificationBell({ settings }: { settings: SettingsState }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const { isSignedIn, isLoaded: isUserLoaded } = useOptionalAuth();
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const teamData = useQuery(api.team.getMyWorkspace, isConvexAuthenticated ? {} : "skip");
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
+  const teamData = useQuery(
+    api.team.getMyWorkspace,
+    isConvexAuthenticated ? {} : "skip"
+  );
   const markNotificationRead = useMutation(api.team.markNotificationRead);
-  const markAllNotificationsRead = useMutation(api.team.markAllNotificationsRead);
-  const enabledNotifications = Object.entries(settings.notifications).filter(([, enabled]) => enabled);
+  const markAllNotificationsRead = useMutation(
+    api.team.markAllNotificationsRead
+  );
+  const enabledNotifications = Object.entries(settings.notifications).filter(
+    ([, enabled]) => enabled
+  );
   const teamNotifications = teamData?.notifications ?? [];
-  const unreadCount = teamNotifications.filter((notification) => !notification.read).length;
-  const teamNotificationSyncUnavailable = Boolean(isUserLoaded && isSignedIn && !isConvexAuthLoading && !isConvexAuthenticated);
+  const unreadCount = teamNotifications.filter(
+    (notification) => !notification.read
+  ).length;
+  const teamNotificationSyncUnavailable = Boolean(
+    isUserLoaded && isSignedIn && !isConvexAuthLoading && !isConvexAuthenticated
+  );
 
   return (
     <OwnedPopover open={notificationOpen} onOpenChange={setNotificationOpen}>
@@ -4554,7 +7186,9 @@ function NotificationBell({ settings }: { settings: SettingsState }) {
           {unreadCount ? (
             <span
               className={`absolute grid h-[17px] place-items-center rounded-full border-2 border-[var(--app-panel)] bg-[var(--app-danger)] text-[9px] leading-none font-extrabold text-white ${
-                unreadCount > 9 ? "-right-1 top-px min-w-6 px-1" : "top-1 right-0.5 min-w-[17px]"
+                unreadCount > 9
+                  ? "-right-1 top-px min-w-6 px-1"
+                  : "top-1 right-0.5 min-w-[17px]"
               }`}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
@@ -4579,7 +7213,9 @@ function NotificationBell({ settings }: { settings: SettingsState }) {
                 variant="ghost"
                 size="xs"
                 onClick={() => {
-                  markAllNotificationsRead({ teamId: teamData.workspace._id }).catch(() => undefined);
+                  markAllNotificationsRead({
+                    teamId: teamData.workspace._id,
+                  }).catch(() => undefined);
                 }}
                 className="h-auto px-0 py-0 text-[11px] font-semibold text-[var(--app-accent)] hover:bg-transparent"
               >
@@ -4588,27 +7224,54 @@ function NotificationBell({ settings }: { settings: SettingsState }) {
             ) : null}
           </div>
           <p className="mt-0.5 text-xs text-[var(--app-muted)]">
-            {isConvexAuthLoading ? "Connecting team notifications..." : teamNotificationSyncUnavailable ? "Team notifications are not connected" : teamNotifications.length ? `${unreadCount} unread team notification${unreadCount === 1 ? "" : "s"}` : enabledNotifications.length ? `${enabledNotifications.length} notification types enabled` : "No notifications yet"}
+            {isConvexAuthLoading
+              ? "Connecting team notifications..."
+              : teamNotificationSyncUnavailable
+                ? "Team notifications are not connected"
+                : teamNotifications.length
+                  ? `${unreadCount} unread team notification${unreadCount === 1 ? "" : "s"}`
+                  : enabledNotifications.length
+                    ? `${enabledNotifications.length} notification types enabled`
+                    : "No notifications yet"}
           </p>
         </div>
         <div className="border-t border-[var(--app-border)]" />
         {isConvexAuthLoading ? (
-          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-muted)]">Waiting for Convex auth before loading Team notifications.</p>
+          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-muted)]">
+            Waiting for Convex auth before loading Team notifications.
+          </p>
         ) : teamNotificationSyncUnavailable ? (
-          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-danger)]">Clerk is signed in, but Convex auth is not connected. Check Team sync before relying on shared notifications.</p>
+          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-danger)]">
+            Clerk is signed in, but Convex auth is not connected. Check Team
+            sync before relying on shared notifications.
+          </p>
         ) : teamNotifications.length ? (
           <ul className="max-h-80 overflow-y-auto">
             {teamNotifications.slice(0, 8).map((notification) => (
-              <li key={notification._id} className={`px-3 py-2 ${notification.read ? "bg-[var(--app-panel)]" : "bg-[var(--app-active)]"}`}>
-                <p className="text-[13px] font-semibold">{notification.message}</p>
-                <p className="mt-0.5 text-xs text-[var(--app-muted)]">{new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(notification.createdAt))}</p>
+              <li
+                key={notification._id}
+                className={`px-3 py-2 ${notification.read ? "bg-[var(--app-panel)]" : "bg-[var(--app-active)]"}`}
+              >
+                <p className="text-[13px] font-semibold">
+                  {notification.message}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                  {new Intl.DateTimeFormat("en", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(new Date(notification.createdAt))}
+                </p>
                 {!notification.read ? (
                   <OwnedButton
                     type="button"
                     variant="ghost"
                     size="xs"
                     onClick={() => {
-                      markNotificationRead({ notificationId: notification._id }).catch(() => undefined);
+                      markNotificationRead({
+                        notificationId: notification._id,
+                      }).catch(() => undefined);
                     }}
                     className="mt-1 h-auto px-0 py-0 text-[11px] font-semibold text-[var(--app-accent)] hover:bg-transparent"
                   >
@@ -4620,7 +7283,9 @@ function NotificationBell({ settings }: { settings: SettingsState }) {
                   onClick={() => {
                     setNotificationOpen(false);
                     if (!notification.read) {
-                      void markNotificationRead({ notificationId: notification._id });
+                      void markNotificationRead({
+                        notificationId: notification._id,
+                      });
                     }
                   }}
                   className="mt-1 inline-flex text-[11px] font-semibold text-[var(--app-accent)] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
@@ -4635,26 +7300,44 @@ function NotificationBell({ settings }: { settings: SettingsState }) {
             {enabledNotifications.map(([name]) => (
               <li key={name} className="px-3 py-2">
                 <p className="text-[13px] font-semibold">{name}</p>
-                <p className="text-xs text-[var(--app-muted)]">{notificationCopy(name)}</p>
+                <p className="text-xs text-[var(--app-muted)]">
+                  {notificationCopy(name)}
+                </p>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-muted)]">Turn on deadline, feedback, or weekly summary notifications from Settings.</p>
+          <p className="px-3 py-2.5 text-xs leading-relaxed text-[var(--app-muted)]">
+            Turn on deadline, feedback, or weekly summary notifications from
+            Settings.
+          </p>
         )}
       </OwnedPopoverContent>
     </OwnedPopover>
   );
 }
 
-function SettingsPanel({ id, title, subtitle, children }: { id?: string; title: string; subtitle: string; children: React.ReactNode }) {
+function SettingsPanel({
+  id,
+  title,
+  subtitle,
+  children,
+}: {
+  id?: string;
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
   const reduceMotion = useHydratedReducedMotion();
   return (
     <motion.div
       layout
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
+      transition={{
+        duration: reduceMotion ? 0 : 0.24,
+        ease: [0.16, 1, 0.3, 1],
+      }}
     >
       <ContentSection
         id={id}
@@ -4675,24 +7358,53 @@ function notificationCopy(item: string) {
     "Feedback received": "When feedback is added to your projects",
     "Upcoming deadlines": "Daily summary of due dates and overdue items",
     Mentions: "When you are mentioned in comments",
-    "Weekly summary": "A recap of projects and tasks every Monday"
+    "Weekly summary": "A recap of projects and tasks every Monday",
   };
   return copy[item] ?? "Tracker notification";
 }
 
-function SettingsLink({ label, onClick }: { label: string; onClick?: () => void }) {
+function SettingsLink({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick?: () => void;
+}) {
   return (
-    <OwnedButton type="button" variant="link" size="sm" onClick={onClick} className="h-auto justify-self-start px-0 py-0 text-primary">
+    <OwnedButton
+      type="button"
+      variant="link"
+      size="sm"
+      onClick={onClick}
+      className="h-auto justify-self-start px-0 py-0 text-primary"
+    >
       {label}
     </OwnedButton>
   );
 }
 
-function SegmentedSetting({ label, options, active, onChange }: { label: string; options: string[]; active: string; onChange: (value: string) => void }) {
+function SegmentedSetting({
+  label,
+  options,
+  active,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  active: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div>
       <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
-      <div role="group" aria-label={label} className="grid max-w-[330px] overflow-hidden rounded-md border" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      <div
+        role="group"
+        aria-label={label}
+        className="grid max-w-[330px] overflow-hidden rounded-md border"
+        style={{
+          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+        }}
+      >
         {options.map((option) => (
           <OwnedButton
             key={option}
@@ -4711,18 +7423,46 @@ function SegmentedSetting({ label, options, active, onChange }: { label: string;
   );
 }
 
-function ProfileMetric({ icon, label, sublabel, value }: { icon: React.ReactNode; label: string; sublabel: string; value: string }) {
+function ProfileMetric({
+  icon,
+  label,
+  sublabel,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sublabel: string;
+  value: string;
+}) {
   return (
-    <div className="min-h-[82px] px-4" aria-label={`${label} ${sublabel}: ${value}`}>
-      <span aria-hidden="true" className="mb-2 grid w-6 place-items-center text-muted-foreground [&_svg]:size-[19px]">{icon}</span>
-      <dd className="text-2xl font-semibold leading-none tabular-nums">{value}</dd>
+    <div
+      className="min-h-[82px] px-4"
+      aria-label={`${label} ${sublabel}: ${value}`}
+    >
+      <span
+        aria-hidden="true"
+        className="mb-2 grid w-6 place-items-center text-muted-foreground [&_svg]:size-[19px]"
+      >
+        {icon}
+      </span>
+      <dd className="text-2xl font-semibold leading-none tabular-nums">
+        {value}
+      </dd>
       <dt className="mt-1.5 text-xs font-semibold">{label}</dt>
       <dd className="mt-0.5 text-xs text-muted-foreground">{sublabel}</dd>
     </div>
   );
 }
 
-function PublicProfileAvatar({ settings, size, fontSize }: { settings: SettingsState; size: number; fontSize: number }) {
+function PublicProfileAvatar({
+  settings,
+  size,
+  fontSize,
+}: {
+  settings: SettingsState;
+  size: number;
+  fontSize: number;
+}) {
   const imageUrl = settings.profileImageUrl.trim();
   const displayName = profileDisplayName(settings);
 
@@ -4732,18 +7472,35 @@ function PublicProfileAvatar({ settings, size, fontSize }: { settings: SettingsS
       style={{ width: size, height: size, fontSize }}
     >
       {imageUrl ? (
-        <img src={imageUrl} alt={displayName} className="size-full object-cover" />
+        <img
+          src={imageUrl}
+          alt={displayName}
+          className="size-full object-cover"
+        />
       ) : (
-        <span role="img" aria-label={`${displayName} profile avatar`}>{initials(settings.profileName)}</span>
+        <span role="img" aria-label={`${displayName} profile avatar`}>
+          {initials(settings.profileName)}
+        </span>
       )}
     </div>
   );
 }
 
-function ProfileDetail({ icon, text }: { icon: React.ReactNode; text: string }) {
+function ProfileDetail({
+  icon,
+  text,
+}: {
+  icon: React.ReactNode;
+  text: string;
+}) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-[13px]">
-      <span aria-hidden="true" className="grid w-5 shrink-0 place-items-center [&_svg]:size-[17px]">{icon}</span>
+      <span
+        aria-hidden="true"
+        className="grid w-5 shrink-0 place-items-center [&_svg]:size-[17px]"
+      >
+        {icon}
+      </span>
       <span className="truncate">{text}</span>
     </span>
   );
@@ -4753,7 +7510,9 @@ function ProfileEmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="grid justify-items-center px-4 py-10 text-center">
       <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-muted-foreground">{body}</p>
+      <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-muted-foreground">
+        {body}
+      </p>
     </div>
   );
 }
@@ -4780,11 +7539,12 @@ function profileThumbColor(index: number) {
     "var(--decorative-thumb-4)",
     "var(--decorative-thumb-5)",
   ][index % 5];
-}function EmptyPanel({
+}
+function EmptyPanel({
   title,
   body,
   assetKey,
-  action
+  action,
 }: {
   title: string;
   body: string;
@@ -4801,8 +7561,15 @@ function profileThumbColor(index: number) {
         aria-hidden="true"
         className="mb-4 h-36 w-44 object-contain drop-shadow-[0_12px_24px_rgba(0,8,12,0.16)] sm:w-[216px]"
       />
-      <h3 className="text-base font-semibold text-[var(--app-ink)]" style={{ fontFamily: headingFont }}>{title}</h3>
-      <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-[var(--app-muted)]">{body}</p>
+      <h3
+        className="text-base font-semibold text-[var(--app-ink)]"
+        style={{ fontFamily: headingFont }}
+      >
+        {title}
+      </h3>
+      <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-[var(--app-muted)]">
+        {body}
+      </p>
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -4818,7 +7585,10 @@ function TimecodeChip({ value }: { value?: string | null }) {
   );
 }
 
-function buildClientSummaries(projects: WorkItem[], savedClients: string[] = []) {
+function buildClientSummaries(
+  projects: WorkItem[],
+  savedClients: string[] = []
+) {
   const groups = new Map<string, { name: string; projects: WorkItem[] }>();
   for (const client of savedClients) {
     const clientName = client.trim();
@@ -4839,27 +7609,35 @@ function buildClientSummaries(projects: WorkItem[], savedClients: string[] = [])
 
   return [...groups.values()]
     .map(({ name, projects: clientProjects }) => {
-      const active = clientProjects.filter((project) => !isDoneStatus(project.status));
-      const nextProject = [...active].sort((a, b) => dateTime(a.dueDate) - dateTime(b.dueDate))[0];
-      const latestProject = [...clientProjects].sort((a, b) => createdTime(b) - createdTime(a))[0];
+      const active = clientProjects.filter(
+        (project) => !isDoneStatus(project.status)
+      );
+      const nextProject = [...active].sort(
+        (a, b) => dateTime(a.dueDate) - dateTime(b.dueDate)
+      )[0];
+      const latestProject = [...clientProjects].sort(
+        (a, b) => createdTime(b) - createdTime(a)
+      )[0];
       return {
         name,
         projectCount: clientProjects.length,
         activeCount: active.length,
         nextDue: nextProject?.dueDate || "",
-        latestProject: latestProject?.title || ""
+        latestProject: latestProject?.title || "",
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function initials(value: string) {
-  return value
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "?";
+  return (
+    value
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "?"
+  );
 }
 
 function projectProgress(status: string) {
@@ -4876,16 +7654,37 @@ function projectPriority(project: WorkItem) {
   return "Low";
 }
 
-function ClientInfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
+function ClientInfoRow({
+  icon,
+  text,
+}: {
+  icon: React.ReactNode;
+  text: string;
+}) {
   return (
     <div className="flex min-w-0 items-center gap-2 text-[var(--app-muted)]">
-      <span aria-hidden="true" className="grid w-5 shrink-0 place-items-center [&_svg]:size-[17px]">{icon}</span>
+      <span
+        aria-hidden="true"
+        className="grid w-5 shrink-0 place-items-center [&_svg]:size-[17px]"
+      >
+        {icon}
+      </span>
       <span className="truncate text-[13px]">{text}</span>
     </div>
   );
 }
 
-function StatCard({ label, value, helper, icon }: { label: string; value: string; helper: string; icon?: React.ReactNode }) {
+function StatCard({
+  label,
+  value,
+  helper,
+  icon,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="flex min-h-[108px] items-center gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
       {icon ? (
@@ -4894,17 +7693,36 @@ function StatCard({ label, value, helper, icon }: { label: string; value: string
         </span>
       ) : null}
       <div className="min-w-0">
-        <dt className="truncate text-[13px] font-semibold text-muted-foreground">{label}</dt>
-        <dd className="mt-1 truncate text-2xl font-bold leading-none tabular-nums">{value}</dd>
+        <dt className="truncate text-[13px] font-semibold text-muted-foreground">
+          {label}
+        </dt>
+        <dd className="mt-1 truncate text-2xl font-bold leading-none tabular-nums">
+          {value}
+        </dd>
         <p className="mt-2 truncate text-xs text-muted-foreground">{helper}</p>
       </div>
     </div>
   );
 }
 
-function CompactSelect({ value, options, labels, onChange, width = 104 }: { value: string; options: string[]; labels?: Record<string, string>; onChange: (value: string) => void; width?: number | string }) {
-  const normalizedOptions = [...new Set(options.filter((option) => option.trim()))];
-  if (value && !normalizedOptions.includes(value)) normalizedOptions.unshift(value);
+function CompactSelect({
+  value,
+  options,
+  labels,
+  onChange,
+  width = 104,
+}: {
+  value: string;
+  options: string[];
+  labels?: Record<string, string>;
+  onChange: (value: string) => void;
+  width?: number | string;
+}) {
+  const normalizedOptions = [
+    ...new Set(options.filter((option) => option.trim())),
+  ];
+  if (value && !normalizedOptions.includes(value))
+    normalizedOptions.unshift(value);
 
   return (
     <OwnedSelect value={value} onValueChange={onChange}>
@@ -4917,7 +7735,9 @@ function CompactSelect({ value, options, labels, onChange, width = 104 }: { valu
       </OwnedSelectTrigger>
       <OwnedSelectContent position="popper">
         {normalizedOptions.map((option) => (
-          <OwnedSelectItem key={option} value={option}>{labels?.[option] ?? option}</OwnedSelectItem>
+          <OwnedSelectItem key={option} value={option}>
+            {labels?.[option] ?? option}
+          </OwnedSelectItem>
         ))}
       </OwnedSelectContent>
     </OwnedSelect>
@@ -4959,9 +7779,12 @@ function weekdayIndex(day: string) {
 }
 
 function statusPalette(status: string) {
-  if (isDoneStatus(status)) return { fg: "var(--app-success)", bg: "var(--app-success-bg)" };
-  if (status === "In Progress") return { fg: "var(--app-warning)", bg: "var(--app-warning-bg)" };
-  if (status === "Cancelled") return { fg: "var(--app-danger)", bg: "var(--app-danger-bg)" };
+  if (isDoneStatus(status))
+    return { fg: "var(--app-success)", bg: "var(--app-success-bg)" };
+  if (status === "In Progress")
+    return { fg: "var(--app-warning)", bg: "var(--app-warning-bg)" };
+  if (status === "Cancelled")
+    return { fg: "var(--app-danger)", bg: "var(--app-danger-bg)" };
   return { fg: accent, bg: activeBg };
 }
 
@@ -4982,9 +7805,18 @@ function checklistItemKey(item: string, index: number) {
   return `${index}:${item.trim()}`.slice(0, 160);
 }
 
-function normalizeChecklistCompleted(items: string[] = [], completed: Record<string, boolean> = {}) {
-  const allowedKeys = new Set(items.map((item, index) => checklistItemKey(item, index)));
-  return Object.fromEntries(Object.entries(completed).filter(([key, value]) => allowedKeys.has(key) && value === true));
+function normalizeChecklistCompleted(
+  items: string[] = [],
+  completed: Record<string, boolean> = {}
+) {
+  const allowedKeys = new Set(
+    items.map((item, index) => checklistItemKey(item, index))
+  );
+  return Object.fromEntries(
+    Object.entries(completed).filter(
+      ([key, value]) => allowedKeys.has(key) && value === true
+    )
+  );
 }
 
 function SubscriptionPage() {
@@ -4992,29 +7824,60 @@ function SubscriptionPage() {
   const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
 
   return (
-    <WorkspacePage family="administration" className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]">
+    <WorkspacePage
+      family="administration"
+      className="[&_[data-slot=content-section]]:shadow-[var(--app-shadow-1)]"
+    >
       <PageHeader
         eyebrow="Workspace / Subscription"
         title="Plans and billing"
         description="Choose a plan and manage your Relay subscription through Clerk."
-        actions={<OwnedBadge variant={isSignedIn ? "default" : "secondary"}>{isSignedIn ? "Signed in" : "Local mode"}</OwnedBadge>}
+        actions={
+          <OwnedBadge variant={isSignedIn ? "default" : "secondary"}>
+            {isSignedIn ? "Signed in" : "Local mode"}
+          </OwnedBadge>
+        }
       />
       <PageContent data-family-region="subscription-administration">
-        <ContentSection title="Subscription" description="Plan selection, checkout, and subscription status." bodyMode="flush">
+        <ContentSection
+          title="Subscription"
+          description="Plan selection, checkout, and subscription status."
+          bodyMode="flush"
+        >
           {!isLoaded ? (
-            <div role="status" className="grid min-h-[220px] place-items-center p-6">
-              <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--app-accent)]" />
+            <div
+              role="status"
+              className="grid min-h-[220px] place-items-center p-6"
+            >
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-7 animate-spin text-[var(--app-accent)]"
+              />
             </div>
           ) : isSignedIn ? (
-            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6"><ClerkPricingPlans /></div>
+            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6">
+              <ClerkPricingPlans />
+            </div>
           ) : (
             <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
-              <h2 className="text-xl font-semibold text-foreground">Account required</h2>
-              <p className="text-sm leading-6 text-muted-foreground">Sign in or create an account to view and manage a subscription.</p>
+              <h2 className="text-xl font-semibold text-foreground">
+                Account required
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Sign in or create an account to view and manage a subscription.
+              </p>
               {isAuthEnabled ? (
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <OwnedButton type="button" onClick={() => openSignUp()}>Create account</OwnedButton>
-                  <OwnedButton type="button" variant="outline" onClick={() => openSignIn()}>Sign in</OwnedButton>
+                  <OwnedButton type="button" onClick={() => openSignUp()}>
+                    Create account
+                  </OwnedButton>
+                  <OwnedButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => openSignIn()}
+                  >
+                    Sign in
+                  </OwnedButton>
                 </div>
               ) : null}
             </div>
@@ -5025,24 +7888,66 @@ function SubscriptionPage() {
   );
 }
 
-function AnalyticsConsentDialog({ open, onChoose }: { open: boolean; onChoose: (consent: Exclude<AnalyticsConsent, "unknown">) => void }) {
+function AnalyticsConsentDialog({
+  open,
+  onChoose,
+}: {
+  open: boolean;
+  onChoose: (consent: Exclude<AnalyticsConsent, "unknown">) => void;
+}) {
   return (
     <OwnedDialog open={open} onOpenChange={() => {}}>
-      <OwnedDialogContent showCloseButton={false} className="sm:max-w-md" onEscapeKeyDown={(event) => event.preventDefault()} onPointerDownOutside={(event) => event.preventDefault()}>
+      <OwnedDialogContent
+        showCloseButton={false}
+        className="sm:max-w-md"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
         <OwnedDialogHeader>
           <OwnedDialogTitle>Optional product analytics</OwnedDialogTitle>
-          <OwnedDialogDescription>Share anonymous feature-use events to help improve the private beta. Relay never sends client names, project names, comments, files, links, portal tokens, or money.</OwnedDialogDescription>
+          <OwnedDialogDescription>
+            Share anonymous feature-use events to help improve the private beta.
+            Relay never sends client names, project names, comments, files,
+            links, portal tokens, or money.
+          </OwnedDialogDescription>
         </OwnedDialogHeader>
         <OwnedDialogFooter>
-          <OwnedButton type="button" variant="outline" onClick={() => onChoose("denied")}>No thanks</OwnedButton>
-          <OwnedButton type="button" onClick={() => onChoose("granted")}>Allow analytics</OwnedButton>
+          <OwnedButton
+            type="button"
+            variant="outline"
+            onClick={() => onChoose("denied")}
+          >
+            No thanks
+          </OwnedButton>
+          <OwnedButton type="button" onClick={() => onChoose("granted")}>
+            Allow analytics
+          </OwnedButton>
         </OwnedDialogFooter>
       </OwnedDialogContent>
     </OwnedDialog>
   );
 }
 
-function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onBack, onViewChange, onEdit, onDelete, onStatusChange, onPaymentChange }: {
+function ProjectWorkspace({
+  project,
+  projectGroup,
+  settings,
+  view,
+  canEdit,
+  canManagePayment,
+  canManagePortal,
+  canDelete,
+  canUpdateStatus,
+  canComment,
+  teamMembers,
+  localActivity,
+  onBack,
+  onViewChange,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onPaymentChange,
+}: {
   project: WorkItem;
   projectGroup?: import("@/lib/types").ProjectGroup;
   settings: SettingsState;
@@ -5062,11 +7967,26 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
   onStatusChange: (project: WorkItem, status: ProjectStatus) => void;
   onPaymentChange: (project: WorkItem, paid: boolean) => void;
 }) {
-  const isClientBillable = !isSalaryWorkType(project.workType, settings) && isDoneStatus(project.status) && safeMoneyValue(project.earnings) > 0;
-  const amount = isSalaryWorkType(project.workType, settings) ? "Batch tracked" : money(project.earnings, settings.currencyCode);
-  const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
-  const lead = teamMembers.find((member) => member.userId === project.ownerUserId)?.name || settings.profileName || "You";
-  const configuredLinks = integrationServices.map((service) => ({ service, link: project.integrationLinks?.[service.id] })).filter(({ link }) => hasIntegrationLink(link));
+  const isClientBillable =
+    !isSalaryWorkType(project.workType, settings) &&
+    isDoneStatus(project.status) &&
+    safeMoneyValue(project.earnings) > 0;
+  const amount = isSalaryWorkType(project.workType, settings)
+    ? "Batch tracked"
+    : money(project.earnings, settings.currencyCode);
+  const assignedMembers = teamMembers.filter((member) =>
+    (project.assigneeUserIds ?? []).includes(member.userId)
+  );
+  const lead =
+    teamMembers.find((member) => member.userId === project.ownerUserId)?.name ||
+    settings.profileName ||
+    "You";
+  const configuredLinks = integrationServices
+    .map((service) => ({
+      service,
+      link: project.integrationLinks?.[service.id],
+    }))
+    .filter(({ link }) => hasIntegrationLink(link));
   const views: Array<{ id: ProjectWorkspaceView; label: string }> = [
     { id: "overview", label: "Overview" },
     { id: "outputs", label: "Outputs and Versions" },
@@ -5081,235 +8001,268 @@ function ProjectWorkspace({ project, projectGroup, settings, view, canEdit, canM
         eyebrow={`${project.client || "No Client"}${projectGroup ? ` / ${projectGroup.name}` : ""}`}
         title={project.title}
         description={`Due ${formatDate(project.dueDate, settings.dateFormat)} · Lead ${lead} · ${assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "No assignees"}`}
-        actions={<><OwnedButton variant="ghost" onClick={onBack}>Back to Projects</OwnedButton>{canEdit ? <OwnedButton onClick={() => { onViewChange("outputs"); window.setTimeout(() => document.getElementById("add-project-output")?.click(), 0); }}>Add Output</OwnedButton> : null}{canEdit ? <OwnedButton variant="outline" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}{canDelete ? <OwnedButton variant="ghost" className="text-destructive" onClick={() => onDelete(project)}>Delete</OwnedButton> : null}</>}
+        actions={
+          <>
+            <OwnedButton variant="ghost" onClick={onBack}>
+              Back to Projects
+            </OwnedButton>
+            {canEdit ? (
+              <OwnedButton
+                onClick={() => {
+                  onViewChange("outputs");
+                  window.setTimeout(
+                    () =>
+                      document.getElementById("add-project-output")?.click(),
+                    0
+                  );
+                }}
+              >
+                Add Output
+              </OwnedButton>
+            ) : null}
+            {canEdit ? (
+              <OwnedButton variant="outline" onClick={() => onEdit(project)}>
+                Edit
+              </OwnedButton>
+            ) : null}
+            {canDelete ? (
+              <OwnedButton
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => onDelete(project)}
+              >
+                Delete
+              </OwnedButton>
+            ) : null}
+          </>
+        }
       />
       <PageContent mode="fill">
         <PageToolbar
-          primary={<nav aria-label="Project workspace views" className="flex flex-wrap gap-1">{views.map((item) => <OwnedButton key={item.id} size="sm" variant={view === item.id ? "secondary" : "ghost"} aria-current={view === item.id ? "page" : undefined} onClick={() => onViewChange(item.id)}>{item.label}</OwnedButton>)}</nav>}
-          secondary={canUpdateStatus ? <ProjectSelect value={project.status} options={statusOptions} onChange={(status) => { if (status !== "Client Review") onStatusChange(project, status); }} compact /> : <ProjectStatusBadge status={project.status} />}
+          primary={
+            <nav
+              aria-label="Project workspace views"
+              className="flex flex-wrap gap-1"
+            >
+              {views.map((item) => (
+                <OwnedButton
+                  key={item.id}
+                  size="sm"
+                  variant={view === item.id ? "secondary" : "ghost"}
+                  aria-current={view === item.id ? "page" : undefined}
+                  onClick={() => onViewChange(item.id)}
+                >
+                  {item.label}
+                </OwnedButton>
+              ))}
+            </nav>
+          }
+          secondary={
+            canUpdateStatus ? (
+              <ProjectSelect
+                value={project.status}
+                options={statusOptions}
+                onChange={(status) => {
+                  if (status !== "Client Review")
+                    onStatusChange(project, status);
+                }}
+                compact
+              />
+            ) : (
+              <ProjectStatusBadge status={project.status} />
+            )
+          }
         />
 
         <SplitPane
           ratio="inspector"
-          primary={<div className="min-h-0 overflow-y-auto">
+          primary={
+            <div className="min-h-0 overflow-y-auto">
+              {view === "overview" ? (
+                <div className="grid gap-4 overflow-y-auto pb-5">
+                  <MetricStrip columns={4}>
+                    <MetricItem label="Stage" value={project.status} />
+                    <MetricItem
+                      label="Due"
+                      value={formatDate(project.dueDate, settings.dateFormat)}
+                    />
+                    <MetricItem label="Value" value={amount} />
+                    <MetricItem
+                      label="Payment"
+                      value={
+                        isClientBillable
+                          ? project.paid
+                            ? "Paid"
+                            : "Unpaid"
+                          : "Not billable"
+                      }
+                    />
+                  </MetricStrip>
+                  <ContentSection
+                    title="Workflow"
+                    description={`${projectProgress(project.status)}% complete`}
+                  >
+                    <ProjectStageTracker status={project.status} />
+                  </ContentSection>
+                  <ContentSection
+                    title="Project details"
+                    actions={
+                      canEdit ? (
+                        <OwnedButton
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onEdit(project)}
+                        >
+                          Edit details
+                        </OwnedButton>
+                      ) : null
+                    }
+                  >
+                    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <ProjectMetadataRow
+                        label="Client"
+                        value={project.client || "Not assigned"}
+                      />
+                      <ProjectMetadataRow
+                        label="Project Group"
+                        value={projectGroup?.name || "None"}
+                      />
+                      <ProjectMetadataRow
+                        label="Financial type"
+                        value={project.workType}
+                      />
+                      <ProjectMetadataRow
+                        label="Created"
+                        value={
+                          project.createdAt
+                            ? formatShortDateTime(project.createdAt)
+                            : "Not recorded"
+                        }
+                      />
+                    </dl>
+                    <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                      {project.notes || "No internal notes."}
+                    </p>
+                  </ContentSection>
+                  <ContentSection
+                    title="Client payment"
+                    actions={
+                      <OwnedSwitch
+                        checked={Boolean(project.paid)}
+                        disabled={!canManagePayment || !isClientBillable}
+                        aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`}
+                        onCheckedChange={(paid) =>
+                          onPaymentChange(project, paid)
+                        }
+                      />
+                    }
+                  >
+                    <p className="text-sm text-muted-foreground">
+                      {isClientBillable
+                        ? project.paid
+                          ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.`
+                          : "Delivered and outstanding."
+                        : "Payment tracking starts after delivery for client-priced work."}
+                    </p>
+                  </ContentSection>
+                </div>
+              ) : null}
 
-        {view === "overview" ? <div className="grid gap-4 overflow-y-auto pb-5">
-          <MetricStrip columns={4}>
-            <MetricItem label="Stage" value={project.status} />
-            <MetricItem label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
-            <MetricItem label="Value" value={amount} />
-            <MetricItem label="Payment" value={isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"} />
-          </MetricStrip>
-          <ContentSection title="Workflow" description={`${projectProgress(project.status)}% complete`}><ProjectStageTracker status={project.status} /></ContentSection>
-          <ContentSection title="Project details" actions={canEdit ? <OwnedButton size="sm" variant="ghost" onClick={() => onEdit(project)}>Edit details</OwnedButton> : null}>
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><ProjectMetadataRow label="Client" value={project.client || "Not assigned"} /><ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} /><ProjectMetadataRow label="Financial type" value={project.workType} /><ProjectMetadataRow label="Created" value={project.createdAt ? formatShortDateTime(project.createdAt) : "Not recorded"} /></dl>
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{project.notes || "No internal notes."}</p>
-          </ContentSection>
-          <ContentSection title="Client payment" actions={<OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />}><p className="text-sm text-muted-foreground">{isClientBillable ? (project.paid ? `Collected${project.paidDate ? ` ${formatShortDateTime(project.paidDate)}` : ""}.` : "Delivered and outstanding.") : "Payment tracking starts after delivery for client-priced work."}</p></ContentSection>
-        </div> : null}
+              {view === "outputs" ? (
+                <ProjectOutputsPanel
+                  project={project}
+                  canEdit={canEdit}
+                  canResolveComments={canComment}
+                />
+              ) : null}
 
-        {view === "outputs" ? <ProjectOutputsPanel project={project} canEdit={canEdit} canResolveComments={canComment} /> : null}
+              {view === "review" ? (
+                <div className="grid gap-4 overflow-y-auto pb-5">
+                  <ProjectDetailCollaborationPanel
+                    project={project}
+                    teamMembers={teamMembers}
+                    canComment={canComment}
+                  />
+                  <ProjectPortalPanel
+                    project={project}
+                    canEdit={canEdit && canManagePortal}
+                  />
+                </div>
+              ) : null}
 
-        {view === "review" ? <div className="grid gap-4 overflow-y-auto pb-5"><ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} /><ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} /></div> : null}
+              {view === "files" ? (
+                <div className="grid gap-4 overflow-y-auto pb-5">
+                  <ContentSection
+                    title="External links"
+                    metadata={
+                      <OwnedBadge variant="secondary">
+                        {configuredLinks.length}
+                      </OwnedBadge>
+                    }
+                  >
+                    <div className="divide-y divide-border">
+                      {configuredLinks.length ? (
+                        configuredLinks.map(({ service, link }) =>
+                          link ? (
+                            <a
+                              key={service.id}
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center justify-between gap-3 py-3 text-sm hover:underline"
+                            >
+                              <span>
+                                {integrationDisplayText(link, service.name)}
+                              </span>
+                              <ExternalLink className="size-4" />
+                            </a>
+                          ) : null
+                        )
+                      ) : (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          No external links yet.
+                        </p>
+                      )}
+                    </div>
+                  </ContentSection>
+                  <ProjectFileManager project={project} canEdit={canEdit} />
+                </div>
+              ) : null}
 
-        {view === "files" ? <div className="grid gap-4 overflow-y-auto pb-5">
-          <ContentSection title="External links" metadata={<OwnedBadge variant="secondary">{configuredLinks.length}</OwnedBadge>}>
-            <div className="divide-y divide-border">{configuredLinks.length ? configuredLinks.map(({ service, link }) => link ? <a key={service.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 py-3 text-sm hover:underline"><span>{integrationDisplayText(link, service.name)}</span><ExternalLink className="size-4" /></a> : null) : <p className="py-6 text-center text-sm text-muted-foreground">No external links yet.</p>}</div>
-          </ContentSection>
-          <ProjectFileManager project={project} canEdit={canEdit} />
-        </div> : null}
-
-        {view === "activity" ? <ProjectActivityFeed project={project} localActivity={localActivity} /> : null}
-          </div>}
+              {view === "activity" ? (
+                <ProjectActivityFeed
+                  project={project}
+                  localActivity={localActivity}
+                />
+              ) : null}
+            </div>
+          }
           secondary={
-            <aside aria-label="Project context" className="rounded-[6px] bg-card p-4 text-card-foreground">
+            <aside
+              aria-label="Project context"
+              className="rounded-[6px] bg-card p-4 text-card-foreground"
+            >
               <h2 className="text-sm font-semibold">Project context</h2>
               <dl className="mt-4 grid gap-3 text-sm">
-                <ProjectMetadataRow label="Client" value={project.client || "Not assigned"} />
-                <ProjectMetadataRow label="Project Group" value={projectGroup?.name || "None"} />
+                <ProjectMetadataRow
+                  label="Client"
+                  value={project.client || "Not assigned"}
+                />
+                <ProjectMetadataRow
+                  label="Project Group"
+                  value={projectGroup?.name || "None"}
+                />
                 <ProjectMetadataRow label="Stage" value={project.status} />
-                <ProjectMetadataRow label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
+                <ProjectMetadataRow
+                  label="Due"
+                  value={formatDate(project.dueDate, settings.dateFormat)}
+                />
               </dl>
             </aside>
           }
         />
       </PageContent>
     </WorkspacePage>
-  );
-}
-
-function ProjectDetailDialog({ project, settings, canEdit, canManagePayment, canManagePortal, canDelete, canUpdateStatus, canComment, teamMembers, localActivity, onClose, onEdit, onDelete, onStatusChange, onChecklistChange, onPaymentChange }: { project: WorkItem | null; settings: SettingsState; canEdit: boolean; canManagePayment: boolean; canManagePortal: boolean; canDelete: boolean; canUpdateStatus: boolean; canComment: boolean; teamMembers: WorkspaceMemberOption[]; localActivity: ProjectActivityEvent[]; onClose: () => void; onEdit: (project: WorkItem) => void; onDelete: (project: WorkItem) => void; onStatusChange: (project: WorkItem, status: ProjectStatus) => void; onChecklistChange: (project: WorkItem, itemKey: string, completed: boolean) => void; onPaymentChange: (project: WorkItem, paid: boolean) => void }) {
-  if (!project) {
-    return null;
-  }
-
-  const progress = projectProgress(project.status);
-  const isClientBillable = !isSalaryWorkType(project.workType, settings) && isDoneStatus(project.status) && safeMoneyValue(project.earnings) > 0;
-  const amount = isSalaryWorkType(project.workType, settings) ? "Batch tracked" : money(project.earnings, settings.currencyCode);
-  const configuredLinks = integrationServices
-    .map((service) => ({ service, link: project.integrationLinks?.[service.id] }))
-    .filter(({ link }) => hasIntegrationLink(link));
-  const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
-  const checklistItems = project.checklistItems ?? [];
-  const checklistCompleted = normalizeChecklistCompleted(checklistItems, project.checklistCompleted);
-  const checklistDone = checklistItems.filter((item, index) => checklistCompleted[checklistItemKey(item, index)]).length;
-
-  function openLink(url: string) {
-    if (typeof window === "undefined" || !isValidIntegrationUrl(url)) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  return (
-    <OwnedDialog open onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
-      <OwnedDialogContent
-        data-testid="project-detail-dialog"
-        aria-label="Project details"
-        showCloseButton={false}
-        className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden border-border bg-background p-0 text-foreground md:h-[min(920px,calc(100dvh-3rem))] md:w-[calc(100vw-3rem)] md:max-w-7xl"
-      >
-        <OwnedDialogHeader className="flex-row items-start justify-between gap-4 border-b px-4 py-4 text-left md:px-6">
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <ProjectStatusBadge status={project.status} />
-              <OwnedBadge variant="secondary">{project.workType}</OwnedBadge>
-              {configuredLinks.length ? <OwnedBadge variant="outline">{configuredLinks.length} links</OwnedBadge> : null}
-            </div>
-            <OwnedDialogTitle className="text-2xl leading-tight md:text-3xl">{project.title}</OwnedDialogTitle>
-            <OwnedDialogDescription className="mt-1">{project.client || "No client saved"}</OwnedDialogDescription>
-          </div>
-          <OwnedButton type="button" size="icon" variant="ghost" aria-label="Close project details" onClick={onClose}>
-            <X aria-hidden="true" />
-          </OwnedButton>
-        </OwnedDialogHeader>
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 overflow-y-auto px-4 py-5 md:px-6">
-            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <ProjectDetailMetric label="Start" value={formatDate(project.startDate, settings.dateFormat)} />
-              <ProjectDetailMetric label="Due" value={formatDate(project.dueDate, settings.dateFormat)} />
-              <ProjectDetailMetric label="Amount" value={amount} />
-              <ProjectDetailMetric label="Payment" value={isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"} />
-            </div>
-            <section className="mb-4 rounded-lg border bg-card p-4 text-card-foreground">
-              <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <h3 className="font-semibold">Workflow Progress</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{progress}% complete · {projectPriority(project)}</p>
-                </div>
-                {canUpdateStatus ? (
-                  <div className="w-full sm:w-44">
-                    <ProjectSelect value={project.status} options={statusOptions} onChange={(status) => onStatusChange(project, status as ProjectStatus)} compact />
-                  </div>
-                ) : <ProjectStatusBadge status={project.status} />}
-              </div>
-              <ProjectStageTracker status={project.status} />
-            </section>
-            {checklistItems.length ? (
-              <section className="mb-4 rounded-lg border bg-card p-4 text-card-foreground">
-                <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                  <div>
-                    <h3 className="font-semibold">Template setup</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {`${checklistDone}/${checklistItems.length} checklist items complete`}
-                    </p>
-                  </div>
-                  {checklistItems.length ? <OwnedBadge variant="secondary">{Math.round((checklistDone / checklistItems.length) * 100)}%</OwnedBadge> : null}
-                </div>
-                <div className="grid gap-2">
-                  {checklistItems.map((item, index) => {
-                    const itemKey = checklistItemKey(item, index);
-                    const checked = Boolean(checklistCompleted[itemKey]);
-                    return (
-                      <div key={itemKey} className={`flex items-center gap-3 rounded-md border p-3 ${checked ? "bg-primary/10" : "bg-muted/20"}`}>
-                        <OwnedSwitch checked={checked} disabled={!canEdit} aria-label={`${checked ? "Mark incomplete" : "Mark complete"}: ${item}`} onCheckedChange={(nextChecked) => onChecklistChange(project, itemKey, nextChecked)} />
-                        <span className={`text-sm leading-relaxed ${checked ? "text-muted-foreground line-through" : ""}`}>{item}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(260px,.75fr)]">
-              <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Internal Notes</h3>
-                  {canEdit ? <OwnedButton type="button" variant="ghost" size="sm" onClick={() => onEdit(project)}>Edit</OwnedButton> : null}
-                </div>
-                <p className={`mt-3 whitespace-pre-wrap text-sm leading-relaxed ${project.notes ? "" : "text-muted-foreground"}`}>
-                  {project.notes || "No internal notes saved. Add production context, handoff details, or private reminders."}
-                </p>
-              </section>
-              <section className="rounded-lg border bg-card p-4 text-card-foreground">
-                <h3 className="font-semibold">Project Metadata</h3>
-                <div className="mt-2 divide-y">
-                  <ProjectMetadataRow label="Client" value={project.client || "Not assigned"} />
-                  <ProjectMetadataRow label="Type" value={project.workType} />
-                  <ProjectMetadataRow label="Workspace" value={project.teamId ? "Team workspace" : "Personal workspace"} />
-                  <ProjectMetadataRow label="Created" value={project.createdAt ? formatShortDateTime(project.createdAt) : "Not recorded"} />
-                  <ProjectMetadataRow label="Team members" value={project.teamId ? (assignedMembers.length ? assignedMembers.map((member) => member.name || member.email).join(", ") : "Unassigned") : "You"} />
-                </div>
-              </section>
-            </div>
-            <section className="mt-4 rounded-lg border bg-card p-4 text-card-foreground">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <h3 className="font-semibold">Client Payment</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Tracks whether delivered billable work has been collected. Payment collection integrations are not connected here.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <OwnedBadge variant={project.paid ? "default" : "outline"}>{isClientBillable ? (project.paid ? "Paid" : "Unpaid") : "Not billable"}</OwnedBadge>
-                  <OwnedSwitch checked={Boolean(project.paid)} disabled={!canManagePayment || !isClientBillable} aria-label={`${project.paid ? "Mark unpaid" : "Mark paid"}: ${project.title}`} onCheckedChange={(paid) => onPaymentChange(project, paid)} />
-                </div>
-              </div>
-              {project.paidDate ? <p className="mt-2 text-xs text-muted-foreground">Marked paid {formatShortDateTime(project.paidDate)}.</p> : null}
-            </section>
-            <section className="mt-4 rounded-lg border bg-card p-4 text-card-foreground">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">Resources & Assets</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Working files, review links, exports, and linked folders.</p>
-                </div>
-                <OwnedBadge variant="secondary">{configuredIntegrationCount(project.integrationLinks)}</OwnedBadge>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {configuredLinks.length ? configuredLinks.map(({ service, link }) => link ? (
-                  <div key={service.id} className="rounded-md border bg-muted/20 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{integrationDisplayText(link, service.name)}</p>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">{service.name}</p>
-                      </div>
-                      <OwnedButton type="button" size="icon-sm" variant="ghost" aria-label={`Open ${service.name} link`} onClick={() => openLink(link.url)}>
-                        <ExternalLink aria-hidden="true" />
-                      </OwnedButton>
-                    </div>
-                    {link.notes ? <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{link.notes}</p> : null}
-                  </div>
-                ) : null) : (
-                  <p className="text-sm text-muted-foreground">No project links saved yet. Use Edit Project to connect working files and review links.</p>
-                )}
-              </div>
-            </section>
-            <ProjectFileManager project={project} canEdit={canEdit} />
-            <ProjectDetailCollaborationPanel project={project} teamMembers={teamMembers} canComment={canComment} />
-            <ProjectPortalPanel project={project} canEdit={canEdit && canManagePortal} />
-          </div>
-          <ProjectActivityFeed project={project} localActivity={localActivity} />
-        </div>
-        <OwnedDialogFooter className="border-t px-4 py-4 md:px-6">
-          {canDelete ? <OwnedButton type="button" variant="ghost" onClick={() => onDelete(project)} className="text-destructive hover:text-destructive">Delete</OwnedButton> : null}
-          {canEdit ? <OwnedButton type="button" variant="outline" onClick={() => onEdit(project)}>Edit Project</OwnedButton> : <p className="text-sm text-muted-foreground">Your team role can view this project but cannot edit it.</p>}
-        </OwnedDialogFooter>
-      </OwnedDialogContent>
-    </OwnedDialog>
-  );
-}
-
-function ProjectDetailMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-4 text-card-foreground">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold">{value}</p>
-    </div>
   );
 }
 
@@ -5320,10 +8273,16 @@ function ProjectStageTracker({ status }: { status: string }) {
 
   return (
     <div>
-      <OwnedProgress value={Math.max(8, ((currentIndex + 1) / stages.length) * 100)} aria-label="Project workflow progress" />
+      <OwnedProgress
+        value={Math.max(8, ((currentIndex + 1) / stages.length) * 100)}
+        aria-label="Project workflow progress"
+      />
       <div className="mt-2 grid grid-cols-4 gap-2">
         {stages.map((stage, index) => (
-          <span key={stage} className={`text-xs ${index <= currentIndex ? "text-foreground" : "text-muted-foreground"} ${index === currentIndex ? "font-semibold" : ""} ${index === 0 ? "text-left" : index === stages.length - 1 ? "text-right" : "text-center"}`}>
+          <span
+            key={stage}
+            className={`text-xs ${index <= currentIndex ? "text-foreground" : "text-muted-foreground"} ${index === currentIndex ? "font-semibold" : ""} ${index === 0 ? "text-left" : index === stages.length - 1 ? "text-right" : "text-center"}`}
+          >
             {stage}
           </span>
         ))}
@@ -5332,17 +8291,34 @@ function ProjectStageTracker({ status }: { status: string }) {
   );
 }
 
-function ProjectMetadataRow({ label, value }: { label: string; value: string }) {
+function ProjectMetadataRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex justify-between gap-4 py-2 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium [overflow-wrap:anywhere]">{value}</span>
+      <span className="text-right font-medium [overflow-wrap:anywhere]">
+        {value}
+      </span>
     </div>
   );
 }
 
-function ProjectActivityFeed({ project, localActivity }: { project: WorkItem; localActivity: ProjectActivityEvent[] }) {
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+function ProjectActivityFeed({
+  project,
+  localActivity,
+}: {
+  project: WorkItem;
+  localActivity: ProjectActivityEvent[];
+}) {
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
   const events = useQuery(
     api.projectActivity.listForProject,
     isConvexAuthenticated ? { projectId: project.id } : "skip"
@@ -5353,63 +8329,131 @@ function ProjectActivityFeed({ project, localActivity }: { project: WorkItem; lo
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold">Project Activity</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Automatic history across the project lifecycle.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Automatic history across the project lifecycle.
+          </p>
         </div>
         <History className="size-5 text-primary" aria-hidden="true" />
       </div>
       <div className="mt-5">
         {isConvexAuthLoading ? (
-          <p className="text-sm text-muted-foreground">Connecting activity history...</p>
+          <p className="text-sm text-muted-foreground">
+            Connecting activity history...
+          </p>
         ) : !isConvexAuthenticated ? (
-          localActivity.length ? localActivity.map((event, index) => (
-            <ActivityFeedItem key={event.id} actor={event.actorName} message={event.message} detail={event.detail} createdAt={event.createdAt} last={index === localActivity.length - 1} />
-          )) : <ActivityFeedItem actor="Local workspace" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
+          localActivity.length ? (
+            localActivity.map((event, index) => (
+              <ActivityFeedItem
+                key={event.id}
+                actor={event.actorName}
+                message={event.message}
+                detail={event.detail}
+                createdAt={event.createdAt}
+                last={index === localActivity.length - 1}
+              />
+            ))
+          ) : (
+            <ActivityFeedItem
+              actor="Local workspace"
+              message={`${project.title} is ready for its first update.`}
+              createdAt={project.createdAt ?? new Date().toISOString()}
+              last
+            />
+          )
         ) : events === undefined ? (
-          <div className="grid gap-2"><OwnedSkeleton className="h-20" /><OwnedSkeleton className="h-20" /></div>
-        ) : events.length ? events.map((event, index) => (
+          <div className="grid gap-2">
+            <OwnedSkeleton className="h-20" />
+            <OwnedSkeleton className="h-20" />
+          </div>
+        ) : events.length ? (
+          events.map((event, index) => (
+            <ActivityFeedItem
+              key={event._id}
+              actor={event.actorName}
+              message={event.message}
+              detail={event.detail}
+              createdAt={event.createdAt}
+              last={index === events.length - 1}
+            />
+          ))
+        ) : (
           <ActivityFeedItem
-            key={event._id}
-            actor={event.actorName}
-            message={event.message}
-            detail={event.detail}
-            createdAt={event.createdAt}
-            last={index === events.length - 1}
+            actor="Relay"
+            message={`${project.title} is ready for its first update.`}
+            createdAt={project.createdAt ?? new Date().toISOString()}
+            last
           />
-        )) : (
-          <ActivityFeedItem actor="Relay" message={`${project.title} is ready for its first update.`} createdAt={project.createdAt ?? new Date().toISOString()} last />
         )}
       </div>
     </aside>
   );
 }
 
-function ActivityFeedItem({ actor, message, detail, createdAt, last }: { actor: string; message: string; detail?: string; createdAt: string; last?: boolean }) {
+function ActivityFeedItem({
+  actor,
+  message,
+  detail,
+  createdAt,
+  last,
+}: {
+  actor: string;
+  message: string;
+  detail?: string;
+  createdAt: string;
+  last?: boolean;
+}) {
   return (
     <div className="grid grid-cols-[18px_minmax(0,1fr)] gap-x-2">
       <div className="relative flex justify-center">
         <span className="z-10 mt-1 size-2.5 rounded-full border-2 border-background bg-primary ring-1 ring-primary" />
-        {!last ? <span className="absolute bottom-[-4px] top-4 w-px bg-border" /> : null}
+        {!last ? (
+          <span className="absolute bottom-[-4px] top-4 w-px bg-border" />
+        ) : null}
       </div>
       <div className={last ? "" : "pb-5"}>
         <p className="text-sm leading-relaxed">{message}</p>
-        {detail ? <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{detail}</p> : null}
-        <p className="mt-1 text-[11px] text-muted-foreground">{actor} · {formatShortDateTime(createdAt)}</p>
+        {detail ? (
+          <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+            {detail}
+          </p>
+        ) : null}
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {actor} · {formatShortDateTime(createdAt)}
+        </p>
       </div>
     </div>
   );
 }
 
 function ProjectStatusBadge({ status }: { status: string }) {
-  return <OwnedBadge variant="outline" className={projectStatusTone(isDoneStatus(status) ? "Delivered" : status)}>{status}</OwnedBadge>;
+  return (
+    <OwnedBadge
+      variant="outline"
+      className={projectStatusTone(isDoneStatus(status) ? "Delivered" : status)}
+    >
+      {status}
+    </OwnedBadge>
+  );
 }
 
-function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: boolean }) {
+function ProjectFileManager({
+  project,
+  canEdit,
+}: {
+  project: WorkItem;
+  canEdit: boolean;
+}) {
   const { has } = useAuth();
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
   const [showArchived, setShowArchived] = useState(false);
   const fileData = useQuery(
     api.projectFiles.listForProject,
-    isConvexAuthenticated ? { projectId: project.id, includeArchived: showArchived } : "skip"
+    isConvexAuthenticated
+      ? { projectId: project.id, includeArchived: showArchived }
+      : "skip"
   );
   const generateUploadUrl = useMutation(api.projectFiles.generateUploadUrl);
   const saveStorageVersion = useMutation(api.projectFiles.saveStorageVersion);
@@ -5423,7 +8467,9 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [view, setView] = useState<"files" | "history">("files");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [targetFileId, setTargetFileId] = useState<Id<"projectFiles"> | undefined>();
+  const [targetFileId, setTargetFileId] = useState<
+    Id<"projectFiles"> | undefined
+  >();
   const [browserFile, setBrowserFile] = useState<File | null>(null);
   const [category, setCategory] = useState<FileCategory>("Deliverable");
   const [title, setTitle] = useState("");
@@ -5434,18 +8480,37 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const useR2Storage = R2_STORAGE_ENABLED && process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
+  const useR2Storage =
+    R2_STORAGE_ENABLED &&
+    process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
   const canUploadFiles = has({ plan: "creator" }) || has({ plan: "studio" });
 
   useEffect(() => {
     if (!fileData) return;
     const bytes = fileData.retainedBytes;
-    const usageBucket = bytes === 0 ? "empty" : bytes < 1_000_000 ? "under_1mb" : bytes < 10_000_000 ? "under_10mb" : bytes < 50_000_000 ? "under_50mb" : bytes < 200_000_000 ? "under_200mb" : "over_200mb";
-    trackOptionalEvent("storage_consumption", { provider: useR2Storage ? "r2" : "convex", usageBucket });
+    const usageBucket =
+      bytes === 0
+        ? "empty"
+        : bytes < 1_000_000
+          ? "under_1mb"
+          : bytes < 10_000_000
+            ? "under_10mb"
+            : bytes < 50_000_000
+              ? "under_50mb"
+              : bytes < 200_000_000
+                ? "under_200mb"
+                : "over_200mb";
+    trackOptionalEvent("storage_consumption", {
+      provider: useR2Storage ? "r2" : "convex",
+      usageBucket,
+    });
   }, [fileData, useR2Storage]);
 
   const files = fileData?.files ?? [];
-  const filteredFiles = categoryFilter === "All" ? files : files.filter((file) => file.category === categoryFilter);
+  const filteredFiles =
+    categoryFilter === "All"
+      ? files
+      : files.filter((file) => file.category === categoryFilter);
 
   function resetForm() {
     setTargetFileId(undefined);
@@ -5498,50 +8563,60 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
         notes,
       };
       if (!browserFile) throw new Error("Choose a file to upload.");
-      if (browserFile.size > MAX_SAFE_PROJECT_FILE_BYTES) throw new Error("Files must be 20 MB or smaller.");
-      if (fileData?.workspaceLimitBytes && fileData.retainedBytes + browserFile.size > fileData.workspaceLimitBytes) {
-        throw new Error("Workspace storage limit reached. Permanently delete archived files before uploading more.");
+      if (browserFile.size > MAX_SAFE_PROJECT_FILE_BYTES)
+        throw new Error("Files must be 20 MB or smaller.");
+      if (
+        fileData?.workspaceLimitBytes &&
+        fileData.retainedBytes + browserFile.size > fileData.workspaceLimitBytes
+      ) {
+        throw new Error(
+          "Workspace storage limit reached. Permanently delete archived files before uploading more."
+        );
       }
       const mimeType = browserFile.type || "application/octet-stream";
       if (useR2Storage) {
-          const upload = await createR2UploadUrl({
-            projectId: project.id,
-            projectFileId: targetFileId,
-            fileName: browserFile.name,
-            mimeType,
-          });
-          const response = await fetch(upload.url, {
-            method: "PUT",
-            headers: { "Content-Type": mimeType },
-            body: browserFile,
-          });
-          if (!response.ok) throw new Error("R2 file upload failed.");
-          await completeR2Upload({
-            ...shared,
-            sessionId: upload.sessionId,
-            fileName: browserFile.name,
-            mimeType,
-          });
+        const upload = await createR2UploadUrl({
+          projectId: project.id,
+          projectFileId: targetFileId,
+          fileName: browserFile.name,
+          mimeType,
+        });
+        const response = await fetch(upload.url, {
+          method: "PUT",
+          headers: { "Content-Type": mimeType },
+          body: browserFile,
+        });
+        if (!response.ok) throw new Error("R2 file upload failed.");
+        await completeR2Upload({
+          ...shared,
+          sessionId: upload.sessionId,
+          fileName: browserFile.name,
+          mimeType,
+        });
       } else {
-          const uploadUrl = await generateUploadUrl({ projectId: project.id });
-          const response = await fetch(uploadUrl, {
-            method: "POST",
-            headers: { "Content-Type": mimeType },
-            body: browserFile,
-          });
-          if (!response.ok) throw new Error("File upload failed.");
-          const payload = await response.json() as { storageId: Id<"_storage"> };
-          await saveStorageVersion({
-            ...shared,
-            storageId: payload.storageId,
-            fileName: browserFile.name,
-            mimeType,
-          });
+        const uploadUrl = await generateUploadUrl({ projectId: project.id });
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": mimeType },
+          body: browserFile,
+        });
+        if (!response.ok) throw new Error("File upload failed.");
+        const payload = (await response.json()) as {
+          storageId: Id<"_storage">;
+        };
+        await saveStorageVersion({
+          ...shared,
+          storageId: payload.storageId,
+          fileName: browserFile.name,
+          mimeType,
+        });
       }
       setDialogOpen(false);
       resetForm();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save this file.");
+      setError(
+        caught instanceof Error ? caught.message : "Could not save this file."
+      );
     } finally {
       setBusy("");
     }
@@ -5549,7 +8624,11 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
 
   async function changeFileMetadata(
     file: NonNullable<typeof fileData>["files"][number],
-    overrides: Partial<{ status: FileStatus; clientVisible: boolean; downloadable: boolean }>
+    overrides: Partial<{
+      status: FileStatus;
+      clientVisible: boolean;
+      downloadable: boolean;
+    }>
   ) {
     setBusy(`status-${file._id}`);
     setError("");
@@ -5564,45 +8643,69 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
         downloadable: overrides.downloadable ?? file.downloadable,
       });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update file status.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not update file status."
+      );
     } finally {
       setBusy("");
     }
   }
 
   async function deleteProjectFile(fileId: Id<"projectFiles">) {
-    if (!window.confirm("Permanently delete this file and every retained version? This frees its storage and cannot be undone.")) return;
+    if (
+      !window.confirm(
+        "Permanently delete this file and every retained version? This frees its storage and cannot be undone."
+      )
+    )
+      return;
     setBusy(`remove-${fileId}`);
     setError("");
     try {
       await removeFile({ fileId });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not remove this file.");
+      setError(
+        caught instanceof Error ? caught.message : "Could not remove this file."
+      );
     } finally {
       setBusy("");
     }
   }
 
-  async function changeArchiveState(fileId: Id<"projectFiles">, archived: boolean) {
+  async function changeArchiveState(
+    fileId: Id<"projectFiles">,
+    archived: boolean
+  ) {
     setBusy(`archive-${fileId}`);
     setError("");
     try {
       if (archived) await restoreFile({ fileId });
       else await archiveFile({ fileId });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update this file.");
+      setError(
+        caught instanceof Error ? caught.message : "Could not update this file."
+      );
     } finally {
       setBusy("");
     }
   }
 
-  async function openVersion(version: NonNullable<typeof fileData>["uploadHistory"][number]) {
+  async function openVersion(
+    version: NonNullable<typeof fileData>["uploadHistory"][number]
+  ) {
     try {
-      const url = version.url ?? (version.provider === "r2" ? await createR2DownloadUrl({ versionId: version._id }) : null);
+      const url =
+        version.url ??
+        (version.provider === "r2"
+          ? await createR2DownloadUrl({ versionId: version._id })
+          : null);
       if (!url) throw new Error("This file is no longer available.");
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not open this file.");
+      setError(
+        caught instanceof Error ? caught.message : "Could not open this file."
+      );
     }
   }
 
@@ -5616,8 +8719,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               <h3 className="font-semibold">Project Files</h3>
               <OwnedBadge variant="secondary">{files.length} files</OwnedBadge>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Deliverables, references, assets, uploads, and every saved version in one project model.</p>
-            {fileData?.workspaceLimitBytes ? <p className="mt-1 text-xs text-muted-foreground">{formatFileSize(fileData.retainedBytes)} retained of {formatFileSize(fileData.workspaceLimitBytes)}. Archived files still count.</p> : null}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Deliverables, references, assets, uploads, and every saved version
+              in one project model.
+            </p>
+            {fileData?.workspaceLimitBytes ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatFileSize(fileData.retainedBytes)} retained of{" "}
+                {formatFileSize(fileData.workspaceLimitBytes)}. Archived files
+                still count.
+              </p>
+            ) : null}
           </div>
           {canEdit && isConvexAuthenticated && canUploadFiles ? (
             <div className="flex flex-wrap gap-2">
@@ -5627,11 +8739,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               </OwnedButton>
             </div>
           ) : canEdit && isConvexAuthenticated ? (
-            <OwnedButton asChild variant="outline"><Link href="/subscription">Upgrade to upload files</Link></OwnedButton>
+            <OwnedButton asChild variant="outline">
+              <Link href="/subscription">Upgrade to upload files</Link>
+            </OwnedButton>
           ) : null}
         </div>
 
-        <div className="mt-4 flex border-b" role="tablist" aria-label="Project file view">
+        <div
+          className="mt-4 flex border-b"
+          role="tablist"
+          aria-label="Project file view"
+        >
           <button
             type="button"
             role="tab"
@@ -5654,11 +8772,17 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
 
         {isConvexAuthLoading ? (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+            <span
+              className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+              aria-hidden="true"
+            />
             Connecting project files...
           </div>
         ) : !isConvexAuthenticated ? (
-          <p className="mt-4 text-sm text-muted-foreground">Sign in to upload and synchronize project files. Existing integration links remain available above.</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Sign in to upload and synchronize project files. Existing
+            integration links remain available above.
+          </p>
         ) : fileData === undefined ? (
           <div className="mt-4 grid gap-2">
             <OwnedSkeleton className="h-20 rounded-md" />
@@ -5666,7 +8790,10 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
           </div>
         ) : view === "files" ? (
           <>
-            <div className="my-4 flex flex-wrap gap-2" aria-label="Filter project files by category">
+            <div
+              className="my-4 flex flex-wrap gap-2"
+              aria-label="Filter project files by category"
+            >
               {["All", ...FILE_CATEGORY_VALUES].map((item) => (
                 <OwnedButton
                   key={item}
@@ -5679,7 +8806,13 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                   {item}
                 </OwnedButton>
               ))}
-              <OwnedButton type="button" size="sm" variant={showArchived ? "secondary" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived((current) => !current)}>
+              <OwnedButton
+                type="button"
+                size="sm"
+                variant={showArchived ? "secondary" : "outline"}
+                aria-pressed={showArchived}
+                onClick={() => setShowArchived((current) => !current)}
+              >
                 {showArchived ? "Hide archived" : "Show archived"}
               </OwnedButton>
             </div>
@@ -5699,58 +8832,131 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                         <OwnedAccordionTrigger className="min-w-0 flex-1 py-3 hover:no-underline">
                           <div className="min-w-0 text-left">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate font-semibold">{file.title}</span>
-                              <OwnedBadge variant="secondary">{file.category}</OwnedBadge>
-                              {file.archived ? <OwnedBadge variant="outline">Archived</OwnedBadge> : null}
+                              <span className="truncate font-semibold">
+                                {file.title}
+                              </span>
+                              <OwnedBadge variant="secondary">
+                                {file.category}
+                              </OwnedBadge>
+                              {file.archived ? (
+                                <OwnedBadge variant="outline">
+                                  Archived
+                                </OwnedBadge>
+                              ) : null}
                               {file.clientVisible ? (
-                                <OwnedBadge variant={file.status === "draft" ? "outline" : "default"}>
-                                  {file.status === "draft" ? "Share when sent" : "Client visible"}
+                                <OwnedBadge
+                                  variant={
+                                    file.status === "draft"
+                                      ? "outline"
+                                      : "default"
+                                  }
+                                >
+                                  {file.status === "draft"
+                                    ? "Share when sent"
+                                    : "Client visible"}
                                 </OwnedBadge>
                               ) : null}
                             </div>
                             <p className="mt-1 truncate text-xs font-normal text-muted-foreground">
-                              {latest ? `${latest.fileName} · v${latest.versionNumber} · ${formatFileSize(latest.size)} · ${latest.uploadedByName}` : "No versions"}
+                              {latest
+                                ? `${latest.fileName} · v${latest.versionNumber} · ${formatFileSize(latest.size)} · ${latest.uploadedByName}`
+                                : "No versions"}
                             </p>
                           </div>
                         </OwnedAccordionTrigger>
-                        <div className="flex items-center gap-2 pb-3 sm:pb-0" onClick={(event) => event.stopPropagation()}>
+                        <div
+                          className="flex items-center gap-2 pb-3 sm:pb-0"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           {canEdit ? (
                             <OwnedSelect
                               value={file.status}
-                              onValueChange={(nextStatus) => changeFileMetadata(file, { status: nextStatus as FileStatus })}
+                              onValueChange={(nextStatus) =>
+                                changeFileMetadata(file, {
+                                  status: nextStatus as FileStatus,
+                                })
+                              }
                             >
-                              <OwnedSelectTrigger size="sm" aria-label={`Approval state for ${file.title}`} className="w-[164px] max-w-full">
-                                <OwnedSelectValue>{approvalStatusLabel(file.status)}</OwnedSelectValue>
+                              <OwnedSelectTrigger
+                                size="sm"
+                                aria-label={`Approval state for ${file.title}`}
+                                className="w-[164px] max-w-full"
+                              >
+                                <OwnedSelectValue>
+                                  {approvalStatusLabel(file.status)}
+                                </OwnedSelectValue>
                               </OwnedSelectTrigger>
                               <OwnedSelectContent position="popper">
                                 {FILE_STATUS_VALUES.map((option) => (
-                                  <OwnedSelectItem key={option} value={option}>{APPROVAL_STATUS_LABELS[option] ?? option}</OwnedSelectItem>
+                                  <OwnedSelectItem key={option} value={option}>
+                                    {APPROVAL_STATUS_LABELS[option] ?? option}
+                                  </OwnedSelectItem>
                                 ))}
                               </OwnedSelectContent>
                             </OwnedSelect>
-                          ) : <OwnedBadge variant="outline">{approvalStatusLabel(file.status)}</OwnedBadge>}
-                          {latest && (latest.url || latest.provider === "r2") ? (
-                            <OwnedButton type="button" variant="ghost" size="icon-sm" onClick={() => void openVersion(latest)} aria-label={`Open ${file.title}`}>
+                          ) : (
+                            <OwnedBadge variant="outline">
+                              {approvalStatusLabel(file.status)}
+                            </OwnedBadge>
+                          )}
+                          {latest &&
+                          (latest.url || latest.provider === "r2") ? (
+                            <OwnedButton
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => void openVersion(latest)}
+                              aria-label={`Open ${file.title}`}
+                            >
                               <Download aria-hidden="true" />
                             </OwnedButton>
                           ) : null}
                         </div>
                       </div>
                       <OwnedAccordionContent className="pb-3">
-                        {file.description ? <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{file.description}</p> : null}
+                        {file.description ? (
+                          <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
+                            {file.description}
+                          </p>
+                        ) : null}
                         <div className="grid">
                           {file.versions.map((version) => (
-                            <div key={version._id} className="flex flex-col justify-between gap-2 border-t py-3 sm:flex-row">
+                            <div
+                              key={version._id}
+                              className="flex flex-col justify-between gap-2 border-t py-3 sm:flex-row"
+                            >
                               <div className="min-w-0">
-                                <p className="text-sm font-medium">Version {version.versionNumber} · {version.fileName}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">{providerLabel(version.provider)} · {formatFileSize(version.size)} · {formatShortDateTime(version.uploadedAt)} · {version.uploadedByName}</p>
-                                <p className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}>
-                                  {version.status ? approvalStatusLabel(version.status) : "Approval state not recorded"}
+                                <p className="text-sm font-medium">
+                                  Version {version.versionNumber} ·{" "}
+                                  {version.fileName}
                                 </p>
-                                {version.notes ? <p className="mt-1 text-xs text-muted-foreground">{version.notes}</p> : null}
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {providerLabel(version.provider)} ·{" "}
+                                  {formatFileSize(version.size)} ·{" "}
+                                  {formatShortDateTime(version.uploadedAt)} ·{" "}
+                                  {version.uploadedByName}
+                                </p>
+                                <p
+                                  className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}
+                                >
+                                  {version.status
+                                    ? approvalStatusLabel(version.status)
+                                    : "Approval state not recorded"}
+                                </p>
+                                {version.notes ? (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {version.notes}
+                                  </p>
+                                ) : null}
                               </div>
                               {version.url || version.provider === "r2" ? (
-                                <OwnedButton type="button" variant="ghost" size="sm" className="self-start sm:self-center" onClick={() => void openVersion(version)}>
+                                <OwnedButton
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="self-start sm:self-center"
+                                  onClick={() => void openVersion(version)}
+                                >
                                   Open
                                   <ExternalLink aria-hidden="true" />
                                 </OwnedButton>
@@ -5760,7 +8966,12 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                         </div>
                         {canEdit && canUploadFiles ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <OwnedButton type="button" variant="ghost" size="sm" onClick={() => openNewVersion(file)}>
+                            <OwnedButton
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openNewVersion(file)}
+                            >
                               <Upload aria-hidden="true" />
                               Upload Version
                             </OwnedButton>
@@ -5769,27 +8980,59 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <OwnedSwitch
                                     checked={file.clientVisible}
-                                    onCheckedChange={(checked) => changeFileMetadata(file, { clientVisible: checked })}
-                                    aria-label={file.status === "draft" ? "Share when sent" : "Client visible"}
+                                    onCheckedChange={(checked) =>
+                                      changeFileMetadata(file, {
+                                        clientVisible: checked,
+                                      })
+                                    }
+                                    aria-label={
+                                      file.status === "draft"
+                                        ? "Share when sent"
+                                        : "Client visible"
+                                    }
                                   />
-                                  {file.status === "draft" ? "Share when sent" : "Client visible"}
+                                  {file.status === "draft"
+                                    ? "Share when sent"
+                                    : "Client visible"}
                                 </label>
                                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <OwnedSwitch
                                     checked={file.downloadable}
-                                    onCheckedChange={(checked) => changeFileMetadata(file, { downloadable: checked })}
+                                    onCheckedChange={(checked) =>
+                                      changeFileMetadata(file, {
+                                        downloadable: checked,
+                                      })
+                                    }
                                     aria-label="Downloadable"
                                   />
                                   Downloadable
                                 </label>
                               </>
                             ) : null}
-                            <OwnedButton type="button" variant="ghost" size="sm" className="sm:ml-auto" onClick={() => void changeArchiveState(file._id, file.archived)} disabled={busy === `archive-${file._id}`}>
+                            <OwnedButton
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="sm:ml-auto"
+                              onClick={() =>
+                                void changeArchiveState(file._id, file.archived)
+                              }
+                              disabled={busy === `archive-${file._id}`}
+                            >
                               {file.archived ? "Restore" : "Archive"}
                             </OwnedButton>
-                            {file.archived ? <OwnedButton type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => void deleteProjectFile(file._id)} disabled={busy === `remove-${file._id}`}>
-                              Delete permanently
-                            </OwnedButton> : null}
+                            {file.archived ? (
+                              <OwnedButton
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => void deleteProjectFile(file._id)}
+                                disabled={busy === `remove-${file._id}`}
+                              >
+                                Delete permanently
+                              </OwnedButton>
+                            ) : null}
                           </div>
                         ) : null}
                       </OwnedAccordionContent>
@@ -5798,41 +9041,93 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                 })}
               </OwnedAccordion>
             ) : (
-              <p className="py-2 text-sm text-muted-foreground">No {categoryFilter === "All" ? "project files" : `${categoryFilter.toLowerCase()} files`} yet.</p>
+              <p className="py-2 text-sm text-muted-foreground">
+                No{" "}
+                {categoryFilter === "All"
+                  ? "project files"
+                  : `${categoryFilter.toLowerCase()} files`}{" "}
+                yet.
+              </p>
             )}
           </>
         ) : (
           <div className="mt-4 grid">
-            {fileData.uploadHistory.length ? fileData.uploadHistory.map((version) => {
-              const file = files.find((item) => item._id === version.projectFileId);
-              return (
-                <div key={version._id} className="flex gap-3 border-b py-3 last:border-b-0">
-                  <History className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{file?.title ?? version.fileName} · Version {version.versionNumber}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{version.fileName} · {formatFileSize(version.size)} · uploaded by {version.uploadedByName} · {formatShortDateTime(version.uploadedAt)}</p>
-                    <p className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}>
-                      {version.status ? approvalStatusLabel(version.status) : "Approval state not recorded"}
-                    </p>
+            {fileData.uploadHistory.length ? (
+              fileData.uploadHistory.map((version) => {
+                const file = files.find(
+                  (item) => item._id === version.projectFileId
+                );
+                return (
+                  <div
+                    key={version._id}
+                    className="flex gap-3 border-b py-3 last:border-b-0"
+                  >
+                    <History
+                      className="mt-0.5 size-5 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {file?.title ?? version.fileName} · Version{" "}
+                        {version.versionNumber}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {version.fileName} · {formatFileSize(version.size)} ·
+                        uploaded by {version.uploadedByName} ·{" "}
+                        {formatShortDateTime(version.uploadedAt)}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${version.status ? "text-primary" : "text-muted-foreground"}`}
+                      >
+                        {version.status
+                          ? approvalStatusLabel(version.status)
+                          : "Approval state not recorded"}
+                      </p>
+                    </div>
+                    {version.url || version.provider === "r2" ? (
+                      <OwnedButton
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => void openVersion(version)}
+                        aria-label={`Open ${file?.title ?? version.fileName} version ${version.versionNumber}`}
+                      >
+                        <ExternalLink aria-hidden="true" />
+                      </OwnedButton>
+                    ) : null}
                   </div>
-                  {version.url || version.provider === "r2" ? (
-                    <OwnedButton type="button" variant="ghost" size="icon-sm" onClick={() => void openVersion(version)} aria-label={`Open ${file?.title ?? version.fileName} version ${version.versionNumber}`}>
-                      <ExternalLink aria-hidden="true" />
-                    </OwnedButton>
-                  ) : null}
-                </div>
-              );
-            }) : <p className="py-2 text-sm text-muted-foreground">Upload history will appear after the first file or linked version is added.</p>}
+                );
+              })
+            ) : (
+              <p className="py-2 text-sm text-muted-foreground">
+                Upload history will appear after the first file or linked
+                version is added.
+              </p>
+            )}
           </div>
         )}
-        {error && !dialogOpen ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
+        {error && !dialogOpen ? (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
       </section>
 
-      <OwnedDialog open={dialogOpen} onOpenChange={(open) => { if (!open && !busy) setDialogOpen(false); }}>
+      <OwnedDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !busy) setDialogOpen(false);
+        }}
+      >
         <OwnedDialogContent className="max-h-[min(92dvh,760px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-xl">
           <OwnedDialogHeader>
-            <OwnedDialogTitle>{targetFileId ? "Add File Version" : "Add Project File"}</OwnedDialogTitle>
-            <OwnedDialogDescription>Add an uploaded file or external file link while preserving its version history.</OwnedDialogDescription>
+            <OwnedDialogTitle>
+              {targetFileId ? "Add File Version" : "Add Project File"}
+            </OwnedDialogTitle>
+            <OwnedDialogDescription>
+              Add an uploaded file or external file link while preserving its
+              version history.
+            </OwnedDialogDescription>
           </OwnedDialogHeader>
 
           <div className="grid gap-4">
@@ -5848,14 +9143,28 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                   }}
                 />
               ) : null}
-              <ProjectSelect label="Approval state" value={status} options={FILE_STATUS_VALUES} labels={APPROVAL_STATUS_LABELS} onChange={setStatus} />
+              <ProjectSelect
+                label="Approval state"
+                value={status}
+                options={FILE_STATUS_VALUES}
+                labels={APPROVAL_STATUS_LABELS}
+                onChange={setStatus}
+              />
             </div>
             <FieldLayout label="File title" required>
-              <OwnedInput value={title} onChange={(event) => setTitle(event.target.value)} disabled={Boolean(targetFileId)} />
+              <OwnedInput
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={Boolean(targetFileId)}
+              />
             </FieldLayout>
             {!targetFileId ? (
               <FieldLayout label="Description">
-                <OwnedTextarea value={description} onChange={(event) => setDescription(event.target.value)} density="compact" />
+                <OwnedTextarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  density="compact"
+                />
               </FieldLayout>
             ) : null}
 
@@ -5863,11 +9172,22 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
               <label>
                 <Upload aria-hidden="true" />
                 {browserFile ? browserFile.name : "Choose file"}
-                <input className="sr-only" type="file" accept=".pdf,.txt,.md,.markdown,.jpg,.jpeg,.png,.webp" onChange={(event) => setBrowserFile(event.target.files?.[0] ?? null)} />
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept=".pdf,.txt,.md,.markdown,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) =>
+                    setBrowserFile(event.target.files?.[0] ?? null)
+                  }
+                />
               </label>
             </OwnedButton>
             <FieldLayout label="Version notes">
-              <OwnedTextarea value={notes} onChange={(event) => setNotes(event.target.value)} density="compact" />
+              <OwnedTextarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                density="compact"
+              />
             </FieldLayout>
             {!targetFileId && category === "Deliverable" ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
@@ -5875,22 +9195,47 @@ function ProjectFileManager({ project, canEdit }: { project: WorkItem; canEdit: 
                   <OwnedSwitch
                     checked={clientVisible}
                     onCheckedChange={setClientVisible}
-                    aria-label={status === "draft" ? "Share when sent" : "Show in Client Portal"}
+                    aria-label={
+                      status === "draft"
+                        ? "Share when sent"
+                        : "Show in Client Portal"
+                    }
                   />
-                  {status === "draft" ? "Share when sent" : "Show in Client Portal"}
+                  {status === "draft"
+                    ? "Share when sent"
+                    : "Show in Client Portal"}
                 </label>
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <OwnedSwitch checked={downloadable} onCheckedChange={setDownloadable} aria-label="Allow download" />
+                  <OwnedSwitch
+                    checked={downloadable}
+                    onCheckedChange={setDownloadable}
+                    aria-label="Allow download"
+                  />
                   Allow download
                 </label>
               </div>
             ) : null}
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            {error ? (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
           </div>
 
           <OwnedDialogFooter>
-            <OwnedButton type="button" variant="ghost" onClick={() => setDialogOpen(false)} disabled={Boolean(busy)}>Cancel</OwnedButton>
-            <OwnedButton type="button" onClick={saveFileVersion} disabled={Boolean(busy)}>
+            <OwnedButton
+              type="button"
+              variant="ghost"
+              onClick={() => setDialogOpen(false)}
+              disabled={Boolean(busy)}
+            >
+              Cancel
+            </OwnedButton>
+            <OwnedButton
+              type="button"
+              onClick={saveFileVersion}
+              disabled={Boolean(busy)}
+            >
               {busy ? "Saving..." : targetFileId ? "Add Version" : "Save File"}
             </OwnedButton>
           </OwnedDialogFooter>
@@ -5904,7 +9249,8 @@ function formatFileSize(bytes: number) {
   if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
@@ -5919,38 +9265,76 @@ function providerLabel(provider: string) {
 
 function clientPortalStage(status: string) {
   const normalized = status.trim().toLowerCase();
-  if (normalized.includes("deliver") || normalized.includes("complete") || normalized === "done") return "Delivered";
-  if (normalized.includes("review") || normalized.includes("revision") || normalized.includes("feedback")) return "Review";
-  if (normalized.includes("progress") || normalized.includes("editing") || normalized.includes("active")) return "In Progress";
+  if (
+    normalized.includes("deliver") ||
+    normalized.includes("complete") ||
+    normalized === "done"
+  )
+    return "Delivered";
+  if (
+    normalized.includes("review") ||
+    normalized.includes("revision") ||
+    normalized.includes("feedback")
+  )
+    return "Review";
+  if (
+    normalized.includes("progress") ||
+    normalized.includes("editing") ||
+    normalized.includes("active")
+  )
+    return "In Progress";
   return "Planning";
 }
 
 function formatShortDateTime(value: string) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  const localTime = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000
+  );
   return localTime.toISOString().slice(0, 16);
 }
 
-function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: { project: WorkItem; teamMembers: WorkspaceMemberOption[]; canComment: boolean }) {
-  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+function ProjectDetailCollaborationPanel({
+  project,
+  teamMembers,
+  canComment,
+}: {
+  project: WorkItem;
+  teamMembers: WorkspaceMemberOption[];
+  canComment: boolean;
+}) {
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
   const addProjectComment = useMutation(api.team.addProjectComment);
   const [commentBody, setCommentBody] = useState("");
   const [commentTimecode, setCommentTimecode] = useState("");
   const [commentError, setCommentError] = useState("");
   const projectComments = useQuery(
     api.team.listProjectComments,
-    isConvexAuthenticated && project.teamId ? { teamId: project.teamId, projectId: project.id } : "skip"
+    isConvexAuthenticated && project.teamId
+      ? { teamId: project.teamId, projectId: project.id }
+      : "skip"
   );
-  const assignedMembers = teamMembers.filter((member) => (project.assigneeUserIds ?? []).includes(member.userId));
+  const assignedMembers = teamMembers.filter((member) =>
+    (project.assigneeUserIds ?? []).includes(member.userId)
+  );
 
   async function postComment() {
-    if (!isConvexAuthenticated || !project.teamId || !commentBody.trim()) return;
+    if (!isConvexAuthenticated || !project.teamId || !commentBody.trim())
+      return;
     setCommentError("");
     try {
       const normalizedTimecode = normalizeOptionalTimecode(commentTimecode);
@@ -5964,7 +9348,9 @@ function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: {
       setCommentBody("");
       setCommentTimecode("");
     } catch (error) {
-      setCommentError(error instanceof Error ? error.message : "Could not post comment.");
+      setCommentError(
+        error instanceof Error ? error.message : "Could not post comment."
+      );
     }
   }
 
@@ -5977,38 +9363,67 @@ function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: {
       <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row">
         <div>
           <h3 className="font-semibold">Team Collaboration</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Assignments and project comments sync to the team workspace.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Assignments and project comments sync to the team workspace.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 md:justify-end">
-          {assignedMembers.length ? assignedMembers.map((member) => (
-            <OwnedBadge key={member.userId} variant="secondary">{member.name || member.email}</OwnedBadge>
-          )) : <OwnedBadge variant="outline">Unassigned</OwnedBadge>}
+          {assignedMembers.length ? (
+            assignedMembers.map((member) => (
+              <OwnedBadge key={member.userId} variant="secondary">
+                {member.name || member.email}
+              </OwnedBadge>
+            ))
+          ) : (
+            <OwnedBadge variant="outline">Unassigned</OwnedBadge>
+          )}
         </div>
       </div>
 
       <div className="mb-4 grid max-h-72 gap-2 overflow-y-auto pr-1">
         {isConvexAuthLoading ? (
-          <p className="text-sm text-muted-foreground">Connecting Team comments...</p>
+          <p className="text-sm text-muted-foreground">
+            Connecting Team comments...
+          </p>
         ) : !isConvexAuthenticated ? (
-          <p role="alert" className="text-sm text-destructive">Team comments require Convex auth. Check Team sync before posting comments.</p>
+          <p role="alert" className="text-sm text-destructive">
+            Team comments require Convex auth. Check Team sync before posting
+            comments.
+          </p>
         ) : projectComments === undefined ? (
           <p className="text-sm text-muted-foreground">Loading comments...</p>
-        ) : projectComments.length ? projectComments.map((comment) => (
-          <article key={comment._id} className="rounded-md border bg-background p-3">
-            <p className="text-sm font-semibold">
-              {comment.authorName} <span className="text-xs font-normal text-muted-foreground">{formatShortDateTime(comment.createdAt)}</span>
-            </p>
-            <ProjectTimecodeBadge value={comment.timecode} />
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{comment.body}</p>
-          </article>
-        )) : (
-          <p className="text-sm text-muted-foreground">No comments yet. Add a note for the team or mention someone with @name.</p>
+        ) : projectComments.length ? (
+          projectComments.map((comment) => (
+            <article
+              key={comment._id}
+              className="rounded-md border bg-background p-3"
+            >
+              <p className="text-sm font-semibold">
+                {comment.authorName}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {formatShortDateTime(comment.createdAt)}
+                </span>
+              </p>
+              <ProjectTimecodeBadge value={comment.timecode} />
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                {comment.body}
+              </p>
+            </article>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No comments yet. Add a note for the team or mention someone with
+            @name.
+          </p>
         )}
       </div>
 
       {canComment ? (
         <div className="grid items-start gap-3 md:grid-cols-[180px_minmax(0,1fr)_auto]">
-          <FieldLayout label="Timecode (optional)" description={TIMECODE_FORMAT_HINT}>
+          <FieldLayout
+            label="Timecode (optional)"
+            description={TIMECODE_FORMAT_HINT}
+          >
             <OwnedInput
               value={commentTimecode}
               placeholder="00:12"
@@ -6031,10 +9446,19 @@ function ProjectDetailCollaborationPanel({ project, teamMembers, canComment }: {
               onChange={(event) => setCommentBody(event.target.value)}
             />
           </FieldLayout>
-          <OwnedButton type="button" className="md:mt-6" disabled={!isConvexAuthenticated || !commentBody.trim()} onClick={postComment}>Post</OwnedButton>
+          <OwnedButton
+            type="button"
+            className="md:mt-6"
+            disabled={!isConvexAuthenticated || !commentBody.trim()}
+            onClick={postComment}
+          >
+            Post
+          </OwnedButton>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Your team role can view comments but cannot add new ones.</p>
+        <p className="text-sm text-muted-foreground">
+          Your team role can view comments but cannot add new ones.
+        </p>
       )}
     </section>
   );
@@ -6062,7 +9486,7 @@ function ProjectDialog({
   settings,
   teamMembers,
   onClose,
-  onSave
+  onSave,
 }: {
   open: boolean;
   editing: boolean;
@@ -6077,10 +9501,19 @@ function ProjectDialog({
   onClose: () => void;
   onSave: () => void;
 }) {
-  const selectedWorkType = workTypeOptions.some((option) => option.toLowerCase() === form.workType.toLowerCase()) ? canonicalWorkType(form.workType, workTypeOptions) : workTypeOptions[0];
+  const selectedWorkType = workTypeOptions.some(
+    (option) => option.toLowerCase() === form.workType.toLowerCase()
+  )
+    ? canonicalWorkType(form.workType, workTypeOptions)
+    : workTypeOptions[0];
   const typeConfig = getTypeConfig(selectedWorkType, settings);
   return (
-    <OwnedDialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
+    <OwnedDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
       <OwnedDialogContent
         className="max-h-[min(94dvh,900px)] overflow-y-auto border-border bg-background text-foreground sm:max-w-2xl"
         onCloseAutoFocus={(event) => {
@@ -6089,12 +9522,22 @@ function ProjectDialog({
         }}
       >
         <OwnedDialogHeader>
-          <OwnedDialogTitle className="text-2xl">{editing ? "Edit Project" : "New Project"}</OwnedDialogTitle>
-          <OwnedDialogDescription>Set the schedule, ownership, and production details for this project.</OwnedDialogDescription>
+          <OwnedDialogTitle className="text-2xl">
+            {editing ? "Edit Project" : "New Project"}
+          </OwnedDialogTitle>
+          <OwnedDialogDescription>
+            Set the schedule, ownership, and production details for this
+            project.
+          </OwnedDialogDescription>
         </OwnedDialogHeader>
         <div className="grid gap-5">
           <FieldLayout label="Project name">
-            <OwnedInput value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+            <OwnedInput
+              value={form.title}
+              onChange={(event) =>
+                setForm({ ...form, title: event.target.value })
+              }
+            />
           </FieldLayout>
           <ProjectClientCombobox
             value={form.client || ""}
@@ -6103,29 +9546,78 @@ function ProjectDialog({
             disabled={Boolean(form.salaryPlanId)}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <ProjectSelect label="Status" value={form.status} options={statusOptions} onChange={(value) => setForm({ ...form, status: value })} />
-            <ProjectSelect label="Tag" value={selectedWorkType} options={workTypeOptions} disabled={Boolean(form.salaryPlanId)} onChange={(value) => setForm({ ...form, workType: value, earnings: 0 })} />
+            <ProjectSelect
+              label="Status"
+              value={form.status}
+              options={statusOptions}
+              onChange={(value) => setForm({ ...form, status: value })}
+            />
+            <ProjectSelect
+              label="Tag"
+              value={selectedWorkType}
+              options={workTypeOptions}
+              disabled={Boolean(form.salaryPlanId)}
+              onChange={(value) =>
+                setForm({ ...form, workType: value, earnings: 0 })
+              }
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <ProjectDatePicker label="Start date" value={form.startDate} settings={settings} onChange={(value) => setForm({ ...form, startDate: value })} />
-            <ProjectDatePicker label="Due date" value={form.dueDate} settings={settings} onChange={(value) => setForm({ ...form, dueDate: value })} />
+            <ProjectDatePicker
+              label="Start date"
+              value={form.startDate}
+              settings={settings}
+              onChange={(value) => setForm({ ...form, startDate: value })}
+            />
+            <ProjectDatePicker
+              label="Due date"
+              value={form.dueDate}
+              settings={settings}
+              onChange={(value) => setForm({ ...form, dueDate: value })}
+            />
           </div>
           <FieldLayout
             label="Earnings"
-            disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"}
-            description={form.salaryPlanId ? "This Salary Plan fixes the Client and tracks money only when a full batch completes." : typeConfig.earningsMode === "batch" ? `${settings.salaryWorkType} earnings are batch tracked in settings.` : undefined}
+            disabled={
+              Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"
+            }
+            description={
+              form.salaryPlanId
+                ? "This Salary Plan fixes the Client and tracks money only when a full batch completes."
+                : typeConfig.earningsMode === "batch"
+                  ? `${settings.salaryWorkType} earnings are batch tracked in settings.`
+                  : undefined
+            }
           >
-            <OwnedInput type="number" disabled={Boolean(form.salaryPlanId) || typeConfig.earningsMode === "batch"} value={form.earnings} onChange={(event) => setForm({ ...form, earnings: Number(event.target.value || 0) })} />
+            <OwnedInput
+              type="number"
+              disabled={
+                Boolean(form.salaryPlanId) ||
+                typeConfig.earningsMode === "batch"
+              }
+              value={form.earnings}
+              onChange={(event) =>
+                setForm({ ...form, earnings: Number(event.target.value || 0) })
+              }
+            />
           </FieldLayout>
           <FieldLayout label="Notes">
-            <OwnedTextarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} density="comfortable" />
+            <OwnedTextarea
+              value={form.notes}
+              onChange={(event) =>
+                setForm({ ...form, notes: event.target.value })
+              }
+              density="comfortable"
+            />
           </FieldLayout>
           <TemplateSetupEditor form={form} setForm={setForm} />
           {form.teamId && teamMembers.length ? (
             <ProjectAssigneeCombobox
               options={teamMembers}
               value={form.assigneeUserIds ?? []}
-              onChange={(assigneeUserIds) => setForm({ ...form, assigneeUserIds })}
+              onChange={(assigneeUserIds) =>
+                setForm({ ...form, assigneeUserIds })
+              }
             />
           ) : null}
           <IntegrationLinkManager
@@ -6134,36 +9626,87 @@ function ProjectDialog({
             links={form.integrationLinks}
             emptyTitle="No project links"
             emptyBody="Add links to this project's folders, reviews, channels, or calendar events."
-            onChange={(integrationLinks) => setForm({ ...form, integrationLinks })}
+            onChange={(integrationLinks) =>
+              setForm({ ...form, integrationLinks })
+            }
           />
-          {formError ? <p role="alert" className="text-sm text-destructive">{formError}</p> : null}
+          {formError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
+            </p>
+          ) : null}
         </div>
         <OwnedDialogFooter>
-          <OwnedButton type="button" variant="ghost" onClick={onClose}>Cancel</OwnedButton>
-          <OwnedButton type="button" onClick={onSave}>Save</OwnedButton>
+          <OwnedButton type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </OwnedButton>
+          <OwnedButton type="button" onClick={onSave}>
+            Save
+          </OwnedButton>
         </OwnedDialogFooter>
       </OwnedDialogContent>
     </OwnedDialog>
   );
 }
 
-function ProjectClientCombobox({ value, options, onChange, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }) {
+function ProjectClientCombobox({
+  value,
+  options,
+  onChange,
+  disabled = false,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout label="Client" disabled={disabled} description={disabled ? "Fixed by the selected Salary Plan." : clientSuggestionText(value, options)}>
-          <OwnedPopoverTrigger asChild>
-            <OwnedButton type="button" variant="outline" role="combobox" disabled={disabled} aria-expanded={open} className="w-full justify-between font-normal">
-            <span className={value ? "truncate" : "truncate text-muted-foreground"}>{value || (options.length ? "Choose existing or type new client" : "Type a new client name")}</span>
+      <FieldLayout
+        label="Client"
+        disabled={disabled}
+        description={
+          disabled
+            ? "Fixed by the selected Salary Plan."
+            : clientSuggestionText(value, options)
+        }
+      >
+        <OwnedPopoverTrigger asChild>
+          <OwnedButton
+            type="button"
+            variant="outline"
+            role="combobox"
+            disabled={disabled}
+            aria-expanded={open}
+            className="w-full justify-between font-normal"
+          >
+            <span
+              className={value ? "truncate" : "truncate text-muted-foreground"}
+            >
+              {value ||
+                (options.length
+                  ? "Choose existing or type new client"
+                  : "Type a new client name")}
+            </span>
             <ChevronsUpDown className="opacity-50" aria-hidden="true" />
           </OwnedButton>
         </OwnedPopoverTrigger>
       </FieldLayout>
-      <OwnedPopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+      <OwnedPopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+      >
         <OwnedCommand>
-          <OwnedCommandInput placeholder="Search or type a client..." value={value} onValueChange={onChange} />
+          <OwnedCommandInput
+            placeholder="Search or type a client..."
+            value={value}
+            onValueChange={onChange}
+          />
           <OwnedCommandList>
-            <OwnedCommandEmpty>Press Escape to keep “{value}”.</OwnedCommandEmpty>
+            <OwnedCommandEmpty>
+              Press Escape to keep “{value}”.
+            </OwnedCommandEmpty>
             <OwnedCommandGroup>
               {options.map((option) => (
                 <OwnedCommandItem
@@ -6174,7 +9717,14 @@ function ProjectClientCombobox({ value, options, onChange, disabled = false }: {
                     setOpen(false);
                   }}
                 >
-                  <Check className={option.toLowerCase() === value.toLowerCase() ? "opacity-100" : "opacity-0"} aria-hidden="true" />
+                  <Check
+                    className={
+                      option.toLowerCase() === value.toLowerCase()
+                        ? "opacity-100"
+                        : "opacity-0"
+                    }
+                    aria-hidden="true"
+                  />
                   {option}
                 </OwnedCommandItem>
               ))}
@@ -6186,22 +9736,50 @@ function ProjectClientCombobox({ value, options, onChange, disabled = false }: {
   );
 }
 
-function ProjectAssigneeCombobox({ options, value, onChange }: { options: WorkspaceMemberOption[]; value: string[]; onChange: (value: string[]) => void }) {
+function ProjectAssigneeCombobox({
+  options,
+  value,
+  onChange,
+}: {
+  options: WorkspaceMemberOption[];
+  value: string[];
+  onChange: (value: string[]) => void;
+}) {
   const [open, setOpen] = useState(false);
   const selected = options.filter((option) => value.includes(option.userId));
   return (
     <OwnedPopover open={open} onOpenChange={setOpen}>
-      <FieldLayout label="Assigned team members" description="Assigned members receive project notifications when this project changes.">
+      <FieldLayout
+        label="Assigned team members"
+        description="Assigned members receive project notifications when this project changes."
+      >
         <OwnedPopoverTrigger asChild>
-          <OwnedButton type="button" variant="outline" role="combobox" aria-expanded={open} className="h-auto min-h-9 w-full justify-between whitespace-normal font-normal">
-            <span className={selected.length ? "text-left" : "text-muted-foreground"}>
-              {selected.length ? selected.map((member) => member.name || member.email).join(", ") : "Choose team members"}
+          <OwnedButton
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="h-auto min-h-9 w-full justify-between whitespace-normal font-normal"
+          >
+            <span
+              className={
+                selected.length ? "text-left" : "text-muted-foreground"
+              }
+            >
+              {selected.length
+                ? selected
+                    .map((member) => member.name || member.email)
+                    .join(", ")
+                : "Choose team members"}
             </span>
             <ChevronsUpDown className="opacity-50" aria-hidden="true" />
           </OwnedButton>
         </OwnedPopoverTrigger>
       </FieldLayout>
-      <OwnedPopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+      <OwnedPopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+      >
         <OwnedCommand>
           <OwnedCommandInput placeholder="Search team members..." />
           <OwnedCommandList>
@@ -6213,12 +9791,25 @@ function ProjectAssigneeCombobox({ options, value, onChange }: { options: Worksp
                   <OwnedCommandItem
                     key={option.userId}
                     value={`${option.name} ${option.email} ${option.role}`}
-                    onSelect={() => onChange(checked ? value.filter((userId) => userId !== option.userId) : [...value, option.userId])}
+                    onSelect={() =>
+                      onChange(
+                        checked
+                          ? value.filter((userId) => userId !== option.userId)
+                          : [...value, option.userId]
+                      )
+                    }
                   >
-                    <Check className={checked ? "opacity-100" : "opacity-0"} aria-hidden="true" />
+                    <Check
+                      className={checked ? "opacity-100" : "opacity-0"}
+                      aria-hidden="true"
+                    />
                     <span className="grid">
-                      <span className="font-medium">{option.name || option.email || "Team member"}</span>
-                      <span className="text-xs text-muted-foreground">{option.role} · {option.email || "No email"}</span>
+                      <span className="font-medium">
+                        {option.name || option.email || "Team member"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.role} · {option.email || "No email"}
+                      </span>
                     </span>
                   </OwnedCommandItem>
                 );
@@ -6252,25 +9843,39 @@ function TemplateSetupEditor({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">Template Setup</h3>
-          <p className="mt-1 text-xs text-muted-foreground">These are suggestions, not locked rules. Edit or remove anything.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            These are suggestions, not locked rules. Edit or remove anything.
+          </p>
         </div>
         <OwnedBadge variant="secondary">Editable</OwnedBadge>
       </div>
       <div className="mt-4 grid gap-4">
-        <FieldLayout label="Project type" description="A descriptive type for this workflow; the project tag above still controls reporting and salary batches.">
+        <FieldLayout
+          label="Project type"
+          description="A descriptive type for this workflow; the project tag above still controls reporting and salary batches."
+        >
           <OwnedInput
-          value={form.templateProjectType ?? ""}
-          onChange={(event) => setForm({ ...form, templateProjectType: event.target.value })}
+            value={form.templateProjectType ?? ""}
+            onChange={(event) =>
+              setForm({ ...form, templateProjectType: event.target.value })
+            }
           />
         </FieldLayout>
         <FieldLayout label="Workflow stages" description="One stage per line.">
           <OwnedTextarea
-          value={(form.workflowStages ?? []).map((stage) => stage.label).join("\n")}
-          onChange={(event) => setForm({
-            ...form,
-            workflowStages: workflowStagesFromLabels(event.target.value.split("\n").slice(0, 12), form.workflowStages),
-          })}
-          density="comfortable"
+            value={(form.workflowStages ?? [])
+              .map((stage) => stage.label)
+              .join("\n")}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                workflowStages: workflowStagesFromLabels(
+                  event.target.value.split("\n").slice(0, 12),
+                  form.workflowStages
+                ),
+              })
+            }
+            density="comfortable"
           />
         </FieldLayout>
         <div>
@@ -6280,10 +9885,19 @@ function TemplateSetupEditor({
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => setForm({
-                ...form,
-                templateDeliverables: [...deliverables, { title: "New deliverable", category: "Deliverable", initialStatus: "draft" }],
-              })}
+              onClick={() =>
+                setForm({
+                  ...form,
+                  templateDeliverables: [
+                    ...deliverables,
+                    {
+                      title: "New deliverable",
+                      category: "Deliverable",
+                      initialStatus: "draft",
+                    },
+                  ],
+                })
+              }
             >
               <Plus aria-hidden="true" />
               Add
@@ -6291,39 +9905,70 @@ function TemplateSetupEditor({
           </div>
           <div className="grid gap-2">
             {deliverables.map((deliverable, index) => (
-              <div key={`template-deliverable-${index}`} className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_140px_170px_auto]">
+              <div
+                key={`template-deliverable-${index}`}
+                className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_140px_170px_auto]"
+              >
                 <FieldLayout label="Deliverable">
-                  <OwnedInput value={deliverable.title} onChange={(event) => setForm({
-                      ...form,
-                      templateDeliverables: deliverables.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item),
-                    })}
+                  <OwnedInput
+                    value={deliverable.title}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        templateDeliverables: deliverables.map(
+                          (item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, title: event.target.value }
+                              : item
+                        ),
+                      })
+                    }
                   />
                 </FieldLayout>
                 <ProjectSelect
                   label="Category"
                   value={deliverable.category}
                   options={FILE_CATEGORY_VALUES}
-                  onChange={(category) => setForm({
-                    ...form,
-                    templateDeliverables: deliverables.map((item, itemIndex) => itemIndex === index ? { ...item, category } : item),
-                  })}
+                  onChange={(category) =>
+                    setForm({
+                      ...form,
+                      templateDeliverables: deliverables.map(
+                        (item, itemIndex) =>
+                          itemIndex === index ? { ...item, category } : item
+                      ),
+                    })
+                  }
                 />
                 <ProjectSelect
                   label="Initial status"
                   value={deliverable.initialStatus}
                   options={FILE_STATUS_VALUES}
                   labels={APPROVAL_STATUS_LABELS}
-                  onChange={(initialStatus) => setForm({
-                    ...form,
-                    templateDeliverables: deliverables.map((item, itemIndex) => itemIndex === index ? { ...item, initialStatus } : item),
-                  })}
+                  onChange={(initialStatus) =>
+                    setForm({
+                      ...form,
+                      templateDeliverables: deliverables.map(
+                        (item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, initialStatus }
+                            : item
+                      ),
+                    })
+                  }
                 />
                 <OwnedButton
                   type="button"
                   size="icon"
                   variant="ghost"
                   aria-label={`Remove ${deliverable.title}`}
-                  onClick={() => setForm({ ...form, templateDeliverables: deliverables.filter((_, itemIndex) => itemIndex !== index) })}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      templateDeliverables: deliverables.filter(
+                        (_, itemIndex) => itemIndex !== index
+                      ),
+                    })
+                  }
                   className="text-destructive"
                 >
                   <Trash2 aria-hidden="true" />
@@ -6332,18 +9977,26 @@ function TemplateSetupEditor({
             ))}
           </div>
         </div>
-        <FieldLayout label="Checklist" description="One checklist item per line.">
+        <FieldLayout
+          label="Checklist"
+          description="One checklist item per line."
+        >
           <OwnedTextarea
-          value={(form.checklistItems ?? []).join("\n")}
-          onChange={(event) => {
-            const checklistItems = event.target.value.split("\n").slice(0, 20);
-            setForm({
-              ...form,
-              checklistItems,
-              checklistCompleted: normalizeChecklistCompleted(checklistItems, form.checklistCompleted),
-            });
-          }}
-          density="comfortable"
+            value={(form.checklistItems ?? []).join("\n")}
+            onChange={(event) => {
+              const checklistItems = event.target.value
+                .split("\n")
+                .slice(0, 20);
+              setForm({
+                ...form,
+                checklistItems,
+                checklistCompleted: normalizeChecklistCompleted(
+                  checklistItems,
+                  form.checklistCompleted
+                ),
+              });
+            }}
+            density="comfortable"
           />
         </FieldLayout>
       </div>
@@ -6351,19 +10004,41 @@ function TemplateSetupEditor({
   );
 }
 
-function DeleteProjectDialog({ project, onCancel, onConfirm }: { project: WorkItem | null; onCancel: () => void; onConfirm: () => void }) {
+function DeleteProjectDialog({
+  project,
+  onCancel,
+  onConfirm,
+}: {
+  project: WorkItem | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
-    <OwnedAlertDialog open={Boolean(project)} onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <OwnedAlertDialogContent size="sm" className="border-border bg-background text-foreground">
+    <OwnedAlertDialog
+      open={Boolean(project)}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
+      <OwnedAlertDialogContent
+        size="sm"
+        className="border-border bg-background text-foreground"
+      >
         <OwnedAlertDialogHeader>
           <OwnedAlertDialogTitle>Delete project?</OwnedAlertDialogTitle>
           <OwnedAlertDialogDescription>
-          {project ? `"${project.title}" will be removed from your tracker.` : "This project will be removed from your tracker."}
+            {project
+              ? `"${project.title}" will be removed from your tracker.`
+              : "This project will be removed from your tracker."}
           </OwnedAlertDialogDescription>
         </OwnedAlertDialogHeader>
         <OwnedAlertDialogFooter>
-          <OwnedAlertDialogCancel onClick={onCancel}>Cancel</OwnedAlertDialogCancel>
-          <OwnedAlertDialogAction variant="destructive" onClick={onConfirm}>Delete</OwnedAlertDialogAction>
+          <OwnedAlertDialogCancel onClick={onCancel}>
+            Cancel
+          </OwnedAlertDialogCancel>
+          <OwnedAlertDialogAction variant="destructive" onClick={onConfirm}>
+            Delete
+          </OwnedAlertDialogAction>
         </OwnedAlertDialogFooter>
       </OwnedAlertDialogContent>
     </OwnedAlertDialog>
@@ -6390,35 +10065,70 @@ function ProjectSelect<T extends string>({
   className?: string;
 }) {
   return (
-    <OwnedSelect value={value} onValueChange={(nextValue) => onChange(nextValue as T)} disabled={disabled}>
+    <OwnedSelect
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+      disabled={disabled}
+    >
       {label ? (
         <FieldLayout label={label} disabled={disabled}>
-          <OwnedSelectTrigger size={compact ? "sm" : "default"} className={`w-full ${className}`}>
+          <OwnedSelectTrigger
+            size={compact ? "sm" : "default"}
+            className={`w-full ${className}`}
+          >
             <OwnedSelectValue>{labels?.[value] ?? value}</OwnedSelectValue>
           </OwnedSelectTrigger>
         </FieldLayout>
       ) : (
-        <OwnedSelectTrigger size={compact ? "sm" : "default"} aria-label="Choose value" className={`w-full ${className}`}>
+        <OwnedSelectTrigger
+          size={compact ? "sm" : "default"}
+          aria-label="Choose value"
+          className={`w-full ${className}`}
+        >
           <OwnedSelectValue>{labels?.[value] ?? value}</OwnedSelectValue>
         </OwnedSelectTrigger>
       )}
       <OwnedSelectContent position="popper">
-        {options.map((option) => <OwnedSelectItem key={option} value={option}>{labels?.[option] ?? option}</OwnedSelectItem>)}
+        {options.map((option) => (
+          <OwnedSelectItem key={option} value={option}>
+            {labels?.[option] ?? option}
+          </OwnedSelectItem>
+        ))}
       </OwnedSelectContent>
     </OwnedSelect>
   );
 }
 
-function ProjectDatePicker({ label, value, settings, onChange }: { label: string; value: string; settings: SettingsState; onChange: (value: string) => void }) {
-  const selected = isIsoDate(value) ? new Date(`${value}T00:00:00`) : todayDate();
+function ProjectDatePicker({
+  label,
+  value,
+  settings,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  settings: SettingsState;
+  onChange: (value: string) => void;
+}) {
+  const selected = isIsoDate(value)
+    ? new Date(`${value}T00:00:00`)
+    : todayDate();
   const [open, setOpen] = useState(false);
-  const [visibleMonth, setVisibleMonth] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
+  const [visibleMonth, setVisibleMonth] = useState(
+    () => new Date(selected.getFullYear(), selected.getMonth(), 1)
+  );
   const monthDays = calendarMonthDays(visibleMonth, settings.weekStart);
   const weekdays = orderedWeekdays(settings.weekStart);
-  const monthLabel = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(visibleMonth);
+  const monthLabel = new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+  }).format(visibleMonth);
 
   function shiftMonth(offset: number) {
-    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+    setVisibleMonth(
+      (current) =>
+        new Date(current.getFullYear(), current.getMonth() + offset, 1)
+    );
   }
 
   function chooseDate(next: string) {
@@ -6435,29 +10145,60 @@ function ProjectDatePicker({ label, value, settings, onChange }: { label: string
             variant="outline"
             className="w-full justify-start font-normal"
             onClick={() => {
-              const nextSelected = isIsoDate(value) ? new Date(`${value}T00:00:00`) : todayDate();
-              setVisibleMonth(new Date(nextSelected.getFullYear(), nextSelected.getMonth(), 1));
+              const nextSelected = isIsoDate(value)
+                ? new Date(`${value}T00:00:00`)
+                : todayDate();
+              setVisibleMonth(
+                new Date(nextSelected.getFullYear(), nextSelected.getMonth(), 1)
+              );
             }}
           >
             <CalendarDays aria-hidden="true" />
-            {isIsoDate(value) ? formatDate(value, settings.dateFormat) : "Choose date"}
+            {isIsoDate(value)
+              ? formatDate(value, settings.dateFormat)
+              : "Choose date"}
           </OwnedButton>
         </OwnedPopoverTrigger>
       </FieldLayout>
-      <OwnedPopoverContent align="start" className="w-[330px] max-w-[calc(100vw-2rem)] p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <OwnedButton type="button" size="icon-sm" variant="outline" aria-label={`Previous ${label.toLowerCase()} month`} onClick={() => shiftMonth(-1)}>‹</OwnedButton>
-            <strong className="text-sm">{monthLabel}</strong>
-            <OwnedButton type="button" size="icon-sm" variant="outline" aria-label={`Next ${label.toLowerCase()} month`} onClick={() => shiftMonth(1)}>›</OwnedButton>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
+      <OwnedPopoverContent
+        align="start"
+        className="w-[330px] max-w-[calc(100vw-2rem)] p-3"
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <OwnedButton
+            type="button"
+            size="icon-sm"
+            variant="outline"
+            aria-label={`Previous ${label.toLowerCase()} month`}
+            onClick={() => shiftMonth(-1)}
+          >
+            ‹
+          </OwnedButton>
+          <strong className="text-sm">{monthLabel}</strong>
+          <OwnedButton
+            type="button"
+            size="icon-sm"
+            variant="outline"
+            aria-label={`Next ${label.toLowerCase()} month`}
+            onClick={() => shiftMonth(1)}
+          >
+            ›
+          </OwnedButton>
+        </div>
+        <div className="grid grid-cols-7 gap-1">
           {weekdays.map((day) => (
-            <span key={day} className="py-1 text-center text-[10px] font-semibold uppercase text-muted-foreground">{day}</span>
+            <span
+              key={day}
+              className="py-1 text-center text-[10px] font-semibold uppercase text-muted-foreground"
+            >
+              {day}
+            </span>
           ))}
           {monthDays.map((day) => {
             const key = iso(day.date);
             const selectedDay = key === value;
-            const isCurrentMonth = day.date.getMonth() === visibleMonth.getMonth();
+            const isCurrentMonth =
+              day.date.getMonth() === visibleMonth.getMonth();
             const isToday = key === iso(todayDate());
             return (
               <OwnedButton
@@ -6473,33 +10214,64 @@ function ProjectDatePicker({ label, value, settings, onChange }: { label: string
               </OwnedButton>
             );
           })}
-          </div>
-          <div className="mt-2 flex justify-between">
-            <OwnedButton type="button" size="sm" variant="ghost" onClick={() => chooseDate(iso(todayDate()))}>Today</OwnedButton>
-            <OwnedButton type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Close</OwnedButton>
-          </div>
+        </div>
+        <div className="mt-2 flex justify-between">
+          <OwnedButton
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => chooseDate(iso(todayDate()))}
+          >
+            Today
+          </OwnedButton>
+          <OwnedButton
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setOpen(false)}
+          >
+            Close
+          </OwnedButton>
+        </div>
       </OwnedPopoverContent>
     </OwnedPopover>
   );
 }
 
-function validateProject(item: WorkItem, type: WorkTypeConfig, workTypeOptions: string[]) {
+function validateProject(
+  item: WorkItem,
+  type: WorkTypeConfig,
+  workTypeOptions: string[]
+) {
   if (!item.title.trim()) return "Project name is required.";
-  if (!statusOptions.includes(item.status as ProjectStatus)) return "Choose a valid project status.";
-  if (!workTypeOptions.some((option) => option.toLowerCase() === item.workType.trim().toLowerCase())) return "Choose a valid project tag.";
-  if (!item.startDate || !item.dueDate) return "Start and due dates are required.";
-  if (!isIsoDate(item.startDate) || !isIsoDate(item.dueDate)) return "Use valid start and due dates.";
-  if (dateTime(item.startDate) > dateTime(item.dueDate)) return "Due date must be on or after start date.";
-  if (type.earningsMode !== "batch" && safeMoneyValue(item.earnings) < 0) return "Earnings must be zero or higher.";
+  if (!statusOptions.includes(item.status as ProjectStatus))
+    return "Choose a valid project status.";
+  if (
+    !workTypeOptions.some(
+      (option) => option.toLowerCase() === item.workType.trim().toLowerCase()
+    )
+  )
+    return "Choose a valid project tag.";
+  if (!item.startDate || !item.dueDate)
+    return "Start and due dates are required.";
+  if (!isIsoDate(item.startDate) || !isIsoDate(item.dueDate))
+    return "Use valid start and due dates.";
+  if (dateTime(item.startDate) > dateTime(item.dueDate))
+    return "Due date must be on or after start date.";
+  if (type.earningsMode !== "batch" && safeMoneyValue(item.earnings) < 0)
+    return "Earnings must be zero or higher.";
   const invalidLink = integrationServices.find((service) => {
     const link = item.integrationLinks?.[service.id];
     return link?.url && !isValidIntegrationUrl(link.url);
   });
-  if (invalidLink) return `${invalidLink.name} needs a valid http or https URL.`;
+  if (invalidLink)
+    return `${invalidLink.name} needs a valid http or https URL.`;
   return "";
 }
 
-function normalizeProjectIntegrationLinks(links: IntegrationLinks | undefined): IntegrationLinks {
+function normalizeProjectIntegrationLinks(
+  links: IntegrationLinks | undefined
+): IntegrationLinks {
   const normalized: IntegrationLinks = {};
   for (const service of integrationServices) {
     const link = normalizeIntegrationLink(links?.[service.id]);
@@ -6533,7 +10305,11 @@ function validateIntegrationConfig(name: string, config: IntegrationConfig) {
   if (requiresAccountEmail(name) && !isValidEmail(config.account)) {
     return "Enter a valid account email address.";
   }
-  if (name === "Slack" && config.webhookUrl.trim() && !isValidUrl(config.webhookUrl)) {
+  if (
+    name === "Slack" &&
+    config.webhookUrl.trim() &&
+    !isValidUrl(config.webhookUrl)
+  ) {
     return "Enter a valid webhook URL or leave it blank.";
   }
   return "";
@@ -6544,9 +10320,11 @@ function requiresAccountEmail(name: string) {
 }
 
 function projectStageIssues(stages: string[]) {
-  if (stages.some((stage) => !stage.trim())) return "Workflow stages cannot be blank.";
+  if (stages.some((stage) => !stage.trim()))
+    return "Workflow stages cannot be blank.";
   const normalized = stages.map((stage) => stage.trim().toLowerCase());
-  if (new Set(normalized).size !== normalized.length) return "Workflow stages must be unique.";
+  if (new Set(normalized).size !== normalized.length)
+    return "Workflow stages must be unique.";
   return "";
 }
 
@@ -6554,7 +10332,8 @@ function projectTagIssues(tags: string[]) {
   if (!tags.length) return "At least one project tag is required.";
   if (tags.some((tag) => !tag.trim())) return "Project tags cannot be blank.";
   const normalized = tags.map((tag) => tag.trim().toLowerCase());
-  if (new Set(normalized).size !== normalized.length) return "Project tags must be unique.";
+  if (new Set(normalized).size !== normalized.length)
+    return "Project tags must be unique.";
   return "";
 }
 
@@ -6572,9 +10351,9 @@ function nextProjectTagName(tags: string[]) {
   return `Custom Tag ${index}`;
 }
 
-
 async function copyText(value: string) {
-  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return false;
+  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText)
+    return false;
   try {
     await navigator.clipboard.writeText(value);
     return true;
@@ -6583,14 +10362,14 @@ async function copyText(value: string) {
   }
 }
 
-
-
-
-
-
 function getTypeConfig(label: string, settings: SettingsState) {
-  if (isSalaryWorkType(label, settings)) return { label, earningsMode: "batch" as const };
-  return profile.typeOptions.find((type) => type.label.toLowerCase() === label.toLowerCase()) ?? { label, earningsMode: "manual" as const };
+  if (isSalaryWorkType(label, settings))
+    return { label, earningsMode: "batch" as const };
+  return (
+    profile.typeOptions.find(
+      (type) => type.label.toLowerCase() === label.toLowerCase()
+    ) ?? { label, earningsMode: "manual" as const }
+  );
 }
 
 function applyRootThemeVariables(settings: SettingsState) {
@@ -6600,33 +10379,56 @@ function applyRootThemeVariables(settings: SettingsState) {
   root.style.colorScheme = isDark ? "dark" : "light";
   root.dataset.theme = isDark ? "dark" : "light";
   root.classList.toggle("dark", isDark);
-  root.classList.toggle("relay-density-compact", settings.density === "Compact");
-  root.classList.toggle("relay-density-balanced", settings.density !== "Compact");
+  root.classList.toggle(
+    "relay-density-compact",
+    settings.density === "Compact"
+  );
+  root.classList.toggle(
+    "relay-density-balanced",
+    settings.density !== "Compact"
+  );
 }
 
 function themeIsDark(settings: SettingsState) {
-  const prefersDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  return settings.theme === "Dark" || (settings.theme === "System" && prefersDark);
+  const prefersDark =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  return (
+    settings.theme === "Dark" || (settings.theme === "System" && prefersDark)
+  );
 }
 
 function defaultProjectNotes(settings: SettingsState) {
-  const stages = settings.projectStages.filter((stage) => stage.trim()).join(" -> ");
+  const stages = settings.projectStages
+    .filter((stage) => stage.trim())
+    .join(" -> ");
   const stageLine = stages ? `Production checklist: ${stages}.` : "";
   return stageLine;
 }
 
 function normalizedSalaryBatchSize(value: unknown) {
   const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) && number > 0 ? Math.floor(number) : defaultSalaryBatchSize;
+  return Number.isFinite(number) && number > 0
+    ? Math.floor(number)
+    : defaultSalaryBatchSize;
 }
 
 function normalizedSalaryBatchAmount(value: unknown) {
   const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) && number > 0 ? number : defaultSalaryBatchAmount;
+  return Number.isFinite(number) && number > 0
+    ? number
+    : defaultSalaryBatchAmount;
 }
 
-function projectWorkTypeOptions(settings: SettingsState, projects: WorkItem[] = []) {
-  const values = [...settings.projectTags, settings.salaryWorkType, ...projects.map((project) => project.workType)];
+function projectWorkTypeOptions(
+  settings: SettingsState,
+  projects: WorkItem[] = []
+) {
+  const values = [
+    ...settings.projectTags,
+    settings.salaryWorkType,
+    ...projects.map((project) => project.workType),
+  ];
   const seen = new Set<string>();
   const result: string[] = [];
   for (const value of values) {
@@ -6640,12 +10442,17 @@ function projectWorkTypeOptions(settings: SettingsState, projects: WorkItem[] = 
 }
 
 function isSalaryWorkType(value: string, settings: SettingsState) {
-  return value.trim().toLowerCase() === settings.salaryWorkType.trim().toLowerCase();
+  return (
+    value.trim().toLowerCase() === settings.salaryWorkType.trim().toLowerCase()
+  );
 }
 
 function canonicalWorkType(value: string, options: string[]) {
   const trimmed = value.trim();
-  return options.find((option) => option.toLowerCase() === trimmed.toLowerCase()) ?? trimmed;
+  return (
+    options.find((option) => option.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed
+  );
 }
 
 function buildClientOptions(projects: WorkItem[], savedClients: string[] = []) {
@@ -6674,7 +10481,11 @@ function findExistingClientName(value: string, clientOptions: string[]) {
   return clientOptions.find((client) => client.toLowerCase() === key) ?? "";
 }
 
-function canonicalClientName(value: string, clientOptions: string[], forceExistingCapitalization = true) {
+function canonicalClientName(
+  value: string,
+  clientOptions: string[],
+  forceExistingCapitalization = true
+) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   const existing = findExistingClientName(trimmed, clientOptions);
@@ -6684,12 +10495,18 @@ function canonicalClientName(value: string, clientOptions: string[], forceExisti
 function clientSuggestionText(value: string, clientOptions: string[]) {
   const trimmed = value.trim();
   const existing = findExistingClientName(trimmed, clientOptions);
-  if (existing && existing !== trimmed) return `Will use existing client "${existing}" instead of creating a duplicate.`;
-  return clientOptions.length ? "Select an existing client or type a new client name." : "Typing a client name creates it when the project is saved.";
+  if (existing && existing !== trimmed)
+    return `Will use existing client "${existing}" instead of creating a duplicate.`;
+  return clientOptions.length
+    ? "Select an existing client or type a new client name."
+    : "Typing a client name creates it when the project is saved.";
 }
 
 function createId() {
-  return window.crypto?.randomUUID?.() ?? `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return (
+    window.crypto?.randomUUID?.() ??
+    `item-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
 }
 
 function createdTime(item: WorkItem) {
@@ -6736,7 +10553,11 @@ function isIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
 }
 
 function dateTime(value: string) {
@@ -6744,16 +10565,34 @@ function dateTime(value: string) {
 }
 
 function isDoneStatus(status: string) {
-  return ["delivered", "done", "paid", "published", "closed", "archived", "shipped", "completed", "released"].some((word) => status.toLowerCase().includes(word));
+  return [
+    "delivered",
+    "done",
+    "paid",
+    "published",
+    "closed",
+    "archived",
+    "shipped",
+    "completed",
+    "released",
+  ].some((word) => status.toLowerCase().includes(word));
 }
 
 function formatDate(value: string, dateFormat = defaultSettings.dateFormat) {
   const date = new Date(`${value}T00:00:00`);
   if (dateFormat === "Day Month Year") {
-    return new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+    return new Intl.DateTimeFormat("en", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
   }
   if (dateFormat === "YYYY-MM-DD") return value;
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }
 
 function profileDisplayName(settings: SettingsState) {
@@ -6762,16 +10601,27 @@ function profileDisplayName(settings: SettingsState) {
 
 function displayUsername(settings: SettingsState) {
   if (!settings.profileUsername.trim()) return "";
-  return settings.profileUsername.startsWith("@") ? settings.profileUsername : `@${settings.profileUsername}`;
+  return settings.profileUsername.startsWith("@")
+    ? settings.profileUsername
+    : `@${settings.profileUsername}`;
 }
 
 function sanitizeUsername(value: string) {
-  const cleaned = value.trim().toLowerCase().replace(/^@+/, "").replace(/\s+/g, "");
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/\s+/g, "");
   return cleaned.replace(/[^a-z0-9._-]/g, "");
 }
 
 function publicProfileSlug(settings: SettingsState) {
-  const slug = sanitizeUsername(settings.profileUsername || settings.profileName || settings.studioName || "editor").slice(0, 40);
+  const slug = sanitizeUsername(
+    settings.profileUsername ||
+      settings.profileName ||
+      settings.studioName ||
+      "editor"
+  ).slice(0, 40);
   return slug.length >= MIN_PUBLIC_SLUG_LENGTH ? slug : "editor";
 }
 
@@ -6780,7 +10630,15 @@ function publicMetric(value: unknown, fallback = 0) {
   return Number.isFinite(number) && number >= 0 ? Math.floor(number) : fallback;
 }
 
-function ProfileAvatar({ settings, size, fontSize }: { settings: SettingsState; size: number; fontSize: number }) {
+function ProfileAvatar({
+  settings,
+  size,
+  fontSize,
+}: {
+  settings: SettingsState;
+  size: number;
+  fontSize: number;
+}) {
   const imageUrl = settings.profileImageUrl.trim();
   const displayName = profileDisplayName(settings);
 
@@ -6797,7 +10655,11 @@ function ProfileAvatar({ settings, size, fontSize }: { settings: SettingsState; 
       }}
     >
       {imageUrl ? (
-        <img className="size-full object-cover" src={imageUrl} alt={displayName} />
+        <img
+          className="size-full object-cover"
+          src={imageUrl}
+          alt={displayName}
+        />
       ) : (
         initials(settings.profileName)
       )}
@@ -6806,7 +10668,11 @@ function ProfileAvatar({ settings, size, fontSize }: { settings: SettingsState; 
 }
 
 function money(value: number, currencyCode = defaultSettings.currencyCode) {
-  return new Intl.NumberFormat("en", { style: "currency", currency: currencyCode, maximumFractionDigits: value % 1 === 0 ? 0 : 2 }).format(value || 0);
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: currencyCode,
+    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value || 0);
 }
 
 function daysBetween(startDate: string, endDate: string) {
@@ -6815,4 +10681,3 @@ function daysBetween(startDate: string, endDate: string) {
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
   return Math.max(0, Math.round((end - start) / 86_400_000));
 }
-
