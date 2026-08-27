@@ -140,7 +140,7 @@ export function ProjectPortalPanel({
   }
 
   return (
-    <section aria-labelledby="project-portal-title" className="min-h-0 overflow-y-auto pb-5">
+    <section data-testid="project-portal-panel" aria-labelledby="project-portal-title" className="min-h-0 overflow-y-auto pb-5">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
         <div>
           <h2 id="project-portal-title" className="text-base font-semibold">Client Portal</h2>

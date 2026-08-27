@@ -40,7 +40,11 @@ async function createCloudProject(
   await dialog.getByRole("combobox").first().click();
   await page.getByRole("option", { name: "E2E Client", exact: true }).click();
   await dialog.getByRole("button", { name: "Create Project" }).click();
-  await expect(projectRow(page, title)).toBeVisible();
+  const row = projectRow(page, title);
+  await expect(row).toBeVisible();
+  const projectId = await row.getAttribute("data-project-id");
+  if (!projectId) throw new Error("Created Project row is missing its ID.");
+  await page.goto(`/projects/${projectId}`);
 }
 
 test.describe("authenticated editor to client workflow", () => {
@@ -80,7 +84,6 @@ test.describe("authenticated editor to client workflow", () => {
       await deleteCloudE2EProjects(page);
 
       await createCloudProject(page, projectTitle);
-      await projectRow(page, projectTitle).dispatchEvent("dblclick");
       await expect(page).toHaveURL(/\/projects\/.+/);
       await expect(
         page.getByRole("heading", { name: projectTitle })
@@ -111,10 +114,7 @@ test.describe("authenticated editor to client workflow", () => {
         .selectOption("sent_to_client");
 
       await page.getByRole("button", { name: "Client Review" }).click();
-      const portal = page
-        .getByRole("heading", { name: "Client Portal" })
-        .locator("..")
-        .locator("..");
+      const portal = page.getByTestId("project-portal-panel");
       await page.getByLabel(new RegExp(outputTitle)).check();
       await page.getByLabel("Protect this portal with a PIN").check();
       await page
@@ -164,10 +164,7 @@ test.describe("authenticated editor to client workflow", () => {
       );
 
       await page.getByRole("button", { name: "Outputs and Versions" }).click();
-      const reviewHistory = page
-        .getByRole("heading", { name: "Review history" })
-        .locator("..")
-        .locator("..");
+      const reviewHistory = page.getByTestId("media-version-review-history");
       const editorComment = reviewHistory
         .locator("article")
         .filter({ hasText: commentBody });
