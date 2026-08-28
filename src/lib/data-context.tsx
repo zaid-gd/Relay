@@ -608,6 +608,49 @@ function projectSalaryBatchInput(batch: SalaryBatch) {
   };
 }
 
+function recoverLegacySalaryBatches(
+  batches: SalaryBatch[],
+  projects: WorkItem[],
+  settings: SettingsState
+) {
+  const linkedProjectIds = new Set(
+    batches.flatMap((batch) => batch.projectIds ?? [])
+  );
+  const availableProjects = projects
+    .filter(
+      (project) =>
+        isSalaryWorkType(project.workType, settings) &&
+        isDoneStatus(project.status) &&
+        !linkedProjectIds.has(project.id)
+    )
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) || left.id.localeCompare(right.id)
+    );
+  let offset = 0;
+
+  return batches.map((batch) => {
+    if (batch.projectIds?.length) return batch;
+    const requiredProjectCount =
+      batch.requiredProjectCount ?? normalizedSalaryBatchSize(settings.salaryBatchSize);
+    const projectIds = availableProjects
+      .slice(offset, offset + requiredProjectCount)
+      .map((project) => project.id);
+    if (projectIds.length !== requiredProjectCount) {
+      throw new Error(
+        `Salary Batch ${batch.number} cannot be linked to enough delivered Projects.`
+      );
+    }
+    offset += requiredProjectCount;
+    return {
+      ...batch,
+      projectIds,
+      requiredProjectCount,
+      workType: batch.workType ?? settings.salaryWorkType,
+    };
+  });
+}
+
 function readInitialProjectGroups(clients: readonly import("./types").Client[]): ProjectGroup[] {
   if (typeof window === "undefined") return [];
   return normalizeProjectGroups(readJson<unknown>(PROJECT_GROUPS_STORAGE_KEY, []), clients);
@@ -1238,9 +1281,14 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (loadedBatches.length === 0 && localBatches.batches.length > 0) {
         try {
-          await importProjectSalaryBatches({ batches: localBatches.batches.map(projectSalaryBatchInput) });
+          const recoveredBatches = recoverLegacySalaryBatches(
+            localBatches.batches,
+            nextItems,
+            nextSettings
+          );
+          await importProjectSalaryBatches({ batches: recoveredBatches.map(projectSalaryBatchInput) });
           removeKey(SALARY_STORAGE_KEY);
-          nextBatches = localBatches.batches;
+          nextBatches = recoveredBatches;
         } catch {
           syncFailed = true;
           nextBatches = localBatches.batches;
@@ -1562,7 +1610,11 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     const nextSettings = mergeSettings({ ...backup.settings, clients: normalizeClientRecords(backup.clients) });
     const nextProjectGroups = normalizeProjectGroups(backup.projectGroups, nextSettings.clients);
     const nextResources = normalizeResourceLinks(backup.resources);
-    const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
+    const nextBatches = recoverLegacySalaryBatches(
+      normalizeSalaryState({ batches: backup.salaryBatches }).batches,
+      nextItems,
+      nextSettings
+    );
     if (isSignedIn && convexAuthenticated) {
       await upsertSettings(omitLegacySettings(nextSettings));
       await Promise.all(nextProjectGroups.map((group) => upsertProjectGroup({ group })));
