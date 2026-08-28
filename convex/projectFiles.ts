@@ -158,13 +158,13 @@ async function workspaceUsage(
     ? await ctx.db
         .query("projects")
         .withIndex("by_teamId", (q) => q.eq("teamId", project.teamId))
-        .collect()
+        .take(500)
     : await ctx.db
         .query("projects")
         .withIndex("by_ownerUserId_and_teamId", (q) =>
           q.eq("ownerUserId", project.ownerUserId).eq("teamId", undefined)
         )
-        .collect();
+        .take(500);
   let total = 0;
   for (const candidate of projects) {
     const versions = await ctx.db
@@ -172,7 +172,7 @@ async function workspaceUsage(
       .withIndex("by_projectId_and_uploadedAt", (q) =>
         q.eq("projectId", candidate.id)
       )
-      .collect();
+      .take(MAX_PROJECT_VERSIONS);
     total += versions.reduce((sum, version) => sum + version.size, 0);
   }
   return total;
