@@ -36,8 +36,8 @@ function settings() {
     timeZone: "UTC", dateFormat: "Month Day, Year", weekStart: "Mon", currencyCode: "USD",
     clients: [{ id: "client-a", name: "Client", company: "", contactName: "", email: "", phone: "", notes: "", archived: false }],
     projectTags: [], salaryWorkType: "Salary", salaryBatchSize: 20, salaryBatchAmount: 10000,
-    projectStages: [], notifications: {}, integrations: {}, integrationAccounts: {},
-    teamRole: "" as const, teamMembers: [], editorPermissions: {}, rolePermissions: {}, integrationConfigs: {},
+    projectStages: [], notifications: {},
+    teamRole: "" as const, teamMembers: [], rolePermissions: {}, integrationConfigs: {},
     theme: "dark", accentColor: "#fff", density: "compact",
   };
 }
