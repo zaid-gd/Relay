@@ -1,6 +1,6 @@
 # Migrate workItems into Projects
 
-Status: blocked
+Status: resolved
 Blocked by: 02 Inventory legacy Convex data
 
 ## Work
@@ -18,3 +18,11 @@ Blocked by: 02 Inventory legacy Convex data
 - Focused Project, Team, File, Activity, and Salary tests pass.
 - A source scan finds no runtime `workItems` query outside migration code.
 - `workItems` removal is safe for ticket 11.
+
+## Result
+
+- Production inventory and dry run: 0 `workItems`, 0 unmatched, so no backfill mutation or data write was needed.
+- Current `projects` writes remain authoritative. Client Portals, Project Files, Project Activity, Team project lookup, and member cleanup now read `projects` only.
+- Removed the public `convex/workItems.ts` API. The empty legacy table stays in the widened schema until ticket 11.
+- Focused checks: 26 Project File and Project Group tests pass; the current-Project Team comment check passes; TypeScript passes.
+- Runtime source scan outside the schema and tests reports no `workItems` query or type reference.
