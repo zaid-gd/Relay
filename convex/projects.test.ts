@@ -14,8 +14,8 @@ function settings() {
     timeZone: "UTC", dateFormat: "Month Day, Year", weekStart: "Mon", currencyCode: "USD",
     clients: [{ id: "client-a", name: "Client", company: "", contactName: "", email: "", phone: "", notes: "", archived: false }],
     projectTags: [], salaryWorkType: "Salary", salaryBatchSize: 2, salaryBatchAmount: 1000,
-    projectStages: [], notifications: {}, integrations: {}, integrationAccounts: {},
-    teamRole: "" as const, teamMembers: [], editorPermissions: {}, rolePermissions: {}, integrationConfigs: {},
+    projectStages: [], notifications: {},
+    teamRole: "" as const, teamMembers: [], rolePermissions: {}, integrationConfigs: {},
     theme: "dark", accentColor: "#fff", density: "compact",
   };
 }
@@ -142,7 +142,7 @@ test("stage transitions resist spoofing and settled Salary Batches stay immutabl
 
   await owner.mutation(projectsApi.transitionStage, { projectId: "first", stageId: "edit" });
   await owner.mutation(api.settings.upsert, { ...settings(), salaryBatchSize: 3, salaryBatchAmount: 9999 });
-  expect(await t.run((ctx) => ctx.db.query("projectSalaryBatches").collect())).toEqual([{ ...before[0], paid: true, paidAt: expect.any(String) }]);
+  expect(await t.run((ctx) => ctx.db.query("projectSalaryBatches").collect())).toEqual([{ ...before[0], paid: true, paidAt: expect.any(String), received: true, receivedAt: expect.any(String) }]);
   const reopened = (await owner.query(projectsApi.list, {})).find(({ id }) => id === "first");
   expect(reopened).toMatchObject({ status: "In Progress" });
   expect(reopened).not.toHaveProperty("completedAt");

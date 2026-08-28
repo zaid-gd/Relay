@@ -59,6 +59,6 @@ Google Drive, Dropbox, or Frame.io OAuth integrations can later resolve provider
 
 ## Compatibility
 
-Legacy `portalDeliverables` records remain readable and manageable for existing portals. `convex/clientPortals.ts` still exposes legacy remove and status-update mutations for those rows, but new deliverables created through `addDeliverable` are written as client-visible `projectFiles` with an external first version.
-
-`projectFiles` is the source of truth for new deliverables. The legacy `portalDeliverables` table remains only as a compatibility read and management path for existing portal links.
+`projectFiles` is the only runtime source for portal deliverables. Production had no
+`portalDeliverables` rows when this path was retired, so no backfill was needed.
+The legacy table remains in the schema until the final model cleanup.

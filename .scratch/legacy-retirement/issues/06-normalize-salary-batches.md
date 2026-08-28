@@ -1,6 +1,6 @@
 # Normalize Salary Batches
 
-Status: blocked
+Status: resolved
 Blocked by: 02 Inventory legacy Convex data
 
 ## Work
@@ -16,3 +16,10 @@ Blocked by: 02 Inventory legacy Convex data
 - Every normalized batch stores the agreed payment state.
 - Reports and Salary tests pass without the count-based fallback.
 - The fallback is safe for ticket 11 to remove.
+
+## Result
+
+- Production dry run: 0 legacy batches, 0 current batches, 0 batches missing Project IDs, and 0 payment conflicts. No data write ran.
+- Removed the legacy Salary Batch API and all runtime count-based settlement. New local and cloud batches store exact Project IDs.
+- Current payment writes keep `paid` and `received` aligned while the widened schema remains for ticket 11.
+- The focused Project Salary Batch transition and payment check passes.

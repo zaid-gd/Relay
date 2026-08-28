@@ -1,5 +1,11 @@
 import { v } from "convex/values";
-import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { recordProjectActivity } from "./projectActivity";
 import {
@@ -48,23 +54,30 @@ async function requireProjectAccess(
 ) {
   const identity = await requireIdentity(ctx);
   const project = await ctx.db
-    .query("workItems")
-    .withIndex("by_workItemId", (q) => q.eq("id", projectId))
+    .query("projects")
+    .withIndex("by_projectId", (q) => q.eq("id", projectId))
     .unique();
   if (!project) throw new Error("Project not found");
 
   if (!project.teamId) {
-    if (project.userId !== identity.tokenIdentifier) throw new Error("Project access required");
+    if (project.ownerUserId !== identity.tokenIdentifier)
+      throw new Error("Project access required");
     return { identity, project };
   }
 
   const member = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", project.teamId as string).eq("userId", identity.tokenIdentifier)
+      q
+        .eq("teamId", project.teamId as string)
+        .eq("userId", identity.tokenIdentifier)
     )
     .unique();
-  if (!member || member.status !== "active" || !member.permissions[permission]) {
+  if (
+    !member ||
+    member.status !== "active" ||
+    !member.permissions[permission]
+  ) {
     throw new Error("Project access required");
   }
   return { identity, project };
@@ -78,11 +91,15 @@ function normalizedExpiry(value: string | null) {
   const expiresAt = value?.trim() ?? "";
   if (!expiresAt) return undefined;
   const timestamp = Date.parse(expiresAt);
-  if (!Number.isFinite(timestamp)) throw new Error("Enter a valid portal expiry date and time");
+  if (!Number.isFinite(timestamp))
+    throw new Error("Enter a valid portal expiry date and time");
   return new Date(timestamp).toISOString();
 }
 
-function portalAccessState(portal: Doc<"clientPortals">, now = Date.now()): PortalAccessState {
+function portalAccessState(
+  portal: Doc<"clientPortals">,
+  now = Date.now()
+): PortalAccessState {
   const enabled = portal.enabled ?? portal.published;
   if (!portal.published || !enabled) return "unavailable";
   if (!portal.expiresAt) return "active";
@@ -91,11 +108,14 @@ function portalAccessState(portal: Doc<"clientPortals">, now = Date.now()): Port
 }
 
 function bytesToHex(bytes: Uint8Array) {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    ""
+  );
 }
 
 function hexToBytes(value: string) {
-  if (!/^[0-9a-f]+$/i.test(value) || value.length % 2 !== 0) return new Uint8Array();
+  if (!/^[0-9a-f]+$/i.test(value) || value.length % 2 !== 0)
+    return new Uint8Array();
   const bytes = new Uint8Array(value.length / 2);
   for (let index = 0; index < bytes.length; index += 1) {
     bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
@@ -103,7 +123,11 @@ function hexToBytes(value: string) {
   return bytes;
 }
 
-async function derivePortalPasswordHash(password: string, salt: Uint8Array, iterations: number) {
+async function derivePortalPasswordHash(
+  password: string,
+  salt: Uint8Array,
+  iterations: number
+) {
   const saltBuffer = Uint8Array.from(salt).buffer;
   const key = await crypto.subtle.importKey(
     "raw",
@@ -129,7 +153,11 @@ async function hashPortalPassword(password: string) {
     throw new Error("Portal password must be between 4 and 128 characters");
   }
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hash = await derivePortalPasswordHash(password, salt, PORTAL_PASSWORD_ITERATIONS);
+  const hash = await derivePortalPasswordHash(
+    password,
+    salt,
+    PORTAL_PASSWORD_ITERATIONS
+  );
   return {
     passwordHash: bytesToHex(hash),
     passwordSalt: bytesToHex(salt),
@@ -137,7 +165,10 @@ async function hashPortalPassword(password: string) {
   };
 }
 
-async function portalPasswordMatches(portal: Doc<"clientPortals">, password?: string) {
+async function portalPasswordMatches(
+  portal: Doc<"clientPortals">,
+  password?: string
+) {
   if (!portal.passwordHash || !portal.passwordSalt) return true;
   if (!password) return false;
   const expected = hexToBytes(portal.passwordHash);
@@ -158,9 +189,24 @@ async function portalPasswordMatches(portal: Doc<"clientPortals">, password?: st
 
 function projectProgress(status: string) {
   const normalized = status.trim().toLowerCase();
-  if (normalized.includes("deliver") || normalized.includes("complete") || normalized === "done") return 100;
-  if (normalized.includes("review") || normalized.includes("revision") || normalized.includes("feedback")) return 75;
-  if (normalized.includes("progress") || normalized.includes("editing") || normalized.includes("active")) return 45;
+  if (
+    normalized.includes("deliver") ||
+    normalized.includes("complete") ||
+    normalized === "done"
+  )
+    return 100;
+  if (
+    normalized.includes("review") ||
+    normalized.includes("revision") ||
+    normalized.includes("feedback")
+  )
+    return 75;
+  if (
+    normalized.includes("progress") ||
+    normalized.includes("editing") ||
+    normalized.includes("active")
+  )
+    return 45;
   return 15;
 }
 
@@ -170,15 +216,31 @@ function milestoneForStage(stage: ClientPortalStage): {
   body: string;
 } {
   if (stage === "In Progress") {
-    return { kind: "work_started", title: "Work started", body: "Production work is now underway." };
+    return {
+      kind: "work_started",
+      title: "Work started",
+      body: "Production work is now underway.",
+    };
   }
   if (stage === "Review") {
-    return { kind: "review_sent", title: "Review sent", body: "The latest project version is ready for client review." };
+    return {
+      kind: "review_sent",
+      title: "Review sent",
+      body: "The latest project version is ready for client review.",
+    };
   }
   if (stage === "Delivered") {
-    return { kind: "delivery_completed", title: "Delivery completed", body: "The project has reached final delivery." };
+    return {
+      kind: "delivery_completed",
+      title: "Delivery completed",
+      body: "The project has reached final delivery.",
+    };
   }
-  return { kind: "status_changed", title: "Project moved to Planning", body: "The project workflow returned to planning." };
+  return {
+    kind: "status_changed",
+    title: "Project moved to Planning",
+    body: "The project workflow returned to planning.",
+  };
 }
 
 function validPublicUrl(value: string) {
@@ -198,29 +260,39 @@ async function portalForEditor(ctx: QueryCtx | MutationCtx, projectId: string) {
     .unique();
 }
 
-async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
+async function projectDeliverables(
+  ctx: QueryCtx,
+  projectId: string,
+  clientSafeOnly: boolean
+) {
   const visibleFiles = await ctx.db
     .query("projectFiles")
-    .withIndex("by_projectId_and_category_and_clientVisible_and_createdAt", (q) =>
-      q
-        .eq("projectId", projectId)
-        .eq("category", "Deliverable")
-        .eq("clientVisible", true)
+    .withIndex(
+      "by_projectId_and_category_and_clientVisible_and_createdAt",
+      (q) =>
+        q
+          .eq("projectId", projectId)
+          .eq("category", "Deliverable")
+          .eq("clientVisible", true)
     )
     .order("desc")
-    .take(MAX_DELIVERABLES);
+    // ponytail: scan cap keeps this query bounded; add a status-aware index if a
+    // project can exceed 200 client-visible deliverables.
+    .take(MAX_DELIVERABLES * 4);
 
   const deliverables = await Promise.all(
     visibleFiles.map(async (file) => {
       const versions = await ctx.db
         .query("projectFileVersions")
-        .withIndex("by_projectFileId_and_versionNumber", (q) => q.eq("projectFileId", file._id))
+        .withIndex("by_projectFileId_and_versionNumber", (q) =>
+          q.eq("projectFileId", file._id)
+        )
         .order("desc")
         .take(1);
       const latest = versions[0];
       if (!latest) return null;
       const status = normalizeFileStatus(file.status);
-      if (!isClientSafeApprovalStatus(status)) return null;
+      if (clientSafeOnly && !isClientSafeApprovalStatus(status)) return null;
       const url = latest.storageId
         ? await ctx.storage.getUrl(latest.storageId)
         : latest.r2Key
@@ -240,9 +312,9 @@ async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
     })
   );
 
-  return deliverables.filter(
-    (item): item is NonNullable<typeof item> => item !== null
-  );
+  return deliverables
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .slice(0, MAX_DELIVERABLES);
 }
 
 export const getPublicR2DownloadTarget = internalQuery({
@@ -256,18 +328,29 @@ export const getPublicR2DownloadTarget = internalQuery({
       .query("clientPortals")
       .withIndex("by_token", (q) => q.eq("token", args.token.trim()))
       .unique();
-    if (!portal || portalAccessState(portal) !== "active" || !(await portalPasswordMatches(portal, args.password))) {
+    if (
+      !portal ||
+      portalAccessState(portal) !== "active" ||
+      !(await portalPasswordMatches(portal, args.password))
+    ) {
       return null;
     }
     const version = await ctx.db.get(args.versionId);
     if (!version?.r2Key || version.projectId !== portal.projectId) return null;
     const file = await ctx.db.get(version.projectFileId);
-    if (!file || file.category !== "Deliverable" || !file.clientVisible || !isClientSafeApprovalStatus(normalizeFileStatus(file.status))) {
+    if (
+      !file ||
+      file.category !== "Deliverable" ||
+      !file.clientVisible ||
+      !isClientSafeApprovalStatus(normalizeFileStatus(file.status))
+    ) {
       return null;
     }
     const latest = await ctx.db
       .query("projectFileVersions")
-      .withIndex("by_projectFileId_and_versionNumber", (q) => q.eq("projectFileId", file._id))
+      .withIndex("by_projectFileId_and_versionNumber", (q) =>
+        q.eq("projectFileId", file._id)
+      )
       .order("desc")
       .first();
     if (latest?._id !== version._id) return null;
@@ -279,10 +362,17 @@ export const getPublicR2DownloadTarget = internalQuery({
   },
 });
 
-async function requireEditablePortal(ctx: MutationCtx, portalId: Doc<"clientPortals">["_id"]) {
+async function requireEditablePortal(
+  ctx: MutationCtx,
+  portalId: Doc<"clientPortals">["_id"]
+) {
   const portal = await ctx.db.get(portalId);
   if (!portal) throw new Error("Client portal not found");
-  const access = await requireProjectAccess(ctx, portal.projectId, "editProjects");
+  const access = await requireProjectAccess(
+    ctx,
+    portal.projectId,
+    "editProjects"
+  );
   return { portal, ...access };
 }
 
@@ -318,14 +408,12 @@ export const getForProject = query({
     const portal = await portalForEditor(ctx, args.projectId);
     if (!portal) return null;
 
-    const deliverables = await ctx.db
-      .query("portalDeliverables")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
-      .order("desc")
-      .take(MAX_DELIVERABLES);
+    const deliverables = await projectDeliverables(ctx, portal.projectId, false);
     const revisions = await ctx.db
       .query("portalRevisions")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
+      .withIndex("by_portalId_and_createdAt", (q) =>
+        q.eq("portalId", portal._id)
+      )
       .order("desc")
       .take(MAX_REVISIONS);
 
@@ -353,10 +441,7 @@ export const getForProject = query({
         createdAt: portal.createdAt,
         updatedAt: portal.updatedAt,
       },
-      deliverables: deliverables.map((item) => ({
-        ...item,
-        status: normalizeDeliverableStatus(item.status),
-      })),
+      deliverables,
       revisions,
     };
   },
@@ -377,33 +462,19 @@ export const getByToken = query({
       return { access: "locked" as const };
     }
 
-    const storedDeliverables = await ctx.db
-      .query("portalDeliverables")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
-      .order("desc")
-      .take(MAX_DELIVERABLES);
-    const unifiedDeliverables = await visibleProjectDeliverables(ctx, portal.projectId);
-    const deliverables = storedDeliverables.flatMap((item) => {
-      const status = normalizeDeliverableStatus(item.status);
-      return isClientSafeApprovalStatus(status)
-        ? [{
-            title: item.title,
-            detail: item.detail,
-            url: item.url,
-            status,
-            downloadable: item.downloadable,
-            updatedAt: item.updatedAt,
-          }]
-        : [];
-    });
+    const deliverables = await projectDeliverables(ctx, portal.projectId, true);
     const revisions = await ctx.db
       .query("portalRevisions")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
+      .withIndex("by_portalId_and_createdAt", (q) =>
+        q.eq("portalId", portal._id)
+      )
       .order("desc")
       .take(MAX_REVISIONS);
     const events = await ctx.db
       .query("portalEvents")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
+      .withIndex("by_portalId_and_createdAt", (q) =>
+        q.eq("portalId", portal._id)
+      )
       .order("desc")
       .take(MAX_EVENTS);
 
@@ -422,10 +493,7 @@ export const getByToken = query({
       expiresAt: portal.expiresAt ?? null,
       createdAt: portal.createdAt,
       updatedAt: portal.updatedAt,
-      deliverables: [
-        ...unifiedDeliverables,
-        ...deliverables,
-      ].slice(0, MAX_DELIVERABLES),
+      deliverables,
       revisions: revisions.map((item) => ({
         clientName: item.clientName,
         message: item.message,
@@ -454,17 +522,32 @@ export const publish = mutation({
     clientStage: clientPortalStageValidator,
   },
   handler: async (ctx, args) => {
-    const { identity, project } = await requireProjectAccess(ctx, args.projectId, "editProjects");
+    const { identity, project } = await requireProjectAccess(
+      ctx,
+      args.projectId,
+      "editProjects"
+    );
     const existing = await ctx.db
       .query("clientPortals")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .unique();
     const now = new Date().toISOString();
-    const revisionLimit = Math.max(0, Math.min(20, Math.floor(args.revisionLimit)));
+    const revisionLimit = Math.max(
+      0,
+      Math.min(20, Math.floor(args.revisionLimit))
+    );
     const clientStage = args.clientStage;
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_userId", (q) => q.eq("userId", project.ownerUserId))
+      .unique();
     const snapshot = {
       title: cleanText(project.title, 160),
-      clientName: cleanText(project.client ?? "", 120),
+      clientName: cleanText(
+        settings?.clients?.find((client) => client.id === project.clientId)
+          ?.name ?? "",
+        120
+      ),
       projectType: cleanText(project.workType, 120),
       status: clientStage,
       sourceStatus: project.status,
@@ -473,7 +556,8 @@ export const publish = mutation({
       progress: projectProgress(clientStage),
       clientSummary: cleanText(args.clientSummary, MAX_SUMMARY_LENGTH),
       clientNotes: cleanText(args.clientNotes, MAX_NOTE_LENGTH),
-      estimatedCompletion: cleanText(args.estimatedCompletion, 40) || project.dueDate,
+      estimatedCompletion:
+        cleanText(args.estimatedCompletion, 40) || project.dueDate,
       revisionLimit,
       updatedAt: now,
     };
@@ -483,7 +567,13 @@ export const publish = mutation({
       await ctx.db.patch(existing._id, snapshot);
       if (statusChanged) {
         const milestone = milestoneForStage(snapshot.status);
-        await insertEvent(ctx, existing._id, milestone.kind, milestone.title, milestone.body);
+        await insertEvent(
+          ctx,
+          existing._id,
+          milestone.kind,
+          milestone.title,
+          milestone.body
+        );
       }
       await recordProjectActivity(ctx, {
         project,
@@ -507,12 +597,33 @@ export const publish = mutation({
       enabled: true,
       createdAt: project.createdAt || now,
     });
-    await insertEvent(ctx, portalId, "project_created", "Project created", "The project workspace and client portal were prepared.", project.createdAt || now);
+    await insertEvent(
+      ctx,
+      portalId,
+      "project_created",
+      "Project created",
+      "The project workspace and client portal were prepared.",
+      project.createdAt || now
+    );
     if (clientStage !== "Planning") {
       const milestone = milestoneForStage(clientStage);
-      await insertEvent(ctx, portalId, milestone.kind, milestone.title, milestone.body, now);
+      await insertEvent(
+        ctx,
+        portalId,
+        milestone.kind,
+        milestone.title,
+        milestone.body,
+        now
+      );
     }
-    await insertEvent(ctx, portalId, "portal_published", "Client portal published", "Project progress is now available through this private link.", now);
+    await insertEvent(
+      ctx,
+      portalId,
+      "portal_published",
+      "Client portal published",
+      "Project progress is now available through this private link.",
+      now
+    );
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.tokenIdentifier,
@@ -527,7 +638,10 @@ export const publish = mutation({
 export const setPublished = mutation({
   args: { portalId: v.id("clientPortals"), published: v.boolean() },
   handler: async (ctx, args) => {
-    const { portal, identity, project } = await requireEditablePortal(ctx, args.portalId);
+    const { portal, identity, project } = await requireEditablePortal(
+      ctx,
+      args.portalId
+    );
     await ctx.db.patch(args.portalId, {
       published: args.published,
       enabled: args.published,
@@ -537,7 +651,9 @@ export const setPublished = mutation({
       project,
       actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "CutLab user",
-      kind: args.published ? "client_portal_published" : "client_portal_unpublished",
+      kind: args.published
+        ? "client_portal_published"
+        : "client_portal_unpublished",
       message: `The client portal was ${args.published ? "published" : "unpublished"}.`,
     });
     return null;
@@ -551,7 +667,10 @@ export const setAccessControls = mutation({
     expiresAt: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
-    const { portal, identity, project } = await requireEditablePortal(ctx, args.portalId);
+    const { portal, identity, project } = await requireEditablePortal(
+      ctx,
+      args.portalId
+    );
     const now = new Date().toISOString();
     const expiresAt = normalizedExpiry(args.expiresAt);
     const wasEnabled = portal.enabled ?? portal.published;
@@ -589,7 +708,10 @@ export const setAccessControls = mutation({
 export const regenerateToken = mutation({
   args: { portalId: v.id("clientPortals") },
   handler: async (ctx, args) => {
-    const { identity, project } = await requireEditablePortal(ctx, args.portalId);
+    const { identity, project } = await requireEditablePortal(
+      ctx,
+      args.portalId
+    );
     const token = crypto.randomUUID().replaceAll("-", "");
     const now = new Date().toISOString();
     await ctx.db.patch(args.portalId, { token, updatedAt: now });
@@ -598,7 +720,8 @@ export const regenerateToken = mutation({
       actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "CutLab user",
       kind: "client_portal_token_regenerated",
-      message: "The client portal link was regenerated. The previous link no longer works.",
+      message:
+        "The client portal link was regenerated. The previous link no longer works.",
       createdAt: now,
     });
     return { token };
@@ -611,7 +734,10 @@ export const setPasswordProtection = mutation({
     password: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
-    const { portal, identity, project } = await requireEditablePortal(ctx, args.portalId);
+    const { portal, identity, project } = await requireEditablePortal(
+      ctx,
+      args.portalId
+    );
     const now = new Date().toISOString();
     if (args.password === null) {
       await ctx.db.patch(args.portalId, {
@@ -656,38 +782,51 @@ export const addDeliverable = mutation({
     downloadable: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const { identity, project } = await requireEditablePortal(ctx, args.portalId);
+    const { identity, project } = await requireEditablePortal(
+      ctx,
+      args.portalId
+    );
     const title = cleanText(args.title, 160);
     const detail = cleanText(args.detail, 300);
     const url = args.url.trim();
     const status = normalizeDeliverableStatus(args.status);
     const actor = identity.name || identity.email || "CutLab user";
     if (!title) throw new Error("Deliverable title is required");
-    if (!validPublicUrl(url)) throw new Error("Enter a valid http or https deliverable URL");
+    if (!validPublicUrl(url))
+      throw new Error("Enter a valid http or https deliverable URL");
     const existingVisibleDeliverables = await ctx.db
       .query("projectFiles")
-      .withIndex("by_projectId_and_category_and_clientVisible_and_createdAt", (q) =>
-        q
-          .eq("projectId", project.id)
-          .eq("category", "Deliverable")
-          .eq("clientVisible", true)
+      .withIndex(
+        "by_projectId_and_category_and_clientVisible_and_createdAt",
+        (q) =>
+          q
+            .eq("projectId", project.id)
+            .eq("category", "Deliverable")
+            .eq("clientVisible", true)
       )
       .take(MAX_DELIVERABLES);
-    if (existingVisibleDeliverables.length >= MAX_DELIVERABLES) throw new Error("This portal has reached its deliverable limit");
+    if (existingVisibleDeliverables.length >= MAX_DELIVERABLES)
+      throw new Error("This portal has reached its deliverable limit");
     const existingFiles = await ctx.db
       .query("projectFiles")
-      .withIndex("by_projectId_and_createdAt", (q) => q.eq("projectId", project.id))
+      .withIndex("by_projectId_and_createdAt", (q) =>
+        q.eq("projectId", project.id)
+      )
       .take(MAX_PROJECT_FILES);
-    if (existingFiles.length >= MAX_PROJECT_FILES) throw new Error("This project has reached its 100-file limit");
+    if (existingFiles.length >= MAX_PROJECT_FILES)
+      throw new Error("This project has reached its 100-file limit");
     const existingVersions = await ctx.db
       .query("projectFileVersions")
-      .withIndex("by_projectId_and_uploadedAt", (q) => q.eq("projectId", project.id))
+      .withIndex("by_projectId_and_uploadedAt", (q) =>
+        q.eq("projectId", project.id)
+      )
       .take(MAX_PROJECT_VERSIONS);
-    if (existingVersions.length >= MAX_PROJECT_VERSIONS) throw new Error("This project has reached its 500-version history limit");
+    if (existingVersions.length >= MAX_PROJECT_VERSIONS)
+      throw new Error("This project has reached its 500-version history limit");
     const now = new Date().toISOString();
     const fileId = await ctx.db.insert("projectFiles", {
       projectId: project.id,
-      ownerUserId: project.userId,
+      ownerUserId: project.ownerUserId,
       teamId: project.teamId,
       category: "Deliverable",
       title,
@@ -715,7 +854,13 @@ export const addDeliverable = mutation({
       uploadedAt: now,
       notes: detail,
     });
-    await insertEvent(ctx, args.portalId, "deliverable_added", "New file available", `${title} was added to the project deliverables.`);
+    await insertEvent(
+      ctx,
+      args.portalId,
+      "deliverable_added",
+      "New file available",
+      `${title} was added to the project deliverables.`
+    );
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.tokenIdentifier,
@@ -727,49 +872,6 @@ export const addDeliverable = mutation({
     return { fileId };
   },
 });
-export const removeDeliverable = mutation({
-  args: { deliverableId: v.id("portalDeliverables") },
-  handler: async (ctx, args) => {
-    const deliverable = await ctx.db.get(args.deliverableId);
-    if (!deliverable) return null;
-    const { identity, project } = await requireEditablePortal(ctx, deliverable.portalId);
-    await ctx.db.delete(args.deliverableId);
-    await recordProjectActivity(ctx, {
-      project,
-      actorUserId: identity.tokenIdentifier,
-      actorName: identity.name || identity.email || "CutLab user",
-      kind: "deliverable_removed",
-      message: `${deliverable.title} was removed from deliverables.`,
-    });
-    return null;
-  },
-});
-
-export const updateDeliverableStatus = mutation({
-  args: { deliverableId: v.id("portalDeliverables"), status: deliverableStatusValidator },
-  handler: async (ctx, args) => {
-    const deliverable = await ctx.db.get(args.deliverableId);
-    if (!deliverable) throw new Error("Deliverable not found");
-    const { identity, project } = await requireEditablePortal(ctx, deliverable.portalId);
-    const status = args.status;
-    if (status === deliverable.status) return null;
-    const now = new Date().toISOString();
-    await ctx.db.patch(args.deliverableId, { status, updatedAt: now });
-    const event: { kind: PortalEventKind; title: string; body: string } = status === "final_delivered"
-      ? { kind: "delivery_completed", title: "Delivery completed", body: `${deliverable.title} was marked as final delivered.` }
-      : { kind: "deliverable_updated", title: "Deliverable updated", body: `${deliverable.title} is now ${approvalStatusLabel(status)}.` };
-    await insertEvent(ctx, deliverable.portalId, event.kind, event.title, event.body, now);
-    await recordProjectActivity(ctx, {
-      project,
-      actorUserId: identity.tokenIdentifier,
-      actorName: identity.name || identity.email || "CutLab user",
-      kind: "deliverable_status_changed",
-      message: `${deliverable.title} changed from ${approvalStatusLabel(normalizeDeliverableStatus(deliverable.status))} to ${approvalStatusLabel(status)}.`,
-    });
-    return null;
-  },
-});
-
 export const submitRevision = mutation({
   args: {
     token: v.string(),
@@ -795,17 +897,21 @@ export const submitRevision = mutation({
     const timecode = normalizeOptionalTimecode(args.timecode);
     const existing = await ctx.db
       .query("portalRevisions")
-      .withIndex("by_portalId_and_createdAt", (q) => q.eq("portalId", portal._id))
+      .withIndex("by_portalId_and_createdAt", (q) =>
+        q.eq("portalId", portal._id)
+      )
       .take(MAX_REVISIONS);
     const effectiveLimit = Math.min(
       MAX_REVISIONS,
       Math.max(0, Math.floor(portal.revisionLimit ?? MAX_REVISIONS))
     );
-    if (existing.length >= effectiveLimit) throw new Error("This portal has reached its revision request limit");
+    if (existing.length >= effectiveLimit)
+      throw new Error("This portal has reached its revision request limit");
     const now = new Date().toISOString();
     await ctx.db.insert("portalRevisions", {
       portalId: portal._id,
-      clientName: cleanText(args.clientName, 100) || portal.clientName || "Client",
+      clientName:
+        cleanText(args.clientName, 100) || portal.clientName || "Client",
       message,
       timecode,
       status: "Submitted",
@@ -823,14 +929,15 @@ export const submitRevision = mutation({
       now
     );
     const project = await ctx.db
-      .query("workItems")
-      .withIndex("by_workItemId", (q) => q.eq("id", portal.projectId))
+      .query("projects")
+      .withIndex("by_projectId", (q) => q.eq("id", portal.projectId))
       .unique();
     if (project) {
       await recordProjectActivity(ctx, {
         project,
         actorUserId: "client",
-        actorName: cleanText(args.clientName, 100) || portal.clientName || "Client",
+        actorName:
+          cleanText(args.clientName, 100) || portal.clientName || "Client",
         kind: "revision_requested",
         message: "A client revision request was submitted.",
         detail: formatTimecodedDetail(timecode, message),
@@ -843,16 +950,29 @@ export const submitRevision = mutation({
 });
 
 export const updateRevisionStatus = mutation({
-  args: { revisionId: v.id("portalRevisions"), status: revisionStatusValidator },
+  args: {
+    revisionId: v.id("portalRevisions"),
+    status: revisionStatusValidator,
+  },
   handler: async (ctx, args) => {
     const revision = await ctx.db.get(args.revisionId);
     if (!revision) throw new Error("Revision request not found");
-    const { identity, project } = await requireEditablePortal(ctx, revision.portalId);
+    const { identity, project } = await requireEditablePortal(
+      ctx,
+      revision.portalId
+    );
     const status = args.status;
     const now = new Date().toISOString();
     await ctx.db.patch(args.revisionId, { status, updatedAt: now });
     if (status === "Resolved") {
-      await insertEvent(ctx, revision.portalId, "revision_completed", "Revision completed", "A client revision request was resolved.", now);
+      await insertEvent(
+        ctx,
+        revision.portalId,
+        "revision_completed",
+        "Revision completed",
+        "A client revision request was resolved.",
+        now
+      );
     }
     await recordProjectActivity(ctx, {
       project,

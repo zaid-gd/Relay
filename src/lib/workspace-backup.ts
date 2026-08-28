@@ -17,7 +17,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function createWorkspaceBackup(data: WorkspaceBackupData) {
-  const { integrationAccounts: _accounts, integrationConfigs: _configs, integrationLinks: _links, ...safeSettings } = data.settings;
+  const { integrations: _integrations, integrationAccounts: _accounts, editorPermissions: _permissions, integrationConfigs: _configs, integrationLinks: _links, ...safeSettings } = data.settings;
   return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...data, projectGroups: data.projectGroups ?? [], settings: safeSettings }, null, 2);
 }
 

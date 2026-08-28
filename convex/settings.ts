@@ -121,12 +121,9 @@ export const upsert = mutation({
     salaryBatchAmount: v.number(),
     projectStages: v.array(v.string()),
     notifications: v.record(v.string(), v.boolean()),
-    integrations: v.record(v.string(), v.boolean()),
-    integrationAccounts: v.record(v.string(), v.string()),
     integrationLinks: v.optional(integrationLinkValidator),
     teamRole: settingsTeamRoleValidator,
     teamMembers: v.array(teamMemberSchema),
-    editorPermissions: v.record(v.string(), v.boolean()),
     rolePermissions: v.record(v.string(), v.record(v.string(), v.boolean())),
     integrationConfigs: v.record(
       v.string(),

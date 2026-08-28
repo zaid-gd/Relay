@@ -532,8 +532,8 @@ export default defineSchema({
     salaryBatchAmount: v.optional(v.number()),
     projectStages: v.array(v.string()),
     notifications: v.record(v.string(), v.boolean()),
-    integrations: v.record(v.string(), v.boolean()),
-    integrationAccounts: v.record(v.string(), v.string()),
+    integrations: v.optional(v.record(v.string(), v.boolean())),
+    integrationAccounts: v.optional(v.record(v.string(), v.string())),
     integrationLinks: v.optional(
       v.record(
         v.string(),
@@ -554,7 +554,7 @@ export default defineSchema({
         email: v.string(),
       })
     ),
-    editorPermissions: v.record(v.string(), v.boolean()),
+    editorPermissions: v.optional(v.record(v.string(), v.boolean())),
     rolePermissions: v.record(v.string(), v.record(v.string(), v.boolean())),
     integrationConfigs: v.record(
       v.string(),

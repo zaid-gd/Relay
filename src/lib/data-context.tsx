@@ -10,6 +10,7 @@ import type { WorkItem, SettingsState, SalaryBatch, SalaryPlan, SalaryState, Tea
 import { normalizeIntegrationLinks } from "./integrations";
 import { normalizeClientRecords } from "./clients";
 import { createWorkspaceBackup, parseWorkspaceBackup } from "./workspace-backup";
+import { omitLegacySettings } from "./settings-persistence";
 import { normalizeProjectGroups } from "@/features/projects/project-domain";
 import { getWorkflowStageStatus, moveProjectToStage, resolveProjectWorkflowStage } from "@/features/projects/project-domain";
 import type { ProjectWorkflowPort, ProjectStageTransitionResult } from "@/features/projects/project-workflow-port";
@@ -130,29 +131,10 @@ const defaultSettings: SettingsState = {
     Mentions: false,
     "Weekly summary": false,
   },
-  integrations: {
-    "Google Drive": false,
-    Dropbox: false,
-    Slack: false,
-    "Frame.io": false,
-  },
-  integrationAccounts: {
-    "Google Drive": "",
-    Dropbox: "",
-    Slack: "",
-    "Frame.io": "",
-  },
   integrationConfigs: { ...defaultIntegrationConfigs },
   integrationLinks: {},
   teamRole: "",
   teamMembers: [],
-  editorPermissions: {
-    "Create and edit projects": false,
-    "Upload media and assets": false,
-    "Manage project stages": false,
-    "Invite team members": false,
-    "Manage app settings": false,
-  },
   rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   theme: "Dark",
   accentColor: "#14B8A6",
@@ -211,12 +193,9 @@ function freshDefaultSettings(): SettingsState {
     customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })),
     projectStages: [...defaultSettings.projectStages],
     notifications: { ...defaultSettings.notifications },
-    integrations: { ...defaultSettings.integrations },
-    integrationAccounts: { ...defaultSettings.integrationAccounts },
     integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
     integrationLinks: normalizeIntegrationLinks(defaultSettings.integrationLinks),
     teamMembers: defaultSettings.teamMembers.map((m: TeamMember) => ({ ...m })),
-    editorPermissions: { ...defaultSettings.editorPermissions },
     rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   };
 }
@@ -452,10 +431,10 @@ function normalizeIntegrationConfigs(value: unknown, legacyIntegrations?: unknow
 
   // Migrate from legacy integrations + integrationAccounts if new configs are all empty
   const allEmpty = Object.values(configs).every((c) => !c.connected && !c.account);
-  if (allEmpty && isPlainRecord(legacyIntegrations) && isPlainRecord(legacyAccounts)) {
+  if (allEmpty && (isPlainRecord(legacyIntegrations) || isPlainRecord(legacyAccounts))) {
     for (const name of integrationNames) {
-      const wasConnected = legacyIntegrations[name] === true;
-      const account = typeof legacyAccounts[name] === "string" ? (legacyAccounts[name] as string).trim() : "";
+      const wasConnected = isPlainRecord(legacyIntegrations) && legacyIntegrations[name] === true;
+      const account = isPlainRecord(legacyAccounts) && typeof legacyAccounts[name] === "string" ? legacyAccounts[name].trim() : "";
       if (wasConnected || account) {
         configs[name] = { ...emptyIntegrationConfig, connected: wasConnected, account, connectedAt: wasConnected ? new Date().toISOString() : "" };
       }
@@ -542,11 +521,8 @@ function mergeSettings(stored: unknown): SettingsState {
         })
       : defaultSettings.teamMembers,
     notifications: booleanRecordSetting(r.notifications, defaultSettings.notifications),
-    integrations: booleanRecordSetting(r.integrations, defaultSettings.integrations),
-    integrationAccounts: stringRecordSetting(r.integrationAccounts, defaultSettings.integrationAccounts),
     integrationConfigs: normalizeIntegrationConfigs(r.integrationConfigs, r.integrations, r.integrationAccounts),
     integrationLinks: normalizeIntegrationLinks(r.integrationLinks),
-    editorPermissions: booleanRecordSetting(r.editorPermissions, defaultSettings.editorPermissions),
     rolePermissions: normalizeRolePermissions(r.rolePermissions, r.editorPermissions),
   };
 }
@@ -617,10 +593,6 @@ function normalizeProjectSalaryBatches(value: unknown): SalaryBatch[] {
   });
 }
 
-function mergeSalaryBatches(...groups: SalaryBatch[][]) {
-  return [...new Map(groups.flat().map((batch) => [batch.id, batch])).values()];
-}
-
 function projectSalaryBatchInput(batch: SalaryBatch) {
   if (!batch.projectIds?.length || !batch.requiredProjectCount || !batch.workType) throw new Error("Salary Batch snapshot is incomplete");
   return {
@@ -636,17 +608,47 @@ function projectSalaryBatchInput(batch: SalaryBatch) {
   };
 }
 
-function legacySalaryBatchInput(batch: SalaryBatch) {
-  return {
-    id: batch.id,
-    number: batch.number,
-    completedDate: batch.completedDate,
-    archived: batch.archived,
-    archivedDate: batch.archivedDate,
-    amount: batch.amount,
-    paid: batch.paid,
-    paidDate: batch.paidDate,
-  };
+function recoverLegacySalaryBatches(
+  batches: SalaryBatch[],
+  projects: WorkItem[],
+  settings: SettingsState
+) {
+  const linkedProjectIds = new Set(
+    batches.flatMap((batch) => batch.projectIds ?? [])
+  );
+  const availableProjects = projects
+    .filter(
+      (project) =>
+        isSalaryWorkType(project.workType, settings) &&
+        isDoneStatus(project.status) &&
+        !linkedProjectIds.has(project.id)
+    )
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) || left.id.localeCompare(right.id)
+    );
+  let offset = 0;
+
+  return batches.map((batch) => {
+    if (batch.projectIds?.length) return batch;
+    const requiredProjectCount =
+      batch.requiredProjectCount ?? normalizedSalaryBatchSize(settings.salaryBatchSize);
+    const projectIds = availableProjects
+      .slice(offset, offset + requiredProjectCount)
+      .map((project) => project.id);
+    if (projectIds.length !== requiredProjectCount) {
+      throw new Error(
+        `Salary Batch ${batch.number} cannot be linked to enough delivered Projects.`
+      );
+    }
+    offset += requiredProjectCount;
+    return {
+      ...batch,
+      projectIds,
+      requiredProjectCount,
+      workType: batch.workType ?? settings.salaryWorkType,
+    };
+  });
 }
 
 function readInitialProjectGroups(clients: readonly import("./types").Client[]): ProjectGroup[] {
@@ -724,11 +726,10 @@ function localDeliveryEffect(project: WorkItem, items: WorkItem[], batches: Sala
   }
   const requiredProjectCount = normalizedSalaryBatchSize(settings.salaryBatchSize);
   const settledIds = new Set(batches.flatMap((batch) => batch.projectIds ?? []));
-  const legacySettledCount = batches.filter((batch) => !batch.projectIds).length * requiredProjectCount;
   const contributors = items
     .filter((item) => !item.teamId && item.workType === settings.salaryWorkType && (item.id === project.id || isDoneStatus(item.status)) && !settledIds.has(item.id))
     .sort((left, right) => (left.completedAt ?? left.createdAt ?? "").localeCompare(right.completedAt ?? right.createdAt ?? ""))
-    .slice(legacySettledCount, legacySettledCount + requiredProjectCount);
+    .slice(0, requiredProjectCount);
   const batchCreated = contributors.length === requiredProjectCount;
   return {
     result: {
@@ -973,7 +974,7 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
   const setSettings = useCallback((updater: React.SetStateAction<SettingsState>) => {
     setSettingsState((prev: SettingsState) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      writeJson(SETTINGS_STORAGE_KEY, next);
+      writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
       return next;
     });
   }, []);
@@ -987,13 +988,16 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
   }, []);
 
   const reconcileSalaryBatches = useCallback((workItems: WorkItem[]) => {
-    const completedBatchCount = Math.floor(
-      workItems.filter((w) => isSalaryWorkType(w.workType, settings) && isDoneStatus(w.status)).length / normalizedSalaryBatchSize(settings.salaryBatchSize),
-    );
     setSalaryBatches((prev: SalaryBatch[]) => {
-      if (prev.length >= completedBatchCount) return prev;
+      const requiredProjectCount = normalizedSalaryBatchSize(settings.salaryBatchSize);
+      const settledProjectIds = new Set(prev.flatMap((batch) => batch.projectIds ?? []));
+      const unsettledProjects = workItems
+        .filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status) && !settledProjectIds.has(item.id))
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id));
+      const completedBatchCount = Math.floor(unsettledProjects.length / requiredProjectCount);
+      if (!completedBatchCount) return prev;
       const next = [...prev];
-      while (next.length < completedBatchCount) {
+      for (let batchIndex = 0; batchIndex < completedBatchCount; batchIndex += 1) {
         const n = next.length + 1;
         next.push({
           id: `batch-${n}`,
@@ -1004,6 +1008,11 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
           amount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
           paid: false,
           paidDate: "",
+          projectIds: unsettledProjects
+            .slice(batchIndex * requiredProjectCount, (batchIndex + 1) * requiredProjectCount)
+            .map((project) => project.id),
+          requiredProjectCount,
+          workType: settings.salaryWorkType,
         });
       }
       writeJson(SALARY_STORAGE_KEY, { batches: next });
@@ -1091,7 +1100,7 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
     const nextResources = normalizeResourceLinks(backup.resources);
     const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
     setItemsState(nextItems); setSettingsState(nextSettings); setProjectGroupsState(nextProjectGroups); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
-    writeJson(STORAGE_KEY, nextItems); writeJson(SETTINGS_STORAGE_KEY, nextSettings); writeJson(PROJECT_GROUPS_STORAGE_KEY, nextProjectGroups); writeJson(RESOURCES_STORAGE_KEY, nextResources); writeJson(SALARY_STORAGE_KEY, { batches: nextBatches });
+    writeJson(STORAGE_KEY, nextItems); writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(nextSettings)); writeJson(PROJECT_GROUPS_STORAGE_KEY, nextProjectGroups); writeJson(RESOURCES_STORAGE_KEY, nextResources); writeJson(SALARY_STORAGE_KEY, { batches: nextBatches });
     return { projects: nextItems.length, clients: nextSettings.clients.length, projectGroups: nextProjectGroups.length, resources: nextResources.length, salaryBatches: nextBatches.length };
   }, []);
 
@@ -1144,7 +1153,6 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const convexItems = useQuery(projectsApi.list, {});
   const convexProjectGroups = useQuery(api.projectGroups.list, {});
   const convexSettings = useQuery(api.settings.get, {});
-  const convexBatches = useQuery(api.salaryBatches.list, {});
   const convexProjectBatches = useQuery(projectsApi.listSalaryBatches, {});
   const convexSalaryPlans = useQuery(projectsApi.listSalaryPlans, {});
   const convexResources = useQuery(api.resourceLinks.list, {});
@@ -1155,7 +1163,6 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   const upsertProjectGroup = useMutation(api.projectGroups.upsert);
   const deleteProject = useMutation(projectsApi.remove);
   const upsertSettings = useMutation(api.settings.upsert);
-  const replaceAllBatches = useMutation(api.salaryBatches.replaceAll);
   const setProjectSalaryBatchPaid = useMutation(projectsApi.setSalaryBatchPaid);
   const importProjectSalaryBatches = useMutation(projectsApi.importSalaryBatches);
   const transitionCloudProjectStage = useMutation(projectsApi.transitionStage);
@@ -1211,14 +1218,14 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined || convexResources === undefined) return;
+    if (convexItems === undefined || convexProjectGroups === undefined || convexSettings === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined || convexResources === undefined) return;
     if (cloudInitialized) return;
 
     const loadedItems = normalizeWorkItems(convexItems);
     const loadedSettings = convexSettings;
     const normalizedLoadedSettings = loadedSettings ? mergeSettings(loadedSettings) : readInitialSettings();
     const loadedProjectGroups = normalizeProjectGroups(convexProjectGroups, normalizedLoadedSettings.clients);
-    const loadedBatches = mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches));
+    const loadedBatches = normalizeProjectSalaryBatches(convexProjectBatches);
     const loadedSalaryPlans = normalizeSalaryPlans(convexSalaryPlans);
     const loadedResources = normalizeResourceLinks(convexResources);
     let cancelled = false;
@@ -1241,7 +1248,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (!loadedSettings && Object.keys(localSettings).length > 0) {
         try {
-          await upsertSettings(mergedLocalSettings);
+          await upsertSettings(omitLegacySettings(mergedLocalSettings));
           removeKey(SETTINGS_STORAGE_KEY);
           nextSettings = mergedLocalSettings;
         } catch {
@@ -1274,14 +1281,14 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (loadedBatches.length === 0 && localBatches.batches.length > 0) {
         try {
-          const projectBatches = localBatches.batches.filter((batch) => batch.projectIds);
-          const legacyBatches = localBatches.batches.filter((batch) => !batch.projectIds);
-          await Promise.all([
-            ...(projectBatches.length ? [importProjectSalaryBatches({ batches: projectBatches.map(projectSalaryBatchInput) })] : []),
-            ...(legacyBatches.length ? [replaceAllBatches({ batches: legacyBatches.map(legacySalaryBatchInput) })] : []),
-          ]);
+          const recoveredBatches = recoverLegacySalaryBatches(
+            localBatches.batches,
+            nextItems,
+            nextSettings
+          );
+          await importProjectSalaryBatches({ batches: recoveredBatches.map(projectSalaryBatchInput) });
           removeKey(SALARY_STORAGE_KEY);
-          nextBatches = localBatches.batches;
+          nextBatches = recoveredBatches;
         } catch {
           syncFailed = true;
           nextBatches = localBatches.batches;
@@ -1333,13 +1340,11 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     convexItems,
     convexProjectGroups,
     convexSettings,
-    convexBatches,
     convexProjectBatches,
     convexSalaryPlans,
     convexResources,
     createProject,
     upsertProjectGroup,
-    replaceAllBatches,
     importProjectSalaryBatches,
     replaceAllResources,
     upsertSettings,
@@ -1348,13 +1353,13 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
   // Keep signed-in workspaces live after the initial cloud load. Team project
   // changes from other members arrive through Convex subscriptions here.
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexBatches === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined) return;
+    if (!clerkLoaded || !isSignedIn || !convexAuthenticated || !cloudInitialized || convexItems === undefined || convexProjectGroups === undefined || convexResources === undefined || convexProjectBatches === undefined || convexSalaryPlans === undefined) return;
     setItemsState(normalizeWorkItems(convexItems));
     setProjectGroupsState(normalizeProjectGroups(convexProjectGroups, settings.clients));
     setResourceLinksState(normalizeResourceLinks(convexResources));
-    setSalaryBatches(mergeSalaryBatches(normalizeSalaryState({ batches: convexBatches }).batches, normalizeProjectSalaryBatches(convexProjectBatches)));
+    setSalaryBatches(normalizeProjectSalaryBatches(convexProjectBatches));
     setSalaryPlans(normalizeSalaryPlans(convexSalaryPlans));
-  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexBatches, convexItems, convexProjectBatches, convexProjectGroups, convexResources, convexSalaryPlans, isSignedIn, settings.clients]);
+  }, [clerkLoaded, cloudInitialized, convexAuthenticated, convexItems, convexProjectBatches, convexProjectGroups, convexResources, convexSalaryPlans, isSignedIn, settings.clients]);
 
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn || !user || !ready) return;
@@ -1383,11 +1388,11 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (changed) {
         if (convexAuthenticated) {
-          upsertSettings(next).catch(() => {
-            writeJson(SETTINGS_STORAGE_KEY, next);
+          upsertSettings(omitLegacySettings(next)).catch(() => {
+            writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
           });
         } else {
-          writeJson(SETTINGS_STORAGE_KEY, next);
+          writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
         }
       }
 
@@ -1467,15 +1472,15 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       setSettingsState((prev: SettingsState) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
         if (isSignedIn && convexAuthenticated) {
-          upsertSettings(next).catch(() => {
-            writeJson(SETTINGS_STORAGE_KEY, next);
+          upsertSettings(omitLegacySettings(next)).catch(() => {
+            writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
             setToast({
               tone: "warning",
               message: "Cloud sync failed. Settings are saved locally for now.",
             });
           });
         } else {
-          writeJson(SETTINGS_STORAGE_KEY, next);
+          writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
         }
         return next;
       });
@@ -1506,13 +1511,16 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
   const reconcileSalaryBatches = useCallback(
     (workItems: WorkItem[]) => {
-      const completedBatchCount = Math.floor(
-        workItems.filter((w) => isSalaryWorkType(w.workType, settings) && isDoneStatus(w.status)).length / normalizedSalaryBatchSize(settings.salaryBatchSize),
-      );
       setSalaryBatches((prev: SalaryBatch[]) => {
-        if (prev.length >= completedBatchCount) return prev;
+        const requiredProjectCount = normalizedSalaryBatchSize(settings.salaryBatchSize);
+        const settledProjectIds = new Set(prev.flatMap((batch) => batch.projectIds ?? []));
+        const unsettledProjects = workItems
+          .filter((workItem) => isSalaryWorkType(workItem.workType, settings) && isDoneStatus(workItem.status) && !settledProjectIds.has(workItem.id))
+          .sort((left, right) => (left.completedAt ?? left.createdAt ?? "").localeCompare(right.completedAt ?? right.createdAt ?? ""));
+        const completedBatchCount = Math.floor(unsettledProjects.length / requiredProjectCount);
+        if (!completedBatchCount) return prev;
         const next = [...prev];
-        while (next.length < completedBatchCount) {
+        for (let batchIndex = 0; batchIndex < completedBatchCount; batchIndex += 1) {
           const n = next.length + 1;
           next.push({
             id: `batch-${n}`,
@@ -1523,40 +1531,33 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
             amount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
             paid: false,
             paidDate: "",
+            projectIds: unsettledProjects
+              .slice(batchIndex * requiredProjectCount, (batchIndex + 1) * requiredProjectCount)
+              .map((project) => project.id),
+            requiredProjectCount,
+            workType: settings.salaryWorkType,
           });
         }
         const normalizedNext = normalizeSalaryState({ batches: next }).batches;
-        if (isSignedIn && convexAuthenticated) {
-          replaceAllBatches({ batches: normalizedNext }).catch(() => {
-            writeJson(SALARY_STORAGE_KEY, { batches: normalizedNext });
-            setToast({
-              tone: "warning",
-              message: "Cloud sync failed. Salary batches are saved locally for now.",
-            });
-          });
-        } else {
+        if (!isSignedIn || !convexAuthenticated) {
           writeJson(SALARY_STORAGE_KEY, { batches: normalizedNext });
         }
         return normalizedNext;
       });
     },
-    [convexAuthenticated, isSignedIn, replaceAllBatches, settings],
+    [convexAuthenticated, isSignedIn, settings],
   );
 
   const updateSalaryBatchPayment = useCallback(
     (batchId: string, paid: boolean) => {
       setSalaryBatches((prev) => {
-        const target = prev.find((batch) => batch.id === batchId);
         const next = normalizeSalaryState({
           batches: prev.map((batch) => batch.id === batchId
             ? { ...batch, paid, paidDate: paid ? iso(todayDate()) : "" }
             : batch),
         }).batches;
         if (isSignedIn && convexAuthenticated) {
-          const write = target?.projectIds
-            ? setProjectSalaryBatchPaid({ batchId, paid })
-            : replaceAllBatches({ batches: next.filter((batch) => !batch.projectIds).map(legacySalaryBatchInput) });
-          write.catch(() => {
+          setProjectSalaryBatchPaid({ batchId, paid }).catch(() => {
             writeJson(SALARY_STORAGE_KEY, { batches: next });
             setToast({
               tone: "warning",
@@ -1569,7 +1570,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [convexAuthenticated, isSignedIn, replaceAllBatches, setProjectSalaryBatchPaid],
+    [convexAuthenticated, isSignedIn, setProjectSalaryBatchPaid],
   );
 
   const transitionProjectStage = useCallback(
@@ -1609,22 +1610,23 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
     const nextSettings = mergeSettings({ ...backup.settings, clients: normalizeClientRecords(backup.clients) });
     const nextProjectGroups = normalizeProjectGroups(backup.projectGroups, nextSettings.clients);
     const nextResources = normalizeResourceLinks(backup.resources);
-    const nextBatches = normalizeSalaryState({ batches: backup.salaryBatches }).batches;
+    const nextBatches = recoverLegacySalaryBatches(
+      normalizeSalaryState({ batches: backup.salaryBatches }).batches,
+      nextItems,
+      nextSettings
+    );
     if (isSignedIn && convexAuthenticated) {
-      await upsertSettings(nextSettings);
+      await upsertSettings(omitLegacySettings(nextSettings));
       await Promise.all(nextProjectGroups.map((group) => upsertProjectGroup({ group })));
       await Promise.all(nextItems.map((project) => createProject({ project: cloudProjectInput(project, nextSettings.clients) })));
-      const projectBatches = nextBatches.filter((batch) => batch.projectIds);
-      const legacyBatches = nextBatches.filter((batch) => !batch.projectIds);
       await Promise.all([
-        ...(projectBatches.length ? [importProjectSalaryBatches({ batches: projectBatches.map(projectSalaryBatchInput) })] : []),
+        ...(nextBatches.length ? [importProjectSalaryBatches({ batches: nextBatches.map(projectSalaryBatchInput) })] : []),
         replaceAllResources({ resources: nextResources }),
-        replaceAllBatches({ batches: legacyBatches.map(legacySalaryBatchInput) }),
       ]);
     }
     setItemsState(nextItems); setSettingsState(nextSettings); setProjectGroupsState(nextProjectGroups); setResourceLinksState(nextResources); setSalaryBatches(nextBatches);
     return { projects: nextItems.length, clients: nextSettings.clients.length, projectGroups: nextProjectGroups.length, resources: nextResources.length, salaryBatches: nextBatches.length };
-  }, [convexAuthenticated, createProject, importProjectSalaryBatches, isSignedIn, items.length, projectGroups.length, replaceAllBatches, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertProjectGroup, upsertSettings]);
+  }, [convexAuthenticated, createProject, importProjectSalaryBatches, isSignedIn, items.length, projectGroups.length, replaceAllResources, resourceLinks.length, salaryBatches.length, settings.clients.length, upsertProjectGroup, upsertSettings]);
 
   const value: DataContextValue = {
     items,

@@ -20,11 +20,9 @@ import type * as projects from "../projects.js";
 import type * as publicProfiles from "../publicProfiles.js";
 import type * as r2 from "../r2.js";
 import type * as resourceLinks from "../resourceLinks.js";
-import type * as salaryBatches from "../salaryBatches.js";
 import type * as salaryPlans from "../salaryPlans.js";
 import type * as settings from "../settings.js";
 import type * as team from "../team.js";
-import type * as workItems from "../workItems.js";
 import type * as workspaceDiscovery from "../workspaceDiscovery.js";
 
 import type {
@@ -46,11 +44,9 @@ declare const fullApi: ApiFromModules<{
   publicProfiles: typeof publicProfiles;
   r2: typeof r2;
   resourceLinks: typeof resourceLinks;
-  salaryBatches: typeof salaryBatches;
   salaryPlans: typeof salaryPlans;
   settings: typeof settings;
   team: typeof team;
-  workItems: typeof workItems;
   workspaceDiscovery: typeof workspaceDiscovery;
 }>;
 
