@@ -1,11 +1,11 @@
 # Relay
 
-Relay is a video-workflow workspace for freelance editors and small post-production teams.
+Relay is a video workflow workspace for freelance video editors and small editing teams.
 
 ## Product
 
 **Relay**:
-The product and app name.
+The video workflow workspace and app name. Relay is designed first for freelance video editors, then for small editing teams.
 _Avoid_: Frame Desk, CutLab
 
 **Workspace**:
