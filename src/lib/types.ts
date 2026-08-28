@@ -234,13 +234,10 @@ export type SettingsState = {
   salaryBatchAmount: number;
   projectStages: string[];
   notifications: Record<string, boolean>;
-  integrations: Record<string, boolean>;
-  integrationAccounts: Record<string, string>;
   integrationConfigs: Record<string, IntegrationConfig>;
   integrationLinks: IntegrationLinks;
   teamRole: SettingsTeamRole;
   teamMembers: TeamMember[];
-  editorPermissions: Record<string, boolean>;
   rolePermissions: Record<string, Record<string, boolean>>;
   theme: string;
   accentColor: string;

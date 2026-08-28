@@ -131,29 +131,10 @@ const defaultSettings: SettingsState = {
     Mentions: false,
     "Weekly summary": false,
   },
-  integrations: {
-    "Google Drive": false,
-    Dropbox: false,
-    Slack: false,
-    "Frame.io": false,
-  },
-  integrationAccounts: {
-    "Google Drive": "",
-    Dropbox: "",
-    Slack: "",
-    "Frame.io": "",
-  },
   integrationConfigs: { ...defaultIntegrationConfigs },
   integrationLinks: {},
   teamRole: "",
   teamMembers: [],
-  editorPermissions: {
-    "Create and edit projects": false,
-    "Upload media and assets": false,
-    "Manage project stages": false,
-    "Invite team members": false,
-    "Manage app settings": false,
-  },
   rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   theme: "Dark",
   accentColor: "#14B8A6",
@@ -212,12 +193,9 @@ function freshDefaultSettings(): SettingsState {
     customProjectTemplates: defaultSettings.customProjectTemplates.map((template) => ({ ...template, workflowStages: [...template.workflowStages], deliverables: template.deliverables.map((item) => ({ ...item })), checklistItems: [...template.checklistItems] })),
     projectStages: [...defaultSettings.projectStages],
     notifications: { ...defaultSettings.notifications },
-    integrations: { ...defaultSettings.integrations },
-    integrationAccounts: { ...defaultSettings.integrationAccounts },
     integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
     integrationLinks: normalizeIntegrationLinks(defaultSettings.integrationLinks),
     teamMembers: defaultSettings.teamMembers.map((m: TeamMember) => ({ ...m })),
-    editorPermissions: { ...defaultSettings.editorPermissions },
     rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   };
 }
@@ -453,10 +431,10 @@ function normalizeIntegrationConfigs(value: unknown, legacyIntegrations?: unknow
 
   // Migrate from legacy integrations + integrationAccounts if new configs are all empty
   const allEmpty = Object.values(configs).every((c) => !c.connected && !c.account);
-  if (allEmpty && isPlainRecord(legacyIntegrations) && isPlainRecord(legacyAccounts)) {
+  if (allEmpty && (isPlainRecord(legacyIntegrations) || isPlainRecord(legacyAccounts))) {
     for (const name of integrationNames) {
-      const wasConnected = legacyIntegrations[name] === true;
-      const account = typeof legacyAccounts[name] === "string" ? (legacyAccounts[name] as string).trim() : "";
+      const wasConnected = isPlainRecord(legacyIntegrations) && legacyIntegrations[name] === true;
+      const account = isPlainRecord(legacyAccounts) && typeof legacyAccounts[name] === "string" ? legacyAccounts[name].trim() : "";
       if (wasConnected || account) {
         configs[name] = { ...emptyIntegrationConfig, connected: wasConnected, account, connectedAt: wasConnected ? new Date().toISOString() : "" };
       }
@@ -543,11 +521,8 @@ function mergeSettings(stored: unknown): SettingsState {
         })
       : defaultSettings.teamMembers,
     notifications: booleanRecordSetting(r.notifications, defaultSettings.notifications),
-    integrations: booleanRecordSetting(r.integrations, defaultSettings.integrations),
-    integrationAccounts: stringRecordSetting(r.integrationAccounts, defaultSettings.integrationAccounts),
     integrationConfigs: normalizeIntegrationConfigs(r.integrationConfigs, r.integrations, r.integrationAccounts),
     integrationLinks: normalizeIntegrationLinks(r.integrationLinks),
-    editorPermissions: booleanRecordSetting(r.editorPermissions, defaultSettings.editorPermissions),
     rolePermissions: normalizeRolePermissions(r.rolePermissions, r.editorPermissions),
   };
 }
@@ -970,13 +945,16 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
   }, []);
 
   const reconcileSalaryBatches = useCallback((workItems: WorkItem[]) => {
-    const completedBatchCount = Math.floor(
-      workItems.filter((w) => isSalaryWorkType(w.workType, settings) && isDoneStatus(w.status)).length / normalizedSalaryBatchSize(settings.salaryBatchSize),
-    );
     setSalaryBatches((prev: SalaryBatch[]) => {
-      if (prev.length >= completedBatchCount) return prev;
+      const requiredProjectCount = normalizedSalaryBatchSize(settings.salaryBatchSize);
+      const settledProjectIds = new Set(prev.flatMap((batch) => batch.projectIds ?? []));
+      const unsettledProjects = workItems
+        .filter((item) => isSalaryWorkType(item.workType, settings) && isDoneStatus(item.status) && !settledProjectIds.has(item.id))
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id));
+      const completedBatchCount = Math.floor(unsettledProjects.length / requiredProjectCount);
+      if (!completedBatchCount) return prev;
       const next = [...prev];
-      while (next.length < completedBatchCount) {
+      for (let batchIndex = 0; batchIndex < completedBatchCount; batchIndex += 1) {
         const n = next.length + 1;
         next.push({
           id: `batch-${n}`,
@@ -987,6 +965,11 @@ function LocalDataProvider({ children, authEnabled }: { children: React.ReactNod
           amount: normalizedSalaryBatchAmount(settings.salaryBatchAmount),
           paid: false,
           paidDate: "",
+          projectIds: unsettledProjects
+            .slice(batchIndex * requiredProjectCount, (batchIndex + 1) * requiredProjectCount)
+            .map((project) => project.id),
+          requiredProjectCount,
+          workType: settings.salaryWorkType,
         });
       }
       writeJson(SALARY_STORAGE_KEY, { batches: next });

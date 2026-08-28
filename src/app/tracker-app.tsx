@@ -384,13 +384,10 @@ type SettingsState = {
   salaryBatchAmount: number;
   projectStages: string[];
   notifications: Record<string, boolean>;
-  integrations: Record<string, boolean>;
-  integrationAccounts: Record<string, string>;
   integrationConfigs: Record<string, IntegrationConfig>;
   integrationLinks: IntegrationLinks;
   teamRole: SettingsTeamRole;
   teamMembers: TeamMember[];
-  editorPermissions: Record<string, boolean>;
   rolePermissions: Record<string, Record<string, boolean>>;
   theme: string;
   accentColor: string;
@@ -516,29 +513,10 @@ const defaultSettings: SettingsState = {
     Mentions: false,
     "Weekly summary": false,
   },
-  integrations: {
-    "Google Drive": false,
-    Dropbox: false,
-    Slack: false,
-    "Frame.io": false,
-  },
-  integrationAccounts: {
-    "Google Drive": "",
-    Dropbox: "",
-    Slack: "",
-    "Frame.io": "",
-  },
   integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
   integrationLinks: {},
   teamRole: "",
   teamMembers: [],
-  editorPermissions: {
-    "Create and edit projects": false,
-    "Upload media and assets": false,
-    "Manage project stages": false,
-    "Invite team members": false,
-    "Manage app settings": false,
-  },
   rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   theme: "Dark",
   accentColor: defaultAccent,
@@ -4542,18 +4520,18 @@ function IntegrationsDesignPage({
   );
   const connectedCount = integrationNames.filter((name) => {
     const config = settings.integrationConfigs[name];
-    return Boolean(settings.integrations[name] || config?.connected);
+    return Boolean(config?.connected);
   }).length;
   const visibleIntegrationNames = integrationNames.filter((name) => {
     const config = settings.integrationConfigs[name] ?? emptyIntegrationConfig;
-    const connected = Boolean(settings.integrations[name] || config.connected);
+    const connected = config.connected;
     const query = integrationSearch.trim().toLowerCase();
     const matchesSearch =
       !query ||
       [
         name,
         integrationDescriptions[name],
-        config.account || settings.integrationAccounts[name] || "",
+        config.account,
       ].some((value) => value.toLowerCase().includes(query));
     const matchesFilter =
       integrationFilter === "all" ||
@@ -4578,8 +4556,8 @@ function IntegrationsDesignPage({
       name,
       config: {
         ...existing,
-        connected: Boolean(settings.integrations[name] || existing.connected),
-        account: existing.account || settings.integrationAccounts[name] || "",
+        connected: existing.connected,
+        account: existing.account,
       },
     });
     setConfigError("");
@@ -4614,14 +4592,6 @@ function IntegrationsDesignPage({
     };
     setSettings({
       ...settings,
-      integrations: {
-        ...settings.integrations,
-        [integrationDialog.name]: true,
-      },
-      integrationAccounts: {
-        ...settings.integrationAccounts,
-        [integrationDialog.name]: account,
-      },
       integrationConfigs: {
         ...settings.integrationConfigs,
         [integrationDialog.name]: updatedConfig,
@@ -4635,11 +4605,6 @@ function IntegrationsDesignPage({
     if (!disconnectTarget) return;
     setSettings({
       ...settings,
-      integrations: { ...settings.integrations, [disconnectTarget]: false },
-      integrationAccounts: {
-        ...settings.integrationAccounts,
-        [disconnectTarget]: "",
-      },
       integrationConfigs: {
         ...settings.integrationConfigs,
         [disconnectTarget]: { ...emptyIntegrationConfig },
@@ -4710,10 +4675,10 @@ function IntegrationsDesignPage({
               const config =
                 settings.integrationConfigs[name] ?? emptyIntegrationConfig;
               const connected = Boolean(
-                settings.integrations[name] || config.connected
+                config.connected
               );
               const account =
-                config.account || settings.integrationAccounts[name];
+                config.account;
               return (
                 <li
                   key={name}
@@ -5523,12 +5488,9 @@ function SettingsDesignPage({
       projectTags: [...defaultSettings.projectTags],
       projectStages: [...defaultSettings.projectStages],
       notifications: { ...defaultSettings.notifications },
-      integrations: { ...defaultSettings.integrations },
-      integrationAccounts: { ...defaultSettings.integrationAccounts },
       integrationConfigs: JSON.parse(JSON.stringify(defaultIntegrationConfigs)),
       integrationLinks: {},
       teamMembers: defaultSettings.teamMembers.map((m) => ({ ...m })),
-      editorPermissions: { ...defaultSettings.editorPermissions },
       rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
     });
     notify("Settings reset to defaults.", "warning");
