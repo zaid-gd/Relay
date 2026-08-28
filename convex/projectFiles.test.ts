@@ -464,7 +464,7 @@ describe("project file management", () => {
       reviewer.mutation(api.projectFiles.removeFile, { fileId })
     ).rejects.toThrow("Project access required");
 
-    const { portalId, deliverableId } = await t.run(async (ctx) => {
+    const portalId = await t.run(async (ctx) => {
       const now = new Date().toISOString();
       const portalId = await ctx.db.insert("clientPortals", {
         ownerUserId: "owner",
@@ -486,25 +486,8 @@ describe("project file management", () => {
         createdAt: now,
         updatedAt: now,
       });
-      const deliverableId = await ctx.db.insert("portalDeliverables", {
-        portalId,
-        title: "Manual review link",
-        detail: "",
-        url: "https://example.com/review",
-        status: "sent_to_client",
-        downloadable: false,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return { portalId, deliverableId };
+      return portalId;
     });
-
-    await expect(
-      reviewer.mutation(api.clientPortals.updateDeliverableStatus, {
-        deliverableId,
-        status: "approved",
-      })
-    ).rejects.toThrow("Project access required");
     await expect(
       reviewer.mutation(api.clientPortals.setAccessControls, {
         portalId,
@@ -778,26 +761,6 @@ describe("project file management", () => {
     );
     expect(portalId).toBeTruthy();
     await t.run(async (ctx) => {
-      await ctx.db.insert("portalDeliverables", {
-        portalId,
-        title: "Legacy pending handoff",
-        detail: "Should remain private",
-        url: "https://example.com/pending",
-        status: "Pending",
-        downloadable: false,
-        createdAt: "2026-06-01T00:00:00.000Z",
-        updatedAt: "2026-06-01T00:00:00.000Z",
-      });
-      await ctx.db.insert("portalDeliverables", {
-        portalId,
-        title: "Manual approved handoff",
-        detail: "Safe for client",
-        url: "https://example.com/approved",
-        status: "approved",
-        downloadable: true,
-        createdAt: "2026-06-02T00:00:00.000Z",
-        updatedAt: "2026-06-02T00:00:00.000Z",
-      });
       for (let index = 0; index < 50; index += 1) {
         await ctx.db.insert("projectFiles", {
           projectId: "project-files",
@@ -825,7 +788,6 @@ describe("project file management", () => {
     expect(portal.deliverables.map((item) => item.title)).toEqual([
       "Approved preview",
       "Final master",
-      "Manual approved handoff",
     ]);
     expect(portal.deliverables).toContainEqual(
       expect.objectContaining({

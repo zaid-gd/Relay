@@ -1,6 +1,6 @@
 # Migrate portal deliverables
 
-Status: blocked
+Status: resolved
 Blocked by: 02 Inventory legacy Convex data
 
 ## Work
@@ -17,3 +17,10 @@ Blocked by: 02 Inventory legacy Convex data
 - Editor and public portal tests prove old and migrated records render the same result.
 - Every deliverable renders once during dual reads, and deduplication happens before the result limit is applied.
 - No portal depends only on `portalDeliverables`.
+
+## Result
+
+- Production inventory and dry run: 0 `portalDeliverables`, 0 missing Project Outputs, and 0 missing Media Versions. No backfill or data write ran.
+- Removed legacy deliverable reads and mutations from `clientPortals`. Its compatibility projection now reads current client-visible Project Files only; the active Project Portal flow already reads Project Outputs and Media Versions.
+- Focused editor and public portal checks cover current deliverable creation, private draft filtering, approved and final delivery, and the result limit before this ticket is resolved.
+- Runtime source scan outside the schema and tests reports no `portalDeliverables` query.

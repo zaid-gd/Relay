@@ -402,13 +402,7 @@ export const getForProject = query({
     const portal = await portalForEditor(ctx, args.projectId);
     if (!portal) return null;
 
-    const deliverables = await ctx.db
-      .query("portalDeliverables")
-      .withIndex("by_portalId_and_createdAt", (q) =>
-        q.eq("portalId", portal._id)
-      )
-      .order("desc")
-      .take(MAX_DELIVERABLES);
+    const deliverables = await visibleProjectDeliverables(ctx, portal.projectId);
     const revisions = await ctx.db
       .query("portalRevisions")
       .withIndex("by_portalId_and_createdAt", (q) =>
@@ -441,10 +435,7 @@ export const getForProject = query({
         createdAt: portal.createdAt,
         updatedAt: portal.updatedAt,
       },
-      deliverables: deliverables.map((item) => ({
-        ...item,
-        status: normalizeDeliverableStatus(item.status),
-      })),
+      deliverables,
       revisions,
     };
   },
@@ -465,32 +456,7 @@ export const getByToken = query({
       return { access: "locked" as const };
     }
 
-    const storedDeliverables = await ctx.db
-      .query("portalDeliverables")
-      .withIndex("by_portalId_and_createdAt", (q) =>
-        q.eq("portalId", portal._id)
-      )
-      .order("desc")
-      .take(MAX_DELIVERABLES);
-    const unifiedDeliverables = await visibleProjectDeliverables(
-      ctx,
-      portal.projectId
-    );
-    const deliverables = storedDeliverables.flatMap((item) => {
-      const status = normalizeDeliverableStatus(item.status);
-      return isClientSafeApprovalStatus(status)
-        ? [
-            {
-              title: item.title,
-              detail: item.detail,
-              url: item.url,
-              status,
-              downloadable: item.downloadable,
-              updatedAt: item.updatedAt,
-            },
-          ]
-        : [];
-    });
+    const deliverables = await visibleProjectDeliverables(ctx, portal.projectId);
     const revisions = await ctx.db
       .query("portalRevisions")
       .withIndex("by_portalId_and_createdAt", (q) =>
@@ -521,10 +487,7 @@ export const getByToken = query({
       expiresAt: portal.expiresAt ?? null,
       createdAt: portal.createdAt,
       updatedAt: portal.updatedAt,
-      deliverables: [...unifiedDeliverables, ...deliverables].slice(
-        0,
-        MAX_DELIVERABLES
-      ),
+      deliverables,
       revisions: revisions.map((item) => ({
         clientName: item.clientName,
         message: item.message,
@@ -903,74 +866,6 @@ export const addDeliverable = mutation({
     return { fileId };
   },
 });
-export const removeDeliverable = mutation({
-  args: { deliverableId: v.id("portalDeliverables") },
-  handler: async (ctx, args) => {
-    const deliverable = await ctx.db.get(args.deliverableId);
-    if (!deliverable) return null;
-    const { identity, project } = await requireEditablePortal(
-      ctx,
-      deliverable.portalId
-    );
-    await ctx.db.delete(args.deliverableId);
-    await recordProjectActivity(ctx, {
-      project,
-      actorUserId: identity.tokenIdentifier,
-      actorName: identity.name || identity.email || "CutLab user",
-      kind: "deliverable_removed",
-      message: `${deliverable.title} was removed from deliverables.`,
-    });
-    return null;
-  },
-});
-
-export const updateDeliverableStatus = mutation({
-  args: {
-    deliverableId: v.id("portalDeliverables"),
-    status: deliverableStatusValidator,
-  },
-  handler: async (ctx, args) => {
-    const deliverable = await ctx.db.get(args.deliverableId);
-    if (!deliverable) throw new Error("Deliverable not found");
-    const { identity, project } = await requireEditablePortal(
-      ctx,
-      deliverable.portalId
-    );
-    const status = args.status;
-    if (status === deliverable.status) return null;
-    const now = new Date().toISOString();
-    await ctx.db.patch(args.deliverableId, { status, updatedAt: now });
-    const event: { kind: PortalEventKind; title: string; body: string } =
-      status === "final_delivered"
-        ? {
-            kind: "delivery_completed",
-            title: "Delivery completed",
-            body: `${deliverable.title} was marked as final delivered.`,
-          }
-        : {
-            kind: "deliverable_updated",
-            title: "Deliverable updated",
-            body: `${deliverable.title} is now ${approvalStatusLabel(status)}.`,
-          };
-    await insertEvent(
-      ctx,
-      deliverable.portalId,
-      event.kind,
-      event.title,
-      event.body,
-      now
-    );
-    await recordProjectActivity(ctx, {
-      project,
-      actorUserId: identity.tokenIdentifier,
-      actorName: identity.name || identity.email || "CutLab user",
-      kind: "deliverable_status_changed",
-      message: `${deliverable.title} changed from ${approvalStatusLabel(normalizeDeliverableStatus(deliverable.status))} to ${approvalStatusLabel(status)}.`,
-    });
-    return null;
-  },
-});
-
 export const submitRevision = mutation({
   args: {
     token: v.string(),
