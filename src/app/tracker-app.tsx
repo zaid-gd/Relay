@@ -978,12 +978,8 @@ export function TrackerApp({
     const settledProjectIds = new Set(
       salaryBatches.flatMap((batch) => batch.projectIds ?? [])
     );
-    const legacySettledCount =
-      salaryBatches.filter((batch) => !batch.projectIds).length *
-      salaryBatchSize;
     const unsettledSalaryProjects = deliveredSalaryProjects
-      .filter((project) => !settledProjectIds.has(project.id))
-      .slice(legacySettledCount);
+      .filter((project) => !settledProjectIds.has(project.id));
     const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) =>
       isDoneStatus(item.status)
