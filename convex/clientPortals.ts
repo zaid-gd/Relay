@@ -260,7 +260,11 @@ async function portalForEditor(ctx: QueryCtx | MutationCtx, projectId: string) {
     .unique();
 }
 
-async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
+async function projectDeliverables(
+  ctx: QueryCtx,
+  projectId: string,
+  clientSafeOnly: boolean
+) {
   const visibleFiles = await ctx.db
     .query("projectFiles")
     .withIndex(
@@ -272,7 +276,9 @@ async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
           .eq("clientVisible", true)
     )
     .order("desc")
-    .take(MAX_DELIVERABLES);
+    // ponytail: scan cap keeps this query bounded; add a status-aware index if a
+    // project can exceed 200 client-visible deliverables.
+    .take(MAX_DELIVERABLES * 4);
 
   const deliverables = await Promise.all(
     visibleFiles.map(async (file) => {
@@ -286,7 +292,7 @@ async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
       const latest = versions[0];
       if (!latest) return null;
       const status = normalizeFileStatus(file.status);
-      if (!isClientSafeApprovalStatus(status)) return null;
+      if (clientSafeOnly && !isClientSafeApprovalStatus(status)) return null;
       const url = latest.storageId
         ? await ctx.storage.getUrl(latest.storageId)
         : latest.r2Key
@@ -306,9 +312,9 @@ async function visibleProjectDeliverables(ctx: QueryCtx, projectId: string) {
     })
   );
 
-  return deliverables.filter(
-    (item): item is NonNullable<typeof item> => item !== null
-  );
+  return deliverables
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .slice(0, MAX_DELIVERABLES);
 }
 
 export const getPublicR2DownloadTarget = internalQuery({
@@ -402,7 +408,7 @@ export const getForProject = query({
     const portal = await portalForEditor(ctx, args.projectId);
     if (!portal) return null;
 
-    const deliverables = await visibleProjectDeliverables(ctx, portal.projectId);
+    const deliverables = await projectDeliverables(ctx, portal.projectId, false);
     const revisions = await ctx.db
       .query("portalRevisions")
       .withIndex("by_portalId_and_createdAt", (q) =>
@@ -456,7 +462,7 @@ export const getByToken = query({
       return { access: "locked" as const };
     }
 
-    const deliverables = await visibleProjectDeliverables(ctx, portal.projectId);
+    const deliverables = await projectDeliverables(ctx, portal.projectId, true);
     const revisions = await ctx.db
       .query("portalRevisions")
       .withIndex("by_portalId_and_createdAt", (q) =>
