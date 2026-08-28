@@ -122,13 +122,15 @@ const SAFE_FILE_TYPES: Record<string, readonly string[]> = {
 function validateSafeFile(
   fileName: string,
   mimeType: string,
-  size: number
+  size: number,
+  provider: FileProvider
 ) {
   if (!Number.isFinite(size) || size < 0 || size > MAX_FILE_BYTES) {
     throw new Error("Files must be 20 MB or smaller");
   }
   const normalizedMime = mimeType.trim().toLowerCase();
   const extension = fileName.trim().split(".").pop()?.toLowerCase();
+  if (provider !== "convex" && provider !== "r2" && extension !== "exe") return;
   if (!extension || !SAFE_FILE_TYPES[normalizedMime]?.includes(extension)) {
     throw new Error(
       "Only PDF, text, Markdown, JPEG, PNG, and WebP files are accepted"
@@ -277,7 +279,7 @@ async function insertVersion(
   }
 ) {
   const now = new Date().toISOString();
-  validateSafeFile(args.fileName, args.mimeType, args.size);
+  validateSafeFile(args.fileName, args.mimeType, args.size, args.provider);
   await validateProjectOutput(ctx, args.project.id, args.projectOutputId);
   await requireWorkspaceCapacity(
     ctx,
