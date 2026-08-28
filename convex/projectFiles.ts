@@ -122,10 +122,8 @@ const SAFE_FILE_TYPES: Record<string, readonly string[]> = {
 function validateSafeFile(
   fileName: string,
   mimeType: string,
-  size: number,
-  provider: FileProvider
+  size: number
 ) {
-  if (provider !== "convex" && provider !== "r2") return;
   if (!Number.isFinite(size) || size < 0 || size > MAX_FILE_BYTES) {
     throw new Error("Files must be 20 MB or smaller");
   }
@@ -279,7 +277,7 @@ async function insertVersion(
   }
 ) {
   const now = new Date().toISOString();
-  validateSafeFile(args.fileName, args.mimeType, args.size, args.provider);
+  validateSafeFile(args.fileName, args.mimeType, args.size);
   await validateProjectOutput(ctx, args.project.id, args.projectOutputId);
   await requireWorkspaceCapacity(
     ctx,
