@@ -93,8 +93,10 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
       <DialogContent
         className="studio-motion-gooey border-border bg-background text-foreground sm:max-w-lg"
         onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current;
+          if (!target?.isConnected) return;
           event.preventDefault();
-          returnFocusRef.current?.focus();
+          target.focus();
         }}
       >
         <DialogHeader>

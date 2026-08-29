@@ -495,8 +495,8 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           className="block"
         >
           <TabsList aria-label="Project view" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
-            <TabsTrigger value="table" className="h-7 px-2 text-xs">Table</TabsTrigger>
-            <TabsTrigger value="board" className="h-7 px-2 text-xs">Board</TabsTrigger>
+            <TabsTrigger id="project-table-tab" aria-controls="project-library-panel" value="table" className="h-7 px-2 text-xs">Table</TabsTrigger>
+            <TabsTrigger id="project-board-tab" aria-controls="project-library-panel" value="board" className="h-7 px-2 text-xs">Board</TabsTrigger>
           </TabsList>
         </Tabs>
         <Tabs
@@ -505,10 +505,10 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           className="block"
         >
           <TabsList aria-label="Project scope" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
-            <TabsTrigger value="personal" className="h-8 px-3 text-xs">
+            <TabsTrigger id="project-personal-tab" aria-controls="project-library-panel" value="personal" className="h-8 px-3 text-xs">
               My Projects <span className="text-[10px]">{props.personalProjects.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="team" disabled={!hasTeam} className="h-8 px-3 text-xs">
+            <TabsTrigger id="project-team-tab" aria-controls="project-library-panel" value="team" disabled={!hasTeam} className="h-8 px-3 text-xs">
               Team Projects <span className="text-[10px]">{props.teamProjects.length}</span>
             </TabsTrigger>
           </TabsList>
@@ -550,6 +550,9 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           className="h-full min-h-0"
           primary={(
         <DataTableFrame
+          id="project-library-panel"
+          role="tabpanel"
+          aria-labelledby={`project-${tableState.view}-tab project-${scope}-tab`}
           aria-busy={isUpdating}
           bodyLabel="Project library viewport"
           className="relative h-full min-h-0 border-[var(--app-border)] bg-[var(--app-panel)]"

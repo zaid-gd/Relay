@@ -16,6 +16,11 @@ import { getWorkflowStageStatus, moveProjectToStage, resolveProjectWorkflowStage
 import type { ProjectWorkflowPort, ProjectStageTransitionResult } from "@/features/projects/project-workflow-port";
 import { DEFAULT_WORKFLOW_STAGES, normalizeWorkflowStages } from "./workflow-templates";
 import { sampleStudioProjects, sampleStudioResources, sampleStudioSettings } from "./sample-studio";
+
+const cloudSettingsInput = (settings: SettingsState) => ({
+  ...omitLegacySettings(settings),
+  density: "Balanced",
+});
 import {
   FILE_CATEGORY_VALUES,
   FILE_STATUS_VALUES,
@@ -1246,7 +1251,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (!loadedSettings && Object.keys(localSettings).length > 0) {
         try {
-          await upsertSettings(omitLegacySettings(mergedLocalSettings));
+          await upsertSettings(cloudSettingsInput(mergedLocalSettings));
           removeKey(SETTINGS_STORAGE_KEY);
           nextSettings = mergedLocalSettings;
         } catch {
@@ -1386,7 +1391,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
 
       if (changed) {
         if (convexAuthenticated) {
-          upsertSettings(omitLegacySettings(next)).catch(() => {
+          upsertSettings(cloudSettingsInput(next)).catch(() => {
             writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
           });
         } else {
@@ -1470,7 +1475,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       setSettingsState((prev: SettingsState) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
         if (isSignedIn && convexAuthenticated) {
-          upsertSettings(omitLegacySettings(next)).catch(() => {
+          upsertSettings(cloudSettingsInput(next)).catch(() => {
             writeJson(SETTINGS_STORAGE_KEY, omitLegacySettings(next));
             setToast({
               tone: "warning",
@@ -1614,7 +1619,7 @@ function CloudDataProvider({ children }: { children: React.ReactNode }) {
       nextSettings
     );
     if (isSignedIn && convexAuthenticated) {
-      await upsertSettings(omitLegacySettings(nextSettings));
+      await upsertSettings(cloudSettingsInput(nextSettings));
       await Promise.all(nextProjectGroups.map((group) => upsertProjectGroup({ group })));
       await Promise.all(nextItems.map((project) => createProject({ project: cloudProjectInput(project, nextSettings.clients) })));
       await Promise.all([

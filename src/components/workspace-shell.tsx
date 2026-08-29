@@ -31,7 +31,7 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useData } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { SettingsState } from "@/lib/types";
@@ -281,6 +281,7 @@ export function WorkspaceShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const goChordRef = useRef(false);
   const goChordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commandReturnFocusRef = useRef<HTMLElement | null>(null);
   const reduceMotion = useHydratedReducedMotion();
   const { isSignedIn } = useOptionalAuth();
   const router = useRouter();
@@ -289,12 +290,19 @@ export function WorkspaceShell({
     desktopSidebarCollapsed = next;
     setCollapsedState(next);
   };
+  const openCommand = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      commandReturnFocusRef.current = document.activeElement;
+    }
+    setCommandOpen(true);
+  };
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setCommandOpen((value) => !value);
+        if (commandOpen) setCommandOpen(false);
+        else openCommand();
         return;
       }
 
@@ -331,7 +339,7 @@ export function WorkspaceShell({
       window.removeEventListener("keydown", handler);
       if (goChordTimerRef.current) clearTimeout(goChordTimerRef.current);
     };
-  }, [router]);
+  }, [commandOpen, router]);
 
   const title = useMemo(
     () =>
@@ -342,7 +350,7 @@ export function WorkspaceShell({
   );
 
   return (
-    <div className="min-h-dvh bg-[var(--app-canvas)] text-[var(--app-ink)] lg:h-dvh lg:overflow-hidden lg:bg-[var(--app-sidebar)]">
+    <div data-testid="workspace-shell" className="relay-density-balanced min-h-dvh bg-[var(--app-canvas)] text-[var(--app-ink)] lg:h-dvh lg:overflow-hidden lg:bg-[var(--app-sidebar)]">
       <DesktopSidebar
         page={page}
         settings={settings}
@@ -390,7 +398,7 @@ export function WorkspaceShell({
           <Button
             variant="outline"
             className="fixed inset-x-0 top-1.5 mx-auto hidden h-9 w-[220px] justify-start border-[var(--app-border)] bg-[var(--app-control)] px-2.5 text-xs text-[var(--app-muted)] shadow-none hover:bg-[var(--app-hover)] lg:flex"
-            onClick={() => setCommandOpen(true)}
+            onClick={openCommand}
             aria-label="Quick Search (Ctrl K)"
           >
             <Search className="size-3.5 shrink-0" />
@@ -406,7 +414,7 @@ export function WorkspaceShell({
               size="icon"
               className="lg:hidden"
               aria-label="Search pages and workspace actions (Ctrl K)"
-              onClick={() => setCommandOpen(true)}
+              onClick={openCommand}
             >
               <Search className="size-[18px]" />
             </Button>
@@ -483,6 +491,7 @@ export function WorkspaceShell({
         open={commandOpen}
         onOpenChange={setCommandOpen}
         onNewProject={onNewProject}
+        returnFocusRef={commandReturnFocusRef}
         showTeamNavigation={showTeamNavigation}
         searchRecords={searchRecords}
       />
@@ -915,12 +924,14 @@ function WorkspaceCommand({
   open,
   onOpenChange,
   onNewProject,
+  returnFocusRef,
   showTeamNavigation,
   searchRecords,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
+  returnFocusRef: RefObject<HTMLElement | null>;
   showTeamNavigation: boolean;
   searchRecords: readonly SearchRecord[];
 }) {
@@ -949,7 +960,11 @@ function WorkspaceCommand({
                 <CommandItem
                   onSelect={() => {
                     onOpenChange(false);
-                    onNewProject();
+                    requestAnimationFrame(() => {
+                      const target = returnFocusRef.current;
+                      if (target?.isConnected) target.focus();
+                      onNewProject();
+                    });
                   }}
                 >
                   <Plus /> Create new project
@@ -1082,7 +1097,7 @@ function MobileNavigation({
           <Button
             type="button"
             variant="ghost"
-            className="flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium text-[var(--app-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset"
+            className="h-full w-full flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium text-[var(--app-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset"
             aria-label="Open more workspace pages"
           >
             <motion.span

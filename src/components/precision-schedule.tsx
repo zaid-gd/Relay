@@ -237,7 +237,7 @@ export function PrecisionCalendar({
           >
             <TabsList aria-label="Calendar view" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
               {(["month", "week", "agenda"] as const).map((mode) => (
-                <TabsTrigger key={mode} value={mode} className="h-8 px-3 text-xs capitalize">
+                <TabsTrigger key={mode} id={`calendar-${mode}-tab`} aria-controls="calendar-view-panel" value={mode} className="h-8 px-3 text-xs capitalize">
                   {mode}
                 </TabsTrigger>
               ))}
@@ -246,7 +246,7 @@ export function PrecisionCalendar({
           </div>
         )}
       />
-      <FillViewport bodyLabel="Calendar workspace" className="min-h-0" bodyClassName="overflow-auto">
+      <FillViewport id="calendar-view-panel" role="tabpanel" aria-labelledby={`calendar-${viewMode}-tab`} bodyLabel="Calendar workspace" className="min-h-0" bodyClassName="overflow-auto">
         <SplitPane
           ratio="inspector"
           className="min-h-full"

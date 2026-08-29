@@ -990,6 +990,15 @@ export function TrackerApp({
     settings.salaryWorkType,
   ]);
 
+  function rememberProjectLauncherTrigger() {
+    if (
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      projectLauncherTriggerRef.current = document.activeElement;
+    }
+  }
+
   function openNewProject(scope: "personal" | "team" = "personal") {
     if (scope === "team" && !canCreateTeamProjects) {
       notify("Your team role cannot create projects.", "warning");
@@ -1002,18 +1011,14 @@ export function TrackerApp({
       );
       return;
     }
-    if (
-      typeof document !== "undefined" &&
-      document.activeElement instanceof HTMLElement
-    ) {
-      projectLauncherTriggerRef.current = document.activeElement;
-    }
+    rememberProjectLauncherTrigger();
     setProjectStartScope(scope);
     setNewProjectTemplateId("relay-default-workflow");
     setNewProjectOpen(true);
   }
 
   function openBlankProject(scope: "personal" | "team" = projectStartScope) {
+    rememberProjectLauncherTrigger();
     setProjectStartScope(scope);
     setNewProjectTemplateId("");
     setNewProjectOpen(true);
@@ -1093,6 +1098,7 @@ export function TrackerApp({
       );
       return;
     }
+    rememberProjectLauncherTrigger();
     setProjectStartScope(scope);
     setNewProjectTemplateId(template.id);
     setNewProjectOpen(true);
@@ -7956,7 +7962,6 @@ function applyRootThemeVariables(settings: SettingsState) {
   root.style.colorScheme = isDark ? "dark" : "light";
   root.dataset.theme = isDark ? "dark" : "light";
   root.classList.toggle("dark", isDark);
-  root.classList.add("relay-density-balanced");
 }
 
 function themeIsDark(settings: SettingsState) {

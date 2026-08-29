@@ -493,7 +493,7 @@ export function PrecisionFeedback({
                   ? queue.length
                   : queue.filter((project) => option === "Revision" ? project.status === "Revision" : project.status !== "Revision").length;
                 return (
-                  <TabsTrigger key={option} value={option} className="h-7 px-2.5 text-[10px]">
+                  <TabsTrigger key={option} id={`review-${option.toLowerCase()}-tab`} aria-controls="review-queue-panel" value={option} className="h-7 px-2.5 text-[10px]">
                     {option} <span className="tabular-nums opacity-70">{count}</span>
                   </TabsTrigger>
                 );
@@ -503,7 +503,7 @@ export function PrecisionFeedback({
           )}
         >
         <span className="sr-only" aria-live="polite">{visibleQueue.length} {filter.toLowerCase()} queue items shown</span>
-        <div className="border-t border-[var(--app-border)]">
+        <div id="review-queue-panel" role="tabpanel" aria-labelledby={`review-${filter.toLowerCase()}-tab`} className="border-t border-[var(--app-border)]">
           <AnimatePresence mode="wait" initial={false}>
             {visibleQueue.length ? (
               <motion.div
@@ -816,22 +816,23 @@ export function PrecisionReports({
                   { value: "6", label: "6M" },
                   { value: "all", label: "All" },
                 ].map((option) => (
-                  <TabsTrigger key={option.value} value={option.value} className="h-7 px-2.5 text-[10px]">
+                  <TabsTrigger key={option.value} id={`earnings-${option.value}-tab`} aria-controls="earnings-trend-panel" value={option.value} className="h-7 px-2.5 text-[10px]">
                     {option.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
           </div>
-          <motion.div
-            key={trendRange}
-            role="img"
-            aria-label={`Earnings trend for ${trendData.length} months. ${trendData.map((item) => `${item.label}: ${money(item.earned, settings.currencyCode)}`).join(", ")}`}
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
-            className="mt-4 h-[260px]"
-          >
+          <div id="earnings-trend-panel" role="tabpanel" aria-labelledby={`earnings-${trendRange}-tab`}>
+            <motion.div
+              key={trendRange}
+              role="img"
+              aria-label={`Earnings trend for ${trendData.length} months. ${trendData.map((item) => `${item.label}: ${money(item.earned, settings.currencyCode)}`).join(", ")}`}
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
+              className="mt-4 h-[260px]"
+            >
             {trendData.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
@@ -851,7 +852,8 @@ export function PrecisionReports({
             ) : (
               <div className="grid h-full place-items-center text-xs text-[var(--app-muted)]">Delivered projects will create the earnings trend.</div>
             )}
-          </motion.div>
+            </motion.div>
+          </div>
           <p className="mt-3 rounded-md bg-[var(--app-soft-panel)] px-3 py-2 text-[11px] leading-4 text-[var(--app-muted)]" aria-label="Earnings trend summary">
             {trendData.length
               ? `${trendData.reduce((sum, item) => sum + item.delivered, 0)} delivered edits generated ${money(trendData.reduce((sum, item) => sum + item.earned, 0), settings.currencyCode)} across ${trendData.length} month${trendData.length === 1 ? "" : "s"}.`

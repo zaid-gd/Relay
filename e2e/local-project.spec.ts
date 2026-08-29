@@ -74,8 +74,8 @@ test("uses balanced workspace density without a Density setting", async ({
   await page.getByRole("button", { name: "Appearance", exact: true }).click();
 
   await expect(page.getByText("Density", { exact: true })).toHaveCount(0);
-  await expect(page.locator("html")).toHaveClass(/relay-density-balanced/);
-  await expect(page.locator("html")).not.toHaveClass(/relay-density-compact/);
+  await expect(page.getByTestId("workspace-shell")).toHaveClass(/relay-density-balanced/);
+  await expect(page.locator("html")).not.toHaveClass(/relay-density-(?:balanced|compact)/);
 });
 
 test("switches Calendar views through accessible tabs", async ({ page }) => {
@@ -83,7 +83,10 @@ test("switches Calendar views through accessible tabs", async ({ page }) => {
   await openApp(page, "/calendar");
 
   const views = page.getByRole("tablist", { name: "Calendar view" });
-  await expect(views.getByRole("tab", { name: "Month" })).toHaveAttribute(
+  const monthTab = views.getByRole("tab", { name: "Month" });
+  await expect(monthTab).toHaveAttribute("aria-controls", "calendar-view-panel");
+  await expect(page.getByRole("tabpanel")).toHaveAttribute("id", "calendar-view-panel");
+  await expect(monthTab).toHaveAttribute(
     "aria-selected",
     "true"
   );
@@ -126,7 +129,7 @@ test("keeps the authenticated workspace UI contract across routes", async ({
     await openApp(page, route);
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.locator("main#main-content")).toBeVisible();
-    await expect(page.locator("html")).toHaveClass(/relay-density-balanced/);
+    await expect(page.getByTestId("workspace-shell")).toHaveClass(/relay-density-balanced/);
   }
 
   const profileMenu = page.getByRole("button", { name: "Open profile menu" });
@@ -152,6 +155,7 @@ test("keeps the authenticated workspace UI contract across routes", async ({
   await openApp(page, "/privacy");
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+  await expect(page.locator("html")).not.toHaveClass(/relay-density-(?:balanced|compact)/);
 });
 
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({
@@ -247,6 +251,22 @@ test("dismisses the project launcher with Escape and restores focus", async ({
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
+
+  await openApp(page, "/templates");
+  const blankProject = page.getByRole("button", { name: "Blank Project" });
+  await blankProject.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(blankProject).toBeFocused();
+
+  const commandTrigger = page.getByRole("button", { name: "Quick Search (Ctrl K)" });
+  await commandTrigger.click();
+  await page.getByText("Create new project", { exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(commandTrigger).toBeFocused();
 });
 
 test("opens the Privacy Policy and Terms of Service from the sidebar", async ({

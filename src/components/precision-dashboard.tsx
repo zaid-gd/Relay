@@ -1397,13 +1397,13 @@ export function PrecisionDashboard(props: DashboardProps) {
                       className="block"
                     >
                       <TabsList aria-label="Activity view" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
-                        <TabsTrigger value="recent" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Recent</TabsTrigger>
-                        <TabsTrigger value="team" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Team</TabsTrigger>
+                        <TabsTrigger id="activity-recent-tab" aria-controls="activity-panel" value="recent" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Recent</TabsTrigger>
+                        <TabsTrigger id="activity-team-tab" aria-controls="activity-panel" value="team" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Team</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   }
                 >
-                  <div className="min-h-[224px]">
+                  <div id="activity-panel" role="tabpanel" aria-labelledby={`activity-${activityMode}-tab`} className="min-h-[224px]">
                     {props.teamLoading && activityMode === "team" ? (
                       <ActivitySkeleton />
                     ) : activity.length ? (

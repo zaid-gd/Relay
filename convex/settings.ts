@@ -140,7 +140,7 @@ export const upsert = mutation({
     ),
     theme: v.string(),
     accentColor: v.string(),
-    density: v.optional(v.string()),
+    density: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();

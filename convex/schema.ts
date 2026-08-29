@@ -571,7 +571,7 @@ export default defineSchema({
     ),
     theme: v.string(),
     accentColor: v.string(),
-    density: v.optional(v.string()),
+    density: v.string(),
   }).index("by_userId", ["userId"]),
 
   salaryBatches: defineTable({
