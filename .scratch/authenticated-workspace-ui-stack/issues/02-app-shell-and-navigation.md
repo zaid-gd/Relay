@@ -10,7 +10,7 @@
 - [x] The active route uses restrained shared-layout motion and remains clear without motion.
 - [x] Icon-only navigation actions expose accessible names and tooltips.
 - [x] Sidebar collapse state, keyboard navigation, and mobile-sheet focus behavior remain correct.
-- [x] App Shell end-to-end checks pass.
+- [ ] App Shell end-to-end checks are unverified; they have not been run.
 
 ## Answer
 

@@ -1,6 +1,6 @@
-Status: ready-for-agent
-
 # Authenticated Workspace UI Stack
+
+Status: ready-for-agent
 
 ## Problem Statement
 

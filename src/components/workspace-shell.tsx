@@ -31,7 +31,14 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useData } from "@/lib/data-context";
 import { useOptionalAuth } from "@/lib/optional-auth";
 import type { SettingsState } from "@/lib/types";
@@ -350,7 +357,10 @@ export function WorkspaceShell({
   );
 
   return (
-    <div data-testid="workspace-shell" className="relay-density-balanced min-h-dvh bg-[var(--app-canvas)] text-[var(--app-ink)] lg:h-dvh lg:overflow-hidden lg:bg-[var(--app-sidebar)]">
+    <div
+      data-testid="workspace-shell"
+      className="relay-density-balanced min-h-dvh bg-[var(--app-canvas)] text-[var(--app-ink)] lg:h-dvh lg:overflow-hidden lg:bg-[var(--app-sidebar)]"
+    >
       <DesktopSidebar
         page={page}
         settings={settings}
@@ -939,7 +949,13 @@ function WorkspaceCommand({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border-[var(--app-strong-border)] p-0 shadow-[0_24px_80px_color-mix(in_srgb,var(--app-ink)_18%,transparent)] sm:max-w-[620px]">
+      <DialogContent
+        className="overflow-hidden border-[var(--app-strong-border)] p-0 shadow-[0_24px_80px_color-mix(in_srgb,var(--app-ink)_18%,transparent)] sm:max-w-[620px]"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusRef.current?.focus();
+        }}
+      >
         <DialogTitle className="sr-only">Workspace command menu</DialogTitle>
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: -8, scale: 0.985 }}

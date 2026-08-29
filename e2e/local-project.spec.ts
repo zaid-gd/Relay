@@ -74,8 +74,12 @@ test("uses balanced workspace density without a Density setting", async ({
   await page.getByRole("button", { name: "Appearance", exact: true }).click();
 
   await expect(page.getByText("Density", { exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("workspace-shell")).toHaveClass(/relay-density-balanced/);
-  await expect(page.locator("html")).not.toHaveClass(/relay-density-(?:balanced|compact)/);
+  await expect(page.getByTestId("workspace-shell")).toHaveClass(
+    /relay-density-balanced/
+  );
+  await expect(page.locator("html")).not.toHaveClass(
+    /relay-density-(?:balanced|compact)/
+  );
 });
 
 test("switches Calendar views through accessible tabs", async ({ page }) => {
@@ -84,15 +88,20 @@ test("switches Calendar views through accessible tabs", async ({ page }) => {
 
   const views = page.getByRole("tablist", { name: "Calendar view" });
   const monthTab = views.getByRole("tab", { name: "Month" });
-  await expect(monthTab).toHaveAttribute("aria-controls", "calendar-view-panel");
-  await expect(page.getByRole("tabpanel")).toHaveAttribute("id", "calendar-view-panel");
   await expect(monthTab).toHaveAttribute(
-    "aria-selected",
-    "true"
+    "aria-controls",
+    "calendar-view-panel"
   );
+  await expect(page.getByRole("tabpanel")).toHaveAttribute(
+    "id",
+    "calendar-view-panel"
+  );
+  await expect(monthTab).toHaveAttribute("aria-selected", "true");
   await views.getByRole("tab", { name: "Week" }).click();
   await expect(page.getByRole("heading", { name: /Week of/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Previous month" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Previous month" })
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Next month" })).toBeVisible();
 });
 
@@ -127,9 +136,13 @@ test("keeps the authenticated workspace UI contract across routes", async ({
 
   for (const route of workspaceRoutes) {
     await openApp(page, route);
-    await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Primary navigation" })
+    ).toBeVisible();
     await expect(page.locator("main#main-content")).toBeVisible();
-    await expect(page.getByTestId("workspace-shell")).toHaveClass(/relay-density-balanced/);
+    await expect(page.getByTestId("workspace-shell")).toHaveClass(
+      /relay-density-balanced/
+    );
   }
 
   const profileMenu = page.getByRole("button", { name: "Open profile menu" });
@@ -153,9 +166,15 @@ test("keeps the authenticated workspace UI contract across routes", async ({
   await expect(more).toBeFocused();
 
   await openApp(page, "/privacy");
-  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
-  await expect(page.locator("html")).not.toHaveClass(/relay-density-(?:balanced|compact)/);
+  await expect(
+    page.getByRole("navigation", { name: "Primary navigation" })
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy" })
+  ).toBeVisible();
+  await expect(page.locator("html")).not.toHaveClass(
+    /relay-density-(?:balanced|compact)/
+  );
 });
 
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({
@@ -220,13 +239,11 @@ test("exports and restores a Local Mode backup", async ({ page }) => {
     localStorage.removeItem("video-editing-work-tracker:salary-batches:v1");
   });
   await page.reload();
-  await page
-    .getByLabel("Choose Relay backup")
-    .setInputFiles({
-      name: "relay-backup.json",
-      mimeType: "application/json",
-      buffer: backup,
-    });
+  await page.getByLabel("Choose Relay backup").setInputFiles({
+    name: "relay-backup.json",
+    mimeType: "application/json",
+    buffer: backup,
+  });
   await expect(page.getByRole("status")).toContainText("Imported 1 projects");
   await page.goto("/projects");
   await expect(projectRow(page, title)).toBeVisible();
@@ -260,7 +277,9 @@ test("dismisses the project launcher with Escape and restores focus", async ({
   await expect(dialog).toBeHidden();
   await expect(blankProject).toBeFocused();
 
-  const commandTrigger = page.getByRole("button", { name: "Quick Search (Ctrl K)" });
+  const commandTrigger = page.getByRole("button", {
+    name: "Quick Search (Ctrl K)",
+  });
   await commandTrigger.click();
   await page.getByText("Create new project", { exact: true }).click();
   await expect(dialog).toBeVisible();
@@ -479,7 +498,7 @@ test("shows the compact dashboard overview and links to all projects", async ({
     (element) => element.scrollTop
   );
   expect(scrollBeforeActivitySwitch).toBeGreaterThan(0);
-  await followUp.getByRole("button", { name: "Team" }).click();
+  await followUp.getByRole("tab", { name: "Team" }).click();
   await expect
     .poll(async () =>
       Math.abs(
@@ -570,7 +589,9 @@ test("operates the Projects table by keyboard", async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole("tab", { name: "Board", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Editing projects" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Editing projects" })
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Table", exact: true }).click();
   await expect(table).toBeVisible();
 

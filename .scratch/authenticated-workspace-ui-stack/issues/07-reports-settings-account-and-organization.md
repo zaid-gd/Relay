@@ -11,7 +11,8 @@
 - [x] Theme and accent preferences continue to work.
 - [x] Account and organization surfaces use the same buttons, tabs, menus, dialogs, and responsive sheets.
 - [x] Existing reporting, settings, account, and organization workflows remain unchanged.
-- [x] Relevant component and end-to-end checks pass.
+- [x] Relevant component checks pass.
+- [ ] Relevant end-to-end checks are unverified; they have not been run.
 
 ## Answer
 
