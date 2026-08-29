@@ -51,12 +51,12 @@ export const list = query({
     if (args.includeArchived) {
       return await ctx.db
         .query("salaryPlans")
-        .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
+        .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
         .take(500);
     }
     return await ctx.db
       .query("salaryPlans")
-      .withIndex("by_ownerUserId_and_archived", (q) => q.eq("ownerUserId", identity.tokenIdentifier).eq("archived", false))
+      .withIndex("by_ownerUserId_and_archived", (q) => q.eq("ownerUserId", identity.subject).eq("archived", false))
       .take(500);
   },
 });
@@ -66,10 +66,10 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
     validateTerms(args.requiredProjectCount, args.amount, args.startDate, args.notes);
-    await requireClient(ctx, identity.tokenIdentifier, args.clientId);
+    await requireClient(ctx, identity.subject, args.clientId);
     const now = new Date().toISOString();
     return await ctx.db.insert("salaryPlans", {
-      ownerUserId: identity.tokenIdentifier,
+      ownerUserId: identity.subject,
       clientId: args.clientId,
       requiredProjectCount: args.requiredProjectCount,
       amount: args.amount,
@@ -86,9 +86,9 @@ export const update = mutation({
   args: { planId: v.id("salaryPlans"), changes: v.object({ ...planFields, archived: v.optional(v.boolean()) }) },
   handler: async (ctx, { planId, changes }) => {
     const identity = await requireIdentity(ctx);
-    await getOwnedPlan(ctx, planId, identity.tokenIdentifier);
+    await getOwnedPlan(ctx, planId, identity.subject);
     validateTerms(changes.requiredProjectCount, changes.amount, changes.startDate, changes.notes);
-    await requireClient(ctx, identity.tokenIdentifier, changes.clientId);
+    await requireClient(ctx, identity.subject, changes.clientId);
     await ctx.db.patch(planId, {
       clientId: changes.clientId,
       requiredProjectCount: changes.requiredProjectCount,
@@ -106,7 +106,7 @@ export const setArchived = mutation({
   args: { planId: v.id("salaryPlans"), archived: v.boolean() },
   handler: async (ctx, { planId, archived }) => {
     const identity = await requireIdentity(ctx);
-    await getOwnedPlan(ctx, planId, identity.tokenIdentifier);
+    await getOwnedPlan(ctx, planId, identity.subject);
     await ctx.db.patch(planId, { archived, updatedAt: new Date().toISOString() });
     return null;
   },
@@ -119,7 +119,7 @@ export const listBatches = query({
     if (!identity) return [];
     return await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
       .take(500);
   },
 });
@@ -128,7 +128,7 @@ export const setReceived = mutation({
   args: { batchId: v.id("projectSalaryBatches"), received: v.boolean(), correctionNote: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    const batch = await getOwnedBatch(ctx, args.batchId, identity.tokenIdentifier);
+    const batch = await getOwnedBatch(ctx, args.batchId, identity.subject);
     if (args.correctionNote !== undefined && args.correctionNote.length > 4000) throw new Error("Correction note is too long");
     const receivedAt = args.received ? batch.receivedAt ?? new Date().toISOString() : undefined;
     await ctx.db.patch(batch._id, {
@@ -146,7 +146,7 @@ export const setCorrectionNote = mutation({
   args: { batchId: v.id("projectSalaryBatches"), correctionNote: v.string() },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    const batch = await getOwnedBatch(ctx, args.batchId, identity.tokenIdentifier);
+    const batch = await getOwnedBatch(ctx, args.batchId, identity.subject);
     if (args.correctionNote.length > 4000) throw new Error("Correction note is too long");
     await ctx.db.patch(batch._id, { correctionNote: args.correctionNote.trim().slice(0, 4000) });
     return null;

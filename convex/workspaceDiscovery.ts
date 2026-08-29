@@ -58,11 +58,11 @@ export const list = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return { clients: [], groups: [], projects: [], outputs: [], files: [] };
-    const projects = await visibleProjects(ctx, identity.tokenIdentifier);
-    const personalSettings = await workspaceSettings(ctx, identity.tokenIdentifier);
+    const projects = await visibleProjects(ctx, identity.subject);
+    const personalSettings = await workspaceSettings(ctx, identity.subject);
     const membership = await ctx.db
       .query("teamMembers")
-      .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.tokenIdentifier).eq("status", "active"))
+      .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.subject).eq("status", "active"))
       .first();
     const teamOwnerId = membership
       ? (await (async () => {
@@ -78,7 +78,7 @@ export const list = query({
     const clientNames = new Map(clientRecords.map((client) => [client.id, client.name]));
     const groups = membership
       ? await ctx.db.query("projectGroups").withIndex("by_teamId", (q) => q.eq("teamId", membership.teamId)).take(500)
-      : await ctx.db.query("projectGroups").withIndex("by_userId_and_teamId", (q) => q.eq("userId", identity.tokenIdentifier).eq("teamId", undefined)).take(500);
+      : await ctx.db.query("projectGroups").withIndex("by_userId_and_teamId", (q) => q.eq("userId", identity.subject).eq("teamId", undefined)).take(500);
     const visibleGroups = groups.filter((group) => includeArchived || !group.archived);
     const outputs: Array<{
       id: string;

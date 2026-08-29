@@ -18,11 +18,11 @@ export const list = query({
     if (!identity) return [];
     const personal = await ctx.db
       .query("projectGroups")
-      .withIndex("by_userId_and_teamId", (q) => q.eq("userId", identity.tokenIdentifier).eq("teamId", undefined))
+      .withIndex("by_userId_and_teamId", (q) => q.eq("userId", identity.subject).eq("teamId", undefined))
       .take(500);
     const membership = await ctx.db
       .query("teamMembers")
-      .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.tokenIdentifier).eq("status", "active"))
+      .withIndex("by_userId_and_status", (q) => q.eq("userId", identity.subject).eq("status", "active"))
       .first();
     const team = membership?.permissions.viewProjects
       ? await ctx.db.query("projectGroups").withIndex("by_teamId", (q) => q.eq("teamId", membership.teamId)).take(500)
@@ -36,7 +36,7 @@ export const upsert = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const userId = identity.tokenIdentifier;
+    const userId = identity.subject;
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", "active"))
