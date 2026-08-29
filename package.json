@@ -34,6 +34,8 @@
     "verify:cloudflare-auth": "node scripts/verify-cloudflare-auth.mjs",
     "verify:light-highlights": "node scripts/verify-light-highlights.mjs",
     "verify:light-logo": "node scripts/verify-light-logo.mjs",
+    "brand:build": "node scripts/build-brand-assets.mjs",
+    "verify:brand-assets": "node scripts/verify-brand-assets.mjs",
     "verify:ui": "node scripts/verify-ui-interactions.mjs",
     "verify:prod": "node scripts/verify-production.mjs",
     "prepare": "husky"
