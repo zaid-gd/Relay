@@ -21,7 +21,7 @@ export const list = query({
     if (!identity) return [];
     return await ctx.db
       .query("resourceLinks")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .order("desc")
       .take(RESOURCE_LINK_LIMIT);
   },
@@ -34,7 +34,7 @@ export const replaceAll = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const userId = identity.subject;
+    const userId = identity.tokenIdentifier;
     const existing = await ctx.db
       .query("resourceLinks")
       .withIndex("by_userId", (q) => q.eq("userId", userId))

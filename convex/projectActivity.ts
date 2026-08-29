@@ -16,14 +16,14 @@ async function requireProjectAccess(ctx: QueryCtx, projectId: string) {
   if (!project) throw new Error("Project not found");
   const teamId = project.teamId;
   if (!teamId) {
-    if (project.ownerUserId !== identity.subject)
+    if (project.ownerUserId !== identity.tokenIdentifier)
       throw new Error("Project access required");
     return;
   }
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", teamId).eq("userId", identity.subject)
+      q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier)
     )
     .unique();
   if (

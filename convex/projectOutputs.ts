@@ -35,14 +35,14 @@ async function requireProjectAccess(
     .unique();
   if (!project) throw new Error("Project not found");
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.subject) throw new Error("Project access required");
+    if (project.ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
     return { identity, project };
   }
   const teamId = project.teamId;
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", teamId).eq("userId", identity.subject))
+      q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier))
     .unique();
   if (membership?.status !== "active" || !membership.permissions[permission]) {
     throw new Error("Permission denied");
@@ -247,7 +247,7 @@ export const addLinkedMediaVersion = mutation({
       source: normalizeMediaUrl(args.version.url),
       title: cleanRequired(args.version.title, "Media Version title", 160),
       notes: (args.version.notes ?? "").trim().slice(0, 2000),
-      createdByUserId: identity.subject,
+      createdByUserId: identity.tokenIdentifier,
       createdAt: now,
     });
     await ctx.db.patch(output._id, { currentMediaVersionId: versionId, updatedAt: now });

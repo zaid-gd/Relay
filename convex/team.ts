@@ -176,7 +176,7 @@ async function requirePermission(
   const member = await findActiveMembership(
     ctx,
     teamId,
-    identity.subject
+    identity.tokenIdentifier
   );
   if (!member.permissions[permission]) throw new Error("Permission denied");
   return { identity, member };
@@ -354,7 +354,7 @@ export const getMyWorkspace = query({
     const currentMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) =>
-        q.eq("userId", identity.subject).eq("status", "active")
+        q.eq("userId", identity.tokenIdentifier).eq("status", "active")
       )
       .first();
     if (!currentMember) return null;
@@ -389,7 +389,7 @@ export const getMyWorkspace = query({
       .withIndex("by_teamId_and_userId_and_createdAt", (q) =>
         q
           .eq("teamId", currentMember.teamId)
-          .eq("userId", identity.subject)
+          .eq("userId", identity.tokenIdentifier)
       )
       .order("desc")
       .take(25);
@@ -412,7 +412,7 @@ export const listProjectComments = query({
     const member = await findActiveMembership(
       ctx,
       args.teamId,
-      identity.subject
+      identity.tokenIdentifier
     );
     if (!member.permissions.viewProjects) throw new Error("Permission denied");
     await requireTeamProject(ctx, args.teamId, args.projectId);
@@ -438,14 +438,14 @@ export const createWorkspace = mutation({
     const activeMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) =>
-        q.eq("userId", identity.subject).eq("status", "active")
+        q.eq("userId", identity.tokenIdentifier).eq("status", "active")
       )
       .first();
     if (activeMembership) return activeMembership.teamId;
 
     const now = new Date().toISOString();
     const workspaceId = await ctx.db.insert("teamWorkspaces", {
-      ownerUserId: identity.subject,
+      ownerUserId: identity.tokenIdentifier,
       name: workspaceName,
       inviteCode: await uniqueInviteCode(ctx),
       createdAt: now,
@@ -455,7 +455,7 @@ export const createWorkspace = mutation({
     });
     await ctx.db.insert("teamMembers", {
       teamId: workspaceId,
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       email: normalizeEmail(identity.email),
       name: actorName(identity),
       role: "Owner",
@@ -466,7 +466,7 @@ export const createWorkspace = mutation({
     });
     await logActivity(ctx, {
       teamId: workspaceId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "workspace_created",
       message: `${actorName(identity)} created the team workspace.`,
@@ -482,7 +482,7 @@ export const updateWorkspaceProjectPolicy = mutation({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) =>
-        q.eq("userId", identity.subject).eq("status", "active")
+        q.eq("userId", identity.tokenIdentifier).eq("status", "active")
       )
       .first();
     if (!membership || membership.role !== "Owner")
@@ -512,7 +512,7 @@ export const updateWorkspaceSettings = mutation({
     const membership = await findActiveMembership(
       ctx,
       args.teamId,
-      identity.subject
+      identity.tokenIdentifier
     );
     if (membership.role !== "Owner")
       throw new Error("Only the Workspace Owner can change workspace settings");
@@ -564,7 +564,7 @@ export const inviteMember = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_invited",
       message: `${actorName(identity)} invited ${email} as ${args.role}.`,
@@ -580,7 +580,7 @@ export const joinWorkspace = mutation({
     const existingActiveMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) =>
-        q.eq("userId", identity.subject).eq("status", "active")
+        q.eq("userId", identity.tokenIdentifier).eq("status", "active")
       )
       .first();
     const workspace = await ctx.db
@@ -602,7 +602,7 @@ export const joinWorkspace = mutation({
       .withIndex("by_teamId", (q) => q.eq("teamId", workspace._id))
       .take(MAX_TEAM_MEMBERS + 1);
     const userMember = members.find(
-      (member) => member.userId === identity.subject
+      (member) => member.userId === identity.tokenIdentifier
     );
     if (userMember?.status === "active") return workspace._id;
     if (
@@ -629,19 +629,19 @@ export const joinWorkspace = mutation({
       throw new Error("Your email address is not invited to this team");
     const now = new Date().toISOString();
     await ctx.db.patch(invitedMember._id, {
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       name: actorName(identity),
       status: "active",
       joinedAt: now,
     });
     await logActivity(ctx, {
       teamId: workspace._id,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_joined",
       message: `${actorName(identity)} joined the workspace.`,
     });
-    if (workspace.ownerUserId !== identity.subject) {
+    if (workspace.ownerUserId !== identity.tokenIdentifier) {
       await ctx.db.insert("teamNotifications", {
         teamId: workspace._id,
         userId: workspace.ownerUserId,
@@ -680,7 +680,7 @@ export const updateMemberRole = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_role_updated",
       message: `${actorName(identity)} changed ${member.name} to ${args.role}.`,
@@ -713,7 +713,7 @@ export const updateMemberPermissions = mutation({
     const owner = await findActiveMembership(
       ctx,
       args.teamId,
-      identity.subject
+      identity.tokenIdentifier
     );
     if (owner.role !== "Owner")
       throw new Error("Only the Workspace Owner can change member permissions");
@@ -730,7 +730,7 @@ export const updateMemberPermissions = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_role_updated",
       message: `${actorName(identity)} updated permissions for ${member.name}.`,
@@ -745,7 +745,7 @@ export const transferOwnership = mutation({
     const currentOwner = await findActiveMembership(
       ctx,
       args.teamId,
-      identity.subject
+      identity.tokenIdentifier
     );
     if (currentOwner.role !== "Owner")
       throw new Error("Only the Workspace Owner can transfer ownership");
@@ -758,7 +758,7 @@ export const transferOwnership = mutation({
       throw new Error("Choose an active team member");
     }
     if (
-      nextOwner.userId === identity.subject ||
+      nextOwner.userId === identity.tokenIdentifier ||
       nextOwner.role === "Owner"
     ) {
       throw new Error("Choose a different team member");
@@ -779,7 +779,7 @@ export const transferOwnership = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_role_updated",
       message: `${actorName(identity)} transferred workspace ownership to ${nextOwner.name}.`,
@@ -834,7 +834,7 @@ export const normalizeLegacyRoles = mutation({
     );
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "legacy_roles_normalized",
       message: `${actorName(identity)} updated ${legacyMembers.length} legacy Client role${legacyMembers.length === 1 ? "" : "s"} to Reviewer.`,
@@ -855,20 +855,20 @@ export const removeMember = mutation({
     if (!member || member.teamId !== args.teamId)
       throw new Error("Team member not found");
     if (member.role === "Owner") throw new Error("Owner cannot be removed");
-    if (member.userId === identity.subject)
+    if (member.userId === identity.tokenIdentifier)
       throw new Error("You cannot remove yourself");
 
     const reassignedProjectCount = member.userId
       ? await cleanupRemovedMemberProjects(ctx, {
           teamId: args.teamId,
           memberUserId: member.userId,
-          transferOwnerUserId: identity.subject,
+          transferOwnerUserId: identity.tokenIdentifier,
         })
       : 0;
     await ctx.db.delete(args.memberId);
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_removed",
       message: `${actorName(identity)} removed ${member.email || member.name} from the workspace.${reassignedProjectCount ? ` ${reassignedProjectCount} owned project${reassignedProjectCount === 1 ? "" : "s"} transferred to ${actorName(identity)}.` : ""}`,
@@ -883,7 +883,7 @@ export const leaveWorkspace = mutation({
     const member = await findActiveMembership(
       ctx,
       args.teamId,
-      identity.subject
+      identity.tokenIdentifier
     );
     if (member.role === "Owner")
       throw new Error("Team owners must transfer ownership before leaving");
@@ -894,18 +894,18 @@ export const leaveWorkspace = mutation({
 
     const reassignedProjectCount = await cleanupRemovedMemberProjects(ctx, {
       teamId: args.teamId,
-      memberUserId: identity.subject,
+      memberUserId: identity.tokenIdentifier,
       transferOwnerUserId: workspace.ownerUserId,
     });
     await ctx.db.delete(member._id);
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "member_left",
       message: `${actorName(identity)} left the workspace.${reassignedProjectCount ? ` ${reassignedProjectCount} owned project${reassignedProjectCount === 1 ? "" : "s"} transferred to the workspace owner.` : ""}`,
     });
-    if (workspace.ownerUserId !== identity.subject) {
+    if (workspace.ownerUserId !== identity.tokenIdentifier) {
       await ctx.db.insert("teamNotifications", {
         teamId: args.teamId,
         userId: workspace.ownerUserId,
@@ -928,7 +928,7 @@ export const sendChatMessage = mutation({
     const mentions = mentionsFrom(storedBody);
     await ctx.db.insert("teamChatMessages", {
       teamId: args.teamId,
-      authorUserId: identity.subject,
+      authorUserId: identity.tokenIdentifier,
       authorName: actorName(identity),
       body: storedBody,
       mentions,
@@ -936,7 +936,7 @@ export const sendChatMessage = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "chat_message",
       message: `${actorName(identity)} posted in team chat.`,
@@ -946,7 +946,7 @@ export const sendChatMessage = mutation({
       mentions,
       kind: "mention",
       message: `${actorName(identity)} mentioned you in team chat.`,
-      senderUserId: identity.subject,
+      senderUserId: identity.tokenIdentifier,
       requiredPermission: "useChat",
     });
   },
@@ -975,12 +975,12 @@ export const addProjectComment = mutation({
     const mentionedMembers = await membersMatchingMentions(ctx, {
       teamId: args.teamId,
       mentions,
-      senderUserId: identity.subject,
+      senderUserId: identity.tokenIdentifier,
     });
     await ctx.db.insert("projectComments", {
       teamId: args.teamId,
       projectId: args.projectId,
-      authorUserId: identity.subject,
+      authorUserId: identity.tokenIdentifier,
       authorName: actorName(identity),
       body: storedBody,
       timecode,
@@ -989,7 +989,7 @@ export const addProjectComment = mutation({
     });
     await logActivity(ctx, {
       teamId: args.teamId,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "project_comment",
       projectId: args.projectId,
@@ -997,7 +997,7 @@ export const addProjectComment = mutation({
     });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actorName(identity),
       kind: "team_note_added",
       message: `${actorName(identity)} added a team note.`,
@@ -1005,7 +1005,7 @@ export const addProjectComment = mutation({
     });
     await notifyProjectParticipants(ctx, {
       teamId: args.teamId,
-      senderUserId: identity.subject,
+      senderUserId: identity.tokenIdentifier,
       project,
       message: `${actorName(identity)} commented on ${project.title}.`,
       excludeUserIds: mentionedMembers.map((member) => member.userId),
@@ -1016,7 +1016,7 @@ export const addProjectComment = mutation({
       mentions,
       kind: "project_mention",
       message: `${actorName(identity)} mentioned you in a project comment.`,
-      senderUserId: identity.subject,
+      senderUserId: identity.tokenIdentifier,
     });
   },
 });
@@ -1026,7 +1026,7 @@ export const markNotificationRead = mutation({
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
     const notification = await ctx.db.get(args.notificationId);
-    if (!notification || notification.userId !== identity.subject) {
+    if (!notification || notification.userId !== identity.tokenIdentifier) {
       throw new Error("Notification not found");
     }
     await ctx.db.patch(args.notificationId, { read: true });
@@ -1037,13 +1037,13 @@ export const markAllNotificationsRead = mutation({
   args: { teamId: v.string() },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    await findActiveMembership(ctx, args.teamId, identity.subject);
+    await findActiveMembership(ctx, args.teamId, identity.tokenIdentifier);
     const notifications = await ctx.db
       .query("teamNotifications")
       .withIndex("by_teamId_and_userId_and_read_and_createdAt", (q) =>
         q
           .eq("teamId", args.teamId)
-          .eq("userId", identity.subject)
+          .eq("userId", identity.tokenIdentifier)
           .eq("read", false)
       )
       .order("desc")

@@ -83,10 +83,10 @@ async function requireTeamPermission(
 async function requirePaymentAccess(ctx: MutationCtx, project: Doc<"projects">) {
   const identity = await requireIdentity(ctx);
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.subject) throw new Error("Project access required");
+    if (project.ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
     return identity;
   }
-  const membership = await activeMembership(ctx, project.teamId, identity.subject);
+  const membership = await activeMembership(ctx, project.teamId, identity.tokenIdentifier);
   if (!membership || !(membership.permissions.manageFinance ?? membership.role === "Owner")) throw new Error("Permission denied");
   return identity;
 }
@@ -118,7 +118,7 @@ async function recordPaymentActivity(
     projectId: project.id,
     ownerUserId: project.ownerUserId,
     teamId: project.teamId,
-    actorUserId: identity.subject,
+    actorUserId: identity.tokenIdentifier,
     actorName: (identity.name || identity.nickname || identity.email || "Relay user").trim().slice(0, 120),
     kind: "project_updated",
     message: `${project.title} was marked ${paid ? "paid" : "unpaid"}.`,
@@ -154,12 +154,12 @@ async function requireProjectAccess(
     const membership = await requireTeamPermission(
       ctx,
       project.teamId,
-      identity.subject,
+      identity.tokenIdentifier,
       permission,
     );
     return { identity, membership, project };
   }
-  if (project.ownerUserId !== identity.subject) throw new Error("Project access required");
+  if (project.ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
   return { identity, membership: null, project };
 }
 
@@ -318,12 +318,12 @@ export const list = query({
     const personal = await ctx.db
       .query("projects")
       .withIndex("by_ownerUserId_and_teamId", (q) =>
-        q.eq("ownerUserId", identity.subject).eq("teamId", undefined))
+        q.eq("ownerUserId", identity.tokenIdentifier).eq("teamId", undefined))
       .take(500);
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_userId_and_status", (q) =>
-        q.eq("userId", identity.subject).eq("status", "active"))
+        q.eq("userId", identity.tokenIdentifier).eq("status", "active"))
       .first();
     if (!membership?.permissions.viewProjects) return personal;
     const workspaceId = ctx.db.normalizeId("teamWorkspaces", membership.teamId);
@@ -335,8 +335,8 @@ export const list = query({
     const visibleTeamProjects = membership.role === "Owner" || workspace?.allowAllTeamProjects
       ? teamProjects
       : teamProjects.filter((project) =>
-          project.ownerUserId === identity.subject ||
-          project.assigneeUserIds.includes(identity.subject));
+          project.ownerUserId === identity.tokenIdentifier ||
+          project.assigneeUserIds.includes(identity.tokenIdentifier));
     return [...personal, ...visibleTeamProjects];
   },
 });
@@ -348,7 +348,7 @@ export const listSalaryBatches = query({
     if (!identity) return [];
     return ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
       .take(500);
   },
 });
@@ -359,7 +359,7 @@ export const setSalaryBatchPaid = mutation({
     const identity = await requireIdentity(ctx);
     const batch = await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId_and_id", (q) => q.eq("ownerUserId", identity.subject).eq("id", args.batchId))
+      .withIndex("by_ownerUserId_and_id", (q) => q.eq("ownerUserId", identity.tokenIdentifier).eq("id", args.batchId))
       .unique();
     if (!batch) throw new Error("Salary Batch not found");
     const receivedAt = args.paid ? batch.receivedAt ?? new Date().toISOString() : undefined;
@@ -380,7 +380,7 @@ export const importSalaryBatches = mutation({
     if (args.batches.length > 500) throw new Error("Too many Salary Batches");
     const existing = await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
       .first();
     if (existing) throw new Error("Salary Batch import requires an empty Workspace");
     const seenProjectIds = new Set<string>();
@@ -397,12 +397,12 @@ export const importSalaryBatches = mutation({
         throw new Error("Salary Batch snapshot is invalid");
       }
       const projects = await Promise.all(batch.projectIds.map((id) => getProject(ctx, id)));
-      if (projects.some((project) => project.ownerUserId !== identity.subject || project.teamId || project.workType !== batch.workType || project.status !== "Delivered")) {
+      if (projects.some((project) => project.ownerUserId !== identity.tokenIdentifier || project.teamId || project.workType !== batch.workType || project.status !== "Delivered")) {
         throw new Error("Salary Batch Projects must belong to this Workspace");
       }
       seenBatchIds.add(batch.id);
       batch.projectIds.forEach((id) => seenProjectIds.add(id));
-      await ctx.db.insert("projectSalaryBatches", { ...batch, ownerUserId: identity.subject });
+      await ctx.db.insert("projectSalaryBatches", { ...batch, ownerUserId: identity.tokenIdentifier });
     }
     return null;
   },
@@ -414,13 +414,13 @@ export const create = mutation({
   handler: async (ctx, { project }) => {
     const identity = await requireIdentity(ctx);
     if (project.teamId) {
-      await requireTeamPermission(ctx, project.teamId, identity.subject, "createProjects");
+      await requireTeamPermission(ctx, project.teamId, identity.tokenIdentifier, "createProjects");
     }
     const id = project.id.trim().slice(0, 80);
     if (!id) throw new Error("Project id is required");
     if (!project.title.trim()) throw new Error("Project title is required");
     const existing = await ctx.db.query("projects").withIndex("by_projectId", (q) => q.eq("id", id)).unique();
-    if (existing?.ownerUserId === identity.subject && existing.teamId === project.teamId) {
+    if (existing?.ownerUserId === identity.tokenIdentifier && existing.teamId === project.teamId) {
       return id;
     }
     if (existing) {
@@ -428,12 +428,12 @@ export const create = mutation({
     }
     const reservedByBatch = (await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
       .collect())
       .some((batch) => batch.projectIds.includes(id));
     if (reservedByBatch) throw new Error("Project id is reserved by Salary Batch history");
     const settings = await validateClientAndGroup(ctx, {
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       teamId: project.teamId,
       clientId: project.clientId,
       projectGroupId: project.projectGroupId,
@@ -441,7 +441,7 @@ export const create = mutation({
     const salaryPlan = await validateSalaryPlan(
       ctx,
       project.salaryPlanId,
-      identity.subject,
+      identity.tokenIdentifier,
       project.teamId,
       project.clientId,
     );
@@ -459,7 +459,7 @@ export const create = mutation({
       id,
       title: project.title.trim().slice(0, 160),
       notes: project.notes.trim().slice(0, 4000),
-      ownerUserId: identity.subject,
+      ownerUserId: identity.tokenIdentifier,
       assigneeUserIds,
       workflowStages,
       workflowStageId: firstStage.id,
@@ -476,7 +476,7 @@ export const create = mutation({
       const title = output.title.trim().slice(0, 160);
       if (!title) throw new Error("Project Output title is required");
       await ctx.db.insert("projectOutputs", {
-        ownerUserId: identity.subject,
+        ownerUserId: identity.tokenIdentifier,
         projectId: id,
         teamId: project.teamId,
         id: `${id}:output:${index + 1}`.slice(0, 80),
@@ -514,7 +514,7 @@ export const update = mutation({
       if (settledBatch) throw new Error("A Project in a completed Salary Batch cannot change Salary Plans");
     }
     const settings = await validateClientAndGroup(ctx, {
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       teamId: project.teamId,
       clientId,
       projectGroupId,
@@ -522,7 +522,7 @@ export const update = mutation({
     const salaryPlan = await validateSalaryPlan(
       ctx,
       salaryPlanId,
-      identity.subject,
+      identity.tokenIdentifier,
       project.teamId,
       clientId,
     );
@@ -589,11 +589,11 @@ export const remove = mutation({
     const identity = await requireIdentity(ctx);
     const project = await getProject(ctx, args.projectId);
     if (project.teamId) {
-      const membership = await activeMembership(ctx, project.teamId, identity.subject);
+      const membership = await activeMembership(ctx, project.teamId, identity.tokenIdentifier);
       const canRemove = membership?.permissions.manageTeam
-        || (project.ownerUserId === identity.subject && membership?.permissions.editProjects);
+        || (project.ownerUserId === identity.tokenIdentifier && membership?.permissions.editProjects);
       if (!canRemove) throw new Error("Permission denied");
-    } else if (project.ownerUserId !== identity.subject) {
+    } else if (project.ownerUserId !== identity.tokenIdentifier) {
       throw new Error("Project access required");
     }
     await ctx.db.delete(project._id);
@@ -609,7 +609,7 @@ export const previewStage = query({
     if (!stage) throw new Error("Workflow stage does not belong to this Project");
     if (stage.purpose !== "delivered") return { kind: "none" as const };
     if (project.teamId) return { kind: "client" as const, earned: project.earnings };
-    return (await deliveryEffect(ctx, identity.subject, project)).result;
+    return (await deliveryEffect(ctx, identity.tokenIdentifier, project)).result;
   },
 });
 
@@ -637,16 +637,16 @@ export const transitionStage = mutation({
         : { kind: "none" as const, completedAt };
     }
 
-    const effect = await deliveryEffect(ctx, identity.subject, project);
+    const effect = await deliveryEffect(ctx, identity.tokenIdentifier, project);
     if (effect.result.kind === "client") return { ...effect.result, completedAt };
     const batches = await ctx.db
       .query("projectSalaryBatches")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
       .collect();
     if (effect.result.batchCreated) {
       const number = batches.reduce((highest, batch) => Math.max(highest, batch.number), 0) + 1;
       await ctx.db.insert("projectSalaryBatches", {
-        ownerUserId: identity.subject,
+        ownerUserId: identity.tokenIdentifier,
         id: `salary-batch-${number}`,
         number,
         workType: project.workType,
