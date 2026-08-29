@@ -90,7 +90,7 @@ export const get = query({
     if (!identity) return null;
     const settings = await ctx.db
       .query("settings")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.tokenIdentifier))
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .take(1);
     return settings[0] ?? null;
   },
@@ -145,7 +145,7 @@ export const upsert = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const userId = identity.tokenIdentifier;
+    const userId = identity.subject;
     const normalizedArgs = {
       ...args,
       customProjectTemplates: args.customProjectTemplates?.map(normalizeCustomProjectTemplate),

@@ -39,14 +39,14 @@ async function requireProjectAccess(
     .unique();
   if (!project) throw new Error("Project not found");
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.tokenIdentifier) throw new Error("Project access required");
+    if (project.ownerUserId !== identity.subject) throw new Error("Project access required");
     return { identity, project };
   }
   const teamId = project.teamId;
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier))
+      q.eq("teamId", teamId).eq("userId", identity.subject))
     .unique();
   const permitted = membership?.permissions[permission]
     ?? (permission === "managePortal" ? membership?.role !== "Reviewer" : false);

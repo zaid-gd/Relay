@@ -29,7 +29,7 @@ async function requireProjectAccess(ctx: FunctionCtx, projectId: string, permiss
   const currentIdentity = await identity(ctx);
   const project = await projectById(ctx, projectId);
   if (!project.teamId) {
-    if (project.ownerUserId !== currentIdentity.tokenIdentifier) throw new Error("Project access required");
+    if (project.ownerUserId !== currentIdentity.subject) throw new Error("Project access required");
     return { identity: currentIdentity, project };
   }
 
@@ -37,7 +37,7 @@ async function requireProjectAccess(ctx: FunctionCtx, projectId: string, permiss
   const member = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", teamId).eq("userId", currentIdentity.tokenIdentifier),
+      q.eq("teamId", teamId).eq("userId", currentIdentity.subject),
     )
     .unique();
   const permitted = member?.permissions[permission]

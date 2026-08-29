@@ -60,7 +60,7 @@ async function requireProjectAccess(
   if (!project) throw new Error("Project not found");
 
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.tokenIdentifier)
+    if (project.ownerUserId !== identity.subject)
       throw new Error("Project access required");
     return { identity, project };
   }
@@ -70,7 +70,7 @@ async function requireProjectAccess(
     .withIndex("by_teamId_and_userId", (q) =>
       q
         .eq("teamId", project.teamId as string)
-        .eq("userId", identity.tokenIdentifier)
+        .eq("userId", identity.subject)
     )
     .unique();
   if (
@@ -577,7 +577,7 @@ export const publish = mutation({
       }
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.tokenIdentifier,
+        actorUserId: identity.subject,
         actorName: identity.name || identity.email || "CutLab user",
         kind: statusChanged ? "client_stage_changed" : "client_portal_updated",
         message: statusChanged
@@ -589,7 +589,7 @@ export const publish = mutation({
 
     const token = crypto.randomUUID().replaceAll("-", "");
     const portalId = await ctx.db.insert("clientPortals", {
-      ownerUserId: identity.tokenIdentifier,
+      ownerUserId: identity.subject,
       projectId: args.projectId,
       token,
       ...snapshot,
@@ -626,7 +626,7 @@ export const publish = mutation({
     );
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: identity.name || identity.email || "CutLab user",
       kind: "client_portal_published",
       message: "The client portal was published.",
@@ -649,7 +649,7 @@ export const setPublished = mutation({
     });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: identity.name || identity.email || "CutLab user",
       kind: args.published
         ? "client_portal_published"
@@ -683,7 +683,7 @@ export const setAccessControls = mutation({
     if (wasEnabled !== args.enabled) {
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.tokenIdentifier,
+        actorUserId: identity.subject,
         actorName: identity.name || identity.email || "CutLab user",
         kind: args.enabled ? "client_portal_enabled" : "client_portal_disabled",
         message: `Client portal access was ${args.enabled ? "enabled" : "disabled"}.`,
@@ -692,7 +692,7 @@ export const setAccessControls = mutation({
     } else if (portal.expiresAt !== expiresAt) {
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.tokenIdentifier,
+        actorUserId: identity.subject,
         actorName: identity.name || identity.email || "CutLab user",
         kind: "client_portal_updated",
         message: expiresAt
@@ -717,7 +717,7 @@ export const regenerateToken = mutation({
     await ctx.db.patch(args.portalId, { token, updatedAt: now });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: identity.name || identity.email || "CutLab user",
       kind: "client_portal_token_regenerated",
       message:
@@ -748,7 +748,7 @@ export const setPasswordProtection = mutation({
       });
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.tokenIdentifier,
+        actorUserId: identity.subject,
         actorName: identity.name || identity.email || "CutLab user",
         kind: "client_portal_updated",
         message: "Client portal password protection was removed.",
@@ -762,7 +762,7 @@ export const setPasswordProtection = mutation({
     await ctx.db.patch(args.portalId, { ...passwordFields, updatedAt: now });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: identity.name || identity.email || "CutLab user",
       kind: "client_portal_updated",
       message: `Client portal password protection was ${wasProtected ? "updated" : "enabled"}.`,
@@ -834,7 +834,7 @@ export const addDeliverable = mutation({
       status,
       clientVisible: true,
       downloadable: args.downloadable,
-      createdByUserId: identity.tokenIdentifier,
+      createdByUserId: identity.subject,
       createdByName: actor,
       createdAt: now,
       updatedAt: now,
@@ -849,7 +849,7 @@ export const addDeliverable = mutation({
       fileName: title,
       mimeType: "text/uri-list",
       size: 0,
-      uploadedByUserId: identity.tokenIdentifier,
+      uploadedByUserId: identity.subject,
       uploadedByName: actor,
       uploadedAt: now,
       notes: detail,
@@ -863,7 +863,7 @@ export const addDeliverable = mutation({
     );
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: actor,
       kind: "project_file_added",
       message: `${title} was added to deliverable files.`,
@@ -976,7 +976,7 @@ export const updateRevisionStatus = mutation({
     }
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: identity.name || identity.email || "CutLab user",
       kind: "revision_status_changed",
       message: `A revision request changed from ${revision.status} to ${status}.`,

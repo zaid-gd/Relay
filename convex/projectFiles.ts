@@ -60,7 +60,7 @@ async function requireProjectAccess(
     .unique();
   if (!project) throw new Error("Project not found");
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.tokenIdentifier)
+    if (project.ownerUserId !== identity.subject)
       throw new Error("Project access required");
     return { identity, project };
   }
@@ -69,7 +69,7 @@ async function requireProjectAccess(
     .withIndex("by_teamId_and_userId", (q) =>
       q
         .eq("teamId", project.teamId as string)
-        .eq("userId", identity.tokenIdentifier)
+        .eq("userId", identity.subject)
     )
     .unique();
   if (
@@ -222,7 +222,7 @@ async function logFileActivity(
       ownerUserId: project.ownerUserId,
       teamId: project.teamId,
     },
-    actorUserId: identity.tokenIdentifier,
+    actorUserId: identity.subject,
     actorName: name,
     kind,
     message,
@@ -231,7 +231,7 @@ async function logFileActivity(
   if (project.teamId) {
     await ctx.db.insert("teamActivity", {
       teamId: project.teamId,
-      actorUserId: identity.tokenIdentifier,
+      actorUserId: identity.subject,
       actorName: name,
       kind,
       projectId: project.id,
@@ -350,7 +350,7 @@ async function insertVersion(
       clientVisible: args.clientVisible && args.category === "Deliverable",
       downloadable: args.downloadable,
       archived: false,
-      createdByUserId: args.identity.tokenIdentifier,
+      createdByUserId: args.identity.subject,
       createdByName: actorName(args.identity),
       createdAt: now,
       updatedAt: now,
@@ -370,7 +370,7 @@ async function insertVersion(
     fileName: cleanText(args.fileName, 240),
     mimeType: cleanText(args.mimeType, 120),
     size: Math.max(0, Math.floor(args.size)),
-    uploadedByUserId: args.identity.tokenIdentifier,
+    uploadedByUserId: args.identity.subject,
     uploadedByName: actorName(args.identity),
     uploadedAt: now,
     notes: cleanText(args.notes, 500),
@@ -561,7 +561,7 @@ export const createR2UploadSession = internalMutation({
       projectId: project.id,
       projectFileId: args.projectFileId,
       key,
-      uploaderUserId: identity.tokenIdentifier,
+      uploaderUserId: identity.subject,
       status: "pending",
       createdAt: now,
       expiresAt,
@@ -575,7 +575,7 @@ export const getR2UploadSession = internalQuery({
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.uploaderUserId !== identity.tokenIdentifier)
+    if (!session || session.uploaderUserId !== identity.subject)
       return null;
     return session;
   },
@@ -623,7 +623,7 @@ export const finalizeR2Upload = internalMutation({
     if (
       !session ||
       session.projectId !== args.projectId ||
-      session.uploaderUserId !== identity.tokenIdentifier
+      session.uploaderUserId !== identity.subject
     ) {
       throw new Error("R2 upload session not found");
     }
