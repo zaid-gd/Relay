@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { calendarFeedIcs, deriveCalendarEvents, type WorkspaceOutput } from "@/features/workspace-discovery/workspace-discovery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ContentSection,
   FillViewport,
@@ -203,41 +205,48 @@ export function PrecisionCalendar({
         data-family-toolbar="calendar"
         primary={(
           <>
-            <Button variant="outline" size="icon" aria-label="Previous month" className="size-9 border-[var(--app-border)] text-[var(--app-highlight)]" onClick={() => shiftMonth(-1)}>
-              <ChevronLeft className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Previous month" className="size-9 border-[var(--app-border)] text-[var(--app-highlight)]" onClick={() => shiftMonth(-1)}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Previous month</TooltipContent>
+            </Tooltip>
             <div className="min-w-[170px]">
               <p className="text-sm font-semibold text-[var(--app-ink)]">{monthLabel}</p>
               <p className="text-[10px] text-[var(--app-muted)]">{monthProjectCount} scheduled items</p>
             </div>
-            <Button variant="outline" size="icon" aria-label="Next month" className="size-9 border-[var(--app-border)] text-[var(--app-highlight)]" onClick={() => shiftMonth(1)}>
-              <ChevronRight className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Next month" className="size-9 border-[var(--app-border)] text-[var(--app-highlight)]" onClick={() => shiftMonth(1)}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Next month</TooltipContent>
+            </Tooltip>
           </>
         )}
         secondary={(
           <div className="flex flex-wrap items-center gap-2">
           <span className="hidden text-[10px] text-[var(--app-muted)] sm:inline">{monthProjectCount} scheduled</span>
-          <div className="inline-flex h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5" role="group" aria-label="Calendar view">
-            {(["month", "week", "agenda"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={viewMode === mode}
-                onClick={() => setViewMode(mode)}
-                className={cn(
-                  "rounded px-3 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]",
-                  viewMode === mode ? "bg-[var(--app-panel)] text-[var(--app-highlight)]" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
-                )}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) => setViewMode(value === "week" || value === "agenda" ? value : "month")}
+            className="block"
+          >
+            <TabsList aria-label="Calendar view" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
+              {(["month", "week", "agenda"] as const).map((mode) => (
+                <TabsTrigger key={mode} id={`calendar-${mode}-tab`} aria-controls="calendar-view-panel" value={mode} className="h-8 px-3 text-xs capitalize">
+                  {mode}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           </div>
         )}
       />
-      <FillViewport bodyLabel="Calendar workspace" className="min-h-0" bodyClassName="overflow-auto">
+      <FillViewport id="calendar-view-panel" role="tabpanel" aria-labelledby={`calendar-${viewMode}-tab`} bodyLabel="Calendar workspace" className="min-h-0" bodyClassName="overflow-auto">
         <SplitPane
           ratio="inspector"
           className="min-h-full"

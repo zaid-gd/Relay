@@ -8,6 +8,7 @@ test("persisted settings omit legacy integration and permission fields", () => {
       integrations: { Slack: true },
       integrationAccounts: { Slack: "workspace" },
       editorPermissions: { edit: true },
+      density: "Compact",
     })
   ).toEqual({ theme: "Dark" });
 });

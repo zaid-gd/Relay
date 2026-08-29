@@ -2,6 +2,7 @@ const legacySettingKeys = [
   "integrations",
   "integrationAccounts",
   "editorPermissions",
+  "density",
 ] as const;
 
 export function omitLegacySettings<T extends object>(settings: T) {

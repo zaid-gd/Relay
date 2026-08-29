@@ -38,7 +38,6 @@ export const sampleStudioSettings: SettingsState = {
   rolePermissions: {},
     theme: "Dark",
     accentColor: "#14B8A6",
-  density: "Comfortable",
 };
 
 export const sampleStudioProjects: WorkItem[] = [

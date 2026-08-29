@@ -132,7 +132,6 @@ const settings = {
   rolePermissions: {},
   theme: "Light",
   accentColor: "#3478F6",
-  density: "Comfortable",
 };
 
 const browser = await chromium.launch({ headless: true });

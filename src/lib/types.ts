@@ -241,5 +241,4 @@ export type SettingsState = {
   rolePermissions: Record<string, Record<string, boolean>>;
   theme: string;
   accentColor: string;
-  density: string;
 };

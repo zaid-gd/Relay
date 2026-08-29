@@ -35,7 +35,6 @@ await context.addInitScript(() => {
     profileImageUrl: "",
     theme: "Light",
     accentColor: "#14B8A6",
-    density: "Comfortable",
   }));
 });
 

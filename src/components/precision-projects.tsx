@@ -68,6 +68,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DataTableFrame,
   MetricItem,
@@ -483,31 +484,35 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
         secondary={
         <>
         <Button variant="outline" className="h-9" onClick={() => props.onManageProjectGroups(scope)}>Project Groups</Button>
-        <div className="flex h-9 items-center border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5" aria-label="Project view">
-          <button type="button" aria-pressed={tableState.view === "table"} className={cn("h-7 px-2 text-xs capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", tableState.view === "table" ? "bg-[var(--app-active)] text-[var(--app-highlight)]" : "text-[var(--app-muted)]")} onClick={() => setTableState((state) => ({ ...state, view: "table" }))}>Table</button>
-          <button type="button" aria-pressed={tableState.view === "board"} className={cn("h-7 px-2 text-xs capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]", tableState.view === "board" ? "bg-[var(--app-active)] text-[var(--app-highlight)]" : "text-[var(--app-muted)]")} onClick={() => setTableState((state) => ({ ...state, view: "board" }))}>Board</button>
-        </div>
-        <div className="relative inline-flex w-fit rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
-          <button
-            type="button"
-            aria-pressed={scope === "personal"}
-            className={cn("relative min-h-9 rounded px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] active:scale-[0.98]", scope === "personal" ? "text-[var(--app-highlight)]" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]")}
-            onClick={() => setScope("personal")}
-          >
-            {scope === "personal" ? <motion.span layoutId="project-scope" className="absolute inset-0 rounded bg-[var(--app-active)]" /> : null}
-            <span className="relative">My Projects <span className="ml-1 text-[10px]">{props.personalProjects.length}</span></span>
-          </button>
-          <button
-            type="button"
-            disabled={!hasTeam}
-            aria-pressed={scope === "team"}
-            className={cn("relative min-h-9 rounded px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] active:scale-[0.98] disabled:opacity-40", scope === "team" ? "text-[var(--app-highlight)]" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]")}
-            onClick={() => setScope("team")}
-          >
-            {scope === "team" ? <motion.span layoutId="project-scope" className="absolute inset-0 rounded bg-[var(--app-active)]" /> : null}
-            <span className="relative">Team Projects <span className="ml-1 text-[10px]">{props.teamProjects.length}</span></span>
-          </button>
-        </div>
+        <Tabs
+          value={tableState.view}
+          onValueChange={(view) =>
+            setTableState((state) => ({
+              ...state,
+              view: view === "board" ? "board" : "table",
+            }))
+          }
+          className="block"
+        >
+          <TabsList aria-label="Project view" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
+            <TabsTrigger id="project-table-tab" aria-controls="project-library-panel" value="table" className="h-7 px-2 text-xs">Table</TabsTrigger>
+            <TabsTrigger id="project-board-tab" aria-controls="project-library-panel" value="board" className="h-7 px-2 text-xs">Board</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Tabs
+          value={scope}
+          onValueChange={(value) => setScope(value === "team" && hasTeam ? "team" : "personal")}
+          className="block"
+        >
+          <TabsList aria-label="Project scope" className="h-9 rounded-md border border-[var(--app-border)] bg-[var(--app-panel)] p-0.5">
+            <TabsTrigger id="project-personal-tab" aria-controls="project-library-panel" value="personal" className="h-8 px-3 text-xs">
+              My Projects <span className="text-[10px]">{props.personalProjects.length}</span>
+            </TabsTrigger>
+            <TabsTrigger id="project-team-tab" aria-controls="project-library-panel" value="team" disabled={!hasTeam} className="h-8 px-3 text-xs">
+              Team Projects <span className="text-[10px]">{props.teamProjects.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
           <Select value={`${tableState.sort}:${tableState.direction}`} onValueChange={(value) => {
             const [sort, direction] = value.split(":");
             const parsed = parseProjectTableSearch(`sort=${sort}&dir=${direction}`);
@@ -545,6 +550,9 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           className="h-full min-h-0"
           primary={(
         <DataTableFrame
+          id="project-library-panel"
+          role="tabpanel"
+          aria-labelledby={`project-${tableState.view}-tab project-${scope}-tab`}
           aria-busy={isUpdating}
           bodyLabel="Project library viewport"
           className="relative h-full min-h-0 border-[var(--app-border)] bg-[var(--app-panel)]"

@@ -87,8 +87,6 @@ const themeBootScript = `
     root.style.colorScheme = isDark ? "dark" : "light";
     root.dataset.theme = isDark ? "dark" : "light";
     root.classList.toggle("dark", isDark);
-    root.classList.toggle("relay-density-compact", settings.density === "Compact");
-    root.classList.toggle("relay-density-balanced", settings.density !== "Compact");
   } catch {}
 })();
 `;

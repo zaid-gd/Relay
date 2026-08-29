@@ -25,6 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton as OwnedSkeleton } from "@/components/ui/skeleton";
 import { Switch as OwnedSwitch } from "@/components/ui/switch";
+import {
+  Tabs as OwnedTabs,
+  TabsList as OwnedTabsList,
+  TabsTrigger as OwnedTabsTrigger,
+} from "@/components/ui/tabs";
 import { Textarea as OwnedTextarea } from "@/components/ui/textarea";
 import {
   APPROVAL_STATUS_LABELS,
@@ -50,7 +55,7 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useProjectActivityAdapter,
   useProjectCommentsAdapter,
@@ -386,14 +391,6 @@ export function ProjectFileManager({
     resetForm();
   }
 
-  function handleTabKey(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const nextView = view === "files" ? "history" : "files";
-    setView(nextView);
-    document.getElementById(`project-files-${nextView}-tab`)?.focus();
-  }
-
   async function changeFileMetadata(
     file: NonNullable<typeof fileData>["files"][number],
     overrides: Partial<{
@@ -514,41 +511,39 @@ export function ProjectFileManager({
           ) : null}
         </div>
 
-        <div
-          className="mt-4 flex border-b"
-          role="tablist"
-          aria-label="Project file view"
+        <OwnedTabs
+          value={view}
+          onValueChange={(value) =>
+            setView(value === "history" ? "history" : "files")
+          }
+          className="mt-4 block border-b"
         >
-          <button
-            id="project-files-files-tab"
-            type="button"
-            role="tab"
-            aria-controls="project-files-files-panel"
-            aria-selected={view === "files"}
-            tabIndex={view === "files" ? 0 : -1}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${view === "files" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setView("files")}
-            onKeyDown={handleTabKey}
+          <OwnedTabsList
+            variant="line"
+            aria-label="Project file view"
+            className="h-9"
           >
-            Files
-          </button>
-          <button
-            id="project-files-history-tab"
-            type="button"
-            role="tab"
-            aria-controls="project-files-history-panel"
-            aria-selected={view === "history"}
-            tabIndex={view === "history" ? 0 : -1}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${view === "history" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setView("history")}
-            onKeyDown={handleTabKey}
-          >
-            Upload History
-          </button>
-        </div>
+            <OwnedTabsTrigger
+              id="project-files-files-tab"
+              value="files"
+              aria-controls="project-files-panel"
+              className="px-3 text-sm"
+            >
+              Files
+            </OwnedTabsTrigger>
+            <OwnedTabsTrigger
+              id="project-files-history-tab"
+              value="history"
+              aria-controls="project-files-panel"
+              className="px-3 text-sm"
+            >
+              Upload History
+            </OwnedTabsTrigger>
+          </OwnedTabsList>
+        </OwnedTabs>
 
         <div
-          id={`project-files-${view}-panel`}
+          id="project-files-panel"
           role="tabpanel"
           aria-labelledby={`project-files-${view}-tab`}
         >

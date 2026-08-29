@@ -95,7 +95,6 @@ async function withPage(
             profileImageUrl: "",
             theme: "Dark",
             accentColor: "#14B8A6",
-            density: "Comfortable",
             timeZone: "Asia/Dubai",
             weekStart: "Mon",
             currencyCode: "USD",

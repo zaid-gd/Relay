@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { useForm } from "@tanstack/react-form";
 import type { Client, ProjectGroup, SalaryPlan, SavedProjectTemplate } from "@/lib/types";
 import { newProjectFormSchema, type NewProjectFormValues, type NewProjectInput } from "@/features/projects/project-domain";
@@ -19,6 +19,7 @@ type NewProjectDialogProps = {
   salaryPlanLabel: string;
   salaryPlans?: readonly SalaryPlan[];
   currencyCode?: string;
+  returnFocusRef: RefObject<HTMLElement | null>;
   onCreateClient: (input: Pick<Client, "name" | "email" | "company">) => Client | null;
   onClose: () => void;
   onCreate: (input: NewProjectInput) => void;
@@ -36,7 +37,7 @@ const defaultValues = (initialTemplateId: string): NewProjectFormValues => ({
   salaryPlanId: "",
 });
 
-export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", salaryPlanLabel, salaryPlans, currencyCode = "USD", onCreateClient, onClose, onCreate }: NewProjectDialogProps) {
+export function NewProjectDialog({ open, clients, projectGroups, workflowTemplates, initialTemplateId = "", salaryPlanLabel, salaryPlans, currencyCode = "USD", returnFocusRef, onCreateClient, onClose, onCreate }: NewProjectDialogProps) {
   const activeClients = clients.filter((client) => !client.archived);
   const activeTemplates = workflowTemplates.filter((template) => !template.archived);
   const activeSalaryPlans = salaryPlans?.filter((plan) => !plan.archived) ?? [];
@@ -89,7 +90,15 @@ export function NewProjectDialog({ open, clients, projectGroups, workflowTemplat
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-      <DialogContent className="studio-motion-gooey border-border bg-background text-foreground sm:max-w-lg">
+      <DialogContent
+        className="studio-motion-gooey border-border bg-background text-foreground sm:max-w-lg"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current;
+          if (!target?.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
           <DialogDescription>Start with the choices needed to schedule the work.</DialogDescription>

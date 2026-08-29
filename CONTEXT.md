@@ -57,8 +57,14 @@ A saved external link or reference used by the Team. It is not a Project Output,
 **App Shell**:
 The shared sidebar, top bar, mobile navigation, and content frame around internal routes.
 
+**Authenticated Workspace UI**:
+The internal routes rendered within the App Shell and built from the Page System. It excludes public profiles, the client portal, access, contact, and legal routes.
+
 **Page System**:
 The shared page headers, toolbars, sections, metric strips, tables, empty states, and pane layouts used inside the App Shell.
 
 **Density**:
-The spacing and control-size setting for repeated work. It changes space without hiding features.
+The spacing and control size of repeated workspace surfaces. The workspace uses one balanced global density; purpose-built controls such as data tables may keep local compact variants.
+
+**UI Component Boundary**:
+Feature screens use owned shadcn components from `components/ui`. Radix and selected Animate UI behavior stay behind that component layer rather than being imported into feature screens.

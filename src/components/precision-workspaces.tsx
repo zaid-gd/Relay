@@ -55,6 +55,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ContentSection,
   FillViewport,
@@ -237,14 +239,21 @@ export function PrecisionClients({
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--app-muted)]" />
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search clients..." aria-label="Search clients" className="h-9 bg-[var(--app-panel)] pl-8 pr-8 text-xs" />
               {query ? (
-                <button
-                  type="button"
-                  aria-label="Clear client search"
-                  className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-[var(--app-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-[var(--app-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]"
-                  onClick={() => setQuery("")}
-                >
-                  <X className="size-3.5" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Clear client search"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--app-muted)] hover:text-[var(--app-text)]"
+                      onClick={() => setQuery("")}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Clear search</TooltipContent>
+                </Tooltip>
               ) : null}
             </div>
           </div>
@@ -473,31 +482,28 @@ export function PrecisionFeedback({
           description="Active work requiring client or editor attention."
           bodyMode="flush"
           actions={(
-          <div className="flex items-center gap-1" role="group" aria-label="Filter review queue">
-            {(["All", "Review", "Revision"] as const).map((option) => {
-              const count = option === "All"
-                ? queue.length
-                : queue.filter((project) => option === "Revision" ? project.status === "Revision" : project.status !== "Revision").length;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={filter === option}
-                  onClick={() => setFilter(option)}
-                  className={cn(
-                    "h-7 rounded-md px-2.5 text-[10px] font-medium text-[var(--app-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-[var(--app-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]",
-                    filter === option && "bg-[var(--app-active)] text-[var(--app-highlight)]",
-                  )}
-                >
-                  {option} <span className="ml-1 tabular-nums opacity-70">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+          <Tabs
+            value={filter}
+            onValueChange={(value) => setFilter(value === "Review" || value === "Revision" ? value : "All")}
+            className="block"
+          >
+            <TabsList aria-label="Filter review queue" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
+              {(["All", "Review", "Revision"] as const).map((option) => {
+                const count = option === "All"
+                  ? queue.length
+                  : queue.filter((project) => option === "Revision" ? project.status === "Revision" : project.status !== "Revision").length;
+                return (
+                  <TabsTrigger key={option} id={`review-${option.toLowerCase()}-tab`} aria-controls="review-queue-panel" value={option} className="h-7 px-2.5 text-[10px]">
+                    {option} <span className="tabular-nums opacity-70">{count}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
           )}
         >
         <span className="sr-only" aria-live="polite">{visibleQueue.length} {filter.toLowerCase()} queue items shown</span>
-        <div className="border-t border-[var(--app-border)]">
+        <div id="review-queue-panel" role="tabpanel" aria-labelledby={`review-${filter.toLowerCase()}-tab`} className="border-t border-[var(--app-border)]">
           <AnimatePresence mode="wait" initial={false}>
             {visibleQueue.length ? (
               <motion.div
@@ -799,36 +805,34 @@ export function PrecisionReports({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div><h2 className="text-sm font-semibold">Delivery and earnings trend</h2><p className="mt-0.5 text-[10px] text-[var(--app-muted)]">Delivered value and salary batches grouped by month.</p></div>
-            <div className="flex items-center gap-1" role="group" aria-label="Earnings trend range">
-              {([
-                { value: 3 as const, label: "3M" },
-                { value: 6 as const, label: "6M" },
-                { value: "all" as const, label: "All" },
-              ]).map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  aria-pressed={trendRange === option.value}
-                  onClick={() => setTrendRange(option.value)}
-                  className={cn(
-                    "h-7 rounded-md px-2.5 text-[10px] font-medium text-[var(--app-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-[var(--app-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-highlight)]",
-                    trendRange === option.value && "bg-[var(--app-active)] text-[var(--app-highlight)]",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={String(trendRange)}
+              onValueChange={(value) => setTrendRange(value === "3" ? 3 : value === "all" ? "all" : 6)}
+              className="block"
+            >
+              <TabsList aria-label="Earnings trend range" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
+                {[
+                  { value: "3", label: "3M" },
+                  { value: "6", label: "6M" },
+                  { value: "all", label: "All" },
+                ].map((option) => (
+                  <TabsTrigger key={option.value} id={`earnings-${option.value}-tab`} aria-controls="earnings-trend-panel" value={option.value} className="h-7 px-2.5 text-[10px]">
+                    {option.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
-          <motion.div
-            key={trendRange}
-            role="img"
-            aria-label={`Earnings trend for ${trendData.length} months. ${trendData.map((item) => `${item.label}: ${money(item.earned, settings.currencyCode)}`).join(", ")}`}
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
-            className="mt-4 h-[260px]"
-          >
+          <div id="earnings-trend-panel" role="tabpanel" aria-labelledby={`earnings-${trendRange}-tab`}>
+            <motion.div
+              key={trendRange}
+              role="img"
+              aria-label={`Earnings trend for ${trendData.length} months. ${trendData.map((item) => `${item.label}: ${money(item.earned, settings.currencyCode)}`).join(", ")}`}
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
+              className="mt-4 h-[260px]"
+            >
             {trendData.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
@@ -848,7 +852,8 @@ export function PrecisionReports({
             ) : (
               <div className="grid h-full place-items-center text-xs text-[var(--app-muted)]">Delivered projects will create the earnings trend.</div>
             )}
-          </motion.div>
+            </motion.div>
+          </div>
           <p className="mt-3 rounded-md bg-[var(--app-soft-panel)] px-3 py-2 text-[11px] leading-4 text-[var(--app-muted)]" aria-label="Earnings trend summary">
             {trendData.length
               ? `${trendData.reduce((sum, item) => sum + item.delivered, 0)} delivered edits generated ${money(trendData.reduce((sum, item) => sum + item.earned, 0), settings.currencyCode)} across ${trendData.length} month${trendData.length === 1 ? "" : "s"}.`

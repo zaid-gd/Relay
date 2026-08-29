@@ -59,6 +59,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ContentSection,
   DataTableFrame,
@@ -1390,49 +1391,19 @@ export function PrecisionDashboard(props: DashboardProps) {
                   icon={Clock3}
                   className="h-full"
                   action={
-                    <div className="flex rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
-                      <button
-                        type="button"
-                        className={cn(
-                          "relative min-h-7 rounded px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.05em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-                          activityMode === "recent"
-                            ? "text-[var(--app-highlight)]"
-                            : "text-[var(--app-muted)]"
-                        )}
-                        aria-pressed={activityMode === "recent"}
-                        onClick={() => changeActivityMode("recent")}
-                      >
-                        {activityMode === "recent" ? (
-                          <motion.span
-                            layoutId="activity-mode"
-                            className="absolute inset-0 rounded bg-[var(--app-panel)]"
-                          />
-                        ) : null}
-                        <span className="relative">Recent</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          "relative min-h-7 rounded px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.05em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
-                          activityMode === "team"
-                            ? "text-[var(--app-highlight)]"
-                            : "text-[var(--app-muted)]"
-                        )}
-                        aria-pressed={activityMode === "team"}
-                        onClick={() => changeActivityMode("team")}
-                      >
-                        {activityMode === "team" ? (
-                          <motion.span
-                            layoutId="activity-mode"
-                            className="absolute inset-0 rounded bg-[var(--app-panel)]"
-                          />
-                        ) : null}
-                        <span className="relative">Team</span>
-                      </button>
-                    </div>
+                    <Tabs
+                      value={activityMode}
+                      onValueChange={(value) => changeActivityMode(value === "team" ? "team" : "recent")}
+                      className="block"
+                    >
+                      <TabsList aria-label="Activity view" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
+                        <TabsTrigger id="activity-recent-tab" aria-controls="activity-panel" value="recent" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Recent</TabsTrigger>
+                        <TabsTrigger id="activity-team-tab" aria-controls="activity-panel" value="team" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Team</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   }
                 >
-                  <div className="min-h-[224px]">
+                  <div id="activity-panel" role="tabpanel" aria-labelledby={`activity-${activityMode}-tab`} className="min-h-[224px]">
                     {props.teamLoading && activityMode === "team" ? (
                       <ActivitySkeleton />
                     ) : activity.length ? (
