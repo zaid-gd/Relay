@@ -89,9 +89,7 @@ test("switches Calendar views through accessible tabs", async ({ page }) => {
   );
   await views.getByRole("tab", { name: "Week" }).click();
   await expect(page.getByRole("heading", { name: /Week of/ })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Previous month" })
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous month" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Next month" })).toBeVisible();
 });
 
@@ -126,9 +124,7 @@ test("keeps the authenticated workspace UI contract across routes", async ({
 
   for (const route of workspaceRoutes) {
     await openApp(page, route);
-    await expect(
-      page.getByRole("navigation", { name: "Primary navigation" })
-    ).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.locator("main#main-content")).toBeVisible();
     await expect(page.locator("html")).toHaveClass(/relay-density-balanced/);
   }
@@ -154,12 +150,8 @@ test("keeps the authenticated workspace UI contract across routes", async ({
   await expect(more).toBeFocused();
 
   await openApp(page, "/privacy");
-  await expect(
-    page.getByRole("navigation", { name: "Primary navigation" })
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Privacy Policy" })
-  ).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
 });
 
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({
@@ -224,11 +216,13 @@ test("exports and restores a Local Mode backup", async ({ page }) => {
     localStorage.removeItem("video-editing-work-tracker:salary-batches:v1");
   });
   await page.reload();
-  await page.getByLabel("Choose Relay backup").setInputFiles({
-    name: "relay-backup.json",
-    mimeType: "application/json",
-    buffer: backup,
-  });
+  await page
+    .getByLabel("Choose Relay backup")
+    .setInputFiles({
+      name: "relay-backup.json",
+      mimeType: "application/json",
+      buffer: backup,
+    });
   await expect(page.getByRole("status")).toContainText("Imported 1 projects");
   await page.goto("/projects");
   await expect(projectRow(page, title)).toBeVisible();
@@ -556,9 +550,7 @@ test("operates the Projects table by keyboard", async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole("tab", { name: "Board", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Editing projects" })
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Editing projects" })).toBeVisible();
   await page.getByRole("tab", { name: "Table", exact: true }).click();
   await expect(table).toBeVisible();
 

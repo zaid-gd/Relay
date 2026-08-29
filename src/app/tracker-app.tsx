@@ -954,9 +954,8 @@ export function TrackerApp({
     const settledProjectIds = new Set(
       salaryBatches.flatMap((batch) => batch.projectIds ?? [])
     );
-    const unsettledSalaryProjects = deliveredSalaryProjects.filter(
-      (project) => !settledProjectIds.has(project.id)
-    );
+    const unsettledSalaryProjects = deliveredSalaryProjects
+      .filter((project) => !settledProjectIds.has(project.id));
     const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) =>
       isDoneStatus(item.status)
@@ -4520,9 +4519,11 @@ function IntegrationsDesignPage({
     const query = integrationSearch.trim().toLowerCase();
     const matchesSearch =
       !query ||
-      [name, integrationDescriptions[name], config.account].some((value) =>
-        value.toLowerCase().includes(query)
-      );
+      [
+        name,
+        integrationDescriptions[name],
+        config.account,
+      ].some((value) => value.toLowerCase().includes(query));
     const matchesFilter =
       integrationFilter === "all" ||
       (integrationFilter === "connected" ? connected : !connected);
@@ -4664,8 +4665,11 @@ function IntegrationsDesignPage({
             {visibleIntegrationNames.map((name) => {
               const config =
                 settings.integrationConfigs[name] ?? emptyIntegrationConfig;
-              const connected = Boolean(config.connected);
-              const account = config.account;
+              const connected = Boolean(
+                config.connected
+              );
+              const account =
+                config.account;
               return (
                 <li
                   key={name}

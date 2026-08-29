@@ -513,32 +513,26 @@ export function ProjectFileManager({
 
         <OwnedTabs
           value={view}
-          onValueChange={(value) =>
-            setView(value === "history" ? "history" : "files")
-          }
+          onValueChange={(value) => setView(value === "history" ? "history" : "files")}
           className="mt-4 block border-b"
         >
-          <OwnedTabsList
-            variant="line"
-            aria-label="Project file view"
-            className="h-9"
+          <OwnedTabsList variant="line" aria-label="Project file view" className="h-9">
+          <OwnedTabsTrigger
+            id="project-files-files-tab"
+            value="files"
+            aria-controls="project-files-files-panel"
+            className="px-3 text-sm"
           >
-            <OwnedTabsTrigger
-              id="project-files-files-tab"
-              value="files"
-              aria-controls="project-files-files-panel"
-              className="px-3 text-sm"
-            >
-              Files
-            </OwnedTabsTrigger>
-            <OwnedTabsTrigger
-              id="project-files-history-tab"
-              value="history"
-              aria-controls="project-files-history-panel"
-              className="px-3 text-sm"
-            >
-              Upload History
-            </OwnedTabsTrigger>
+            Files
+          </OwnedTabsTrigger>
+          <OwnedTabsTrigger
+            id="project-files-history-tab"
+            value="history"
+            aria-controls="project-files-history-panel"
+            className="px-3 text-sm"
+          >
+            Upload History
+          </OwnedTabsTrigger>
           </OwnedTabsList>
         </OwnedTabs>
 

@@ -22,8 +22,7 @@ export const WORKFLOW_STAGE_PURPOSE_VALUES = [
   "approved",
   "delivered",
 ] as const;
-export type WorkflowStagePurpose =
-  (typeof WORKFLOW_STAGE_PURPOSE_VALUES)[number];
+export type WorkflowStagePurpose = (typeof WORKFLOW_STAGE_PURPOSE_VALUES)[number];
 
 export type WorkflowStage = {
   id: string;

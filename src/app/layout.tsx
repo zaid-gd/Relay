@@ -7,21 +7,14 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 const siteTitle = "Relay | Video Production Workspace for Editors";
-const siteDescription =
-  "Plan edits, track deadlines, manage client feedback, organize media, and monitor production work in one focused workspace built for video editors.";
+const siteDescription = "Plan edits, track deadlines, manage client feedback, organize media, and monitor production work in one focused workspace built for video editors.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   applicationName: "Relay",
   title: siteTitle,
   description: siteDescription,
-  keywords: [
-    "video editing",
-    "project tracker",
-    "local-first",
-    "editing workflow",
-    "salary batch",
-  ],
+  keywords: ["video editing", "project tracker", "local-first", "editing workflow", "salary batch"],
   authors: [{ name: "Relay" }],
   creator: "Relay",
   openGraph: {
@@ -35,32 +28,24 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1600,
         height: 900,
-        alt: "Relay dashboard overview",
-      },
-    ],
+        alt: "Relay dashboard overview"
+      }
+    ]
   },
   twitter: {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/og-image.png"],
+    images: ["/og-image.png"]
   },
   icons: {
     icon: [
-      {
-        url: "/brand/icons/app-icon-dark-32.png",
-        sizes: "32x32",
-        type: "image/png",
-      },
-      {
-        url: "/brand/icons/app-icon-dark-64.png",
-        sizes: "64x64",
-        type: "image/png",
-      },
+      { url: "/brand/icons/app-icon-dark-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/icons/app-icon-dark-64.png", sizes: "64x64", type: "image/png" }
     ],
     shortcut: "/brand/icons/app-icon-dark-32.png",
-    apple: "/brand/icons/app-icon-dark-256.png",
-  },
+    apple: "/brand/icons/app-icon-dark-256.png"
+  }
 };
 
 const structuredData = {
@@ -76,8 +61,8 @@ const structuredData = {
     "@type": "Organization",
     name: "Relay",
     url: siteUrl,
-    email: "Cutlab.Studios@gmail.com",
-  },
+    email: "Cutlab.Studios@gmail.com"
+  }
 };
 
 export const viewport: Viewport = {
@@ -86,8 +71,8 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F1F4F2" },
-    { media: "(prefers-color-scheme: dark)", color: "#090C0D" },
-  ],
+    { media: "(prefers-color-scheme: dark)", color: "#090C0D" }
+  ]
 };
 
 const themeBootScript = `
@@ -122,31 +107,18 @@ const clerkModalCenteringCss = `
 }
 `;
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
-    >
+    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
         />
         <Script id="cutlab-theme-boot" strategy="beforeInteractive">
           {themeBootScript}
         </Script>
-        <style
-          data-clerk-modal-centering
-          dangerouslySetInnerHTML={{ __html: clerkModalCenteringCss }}
-        />
+        <style data-clerk-modal-centering dangerouslySetInnerHTML={{ __html: clerkModalCenteringCss }} />
       </head>
       <body
         className="antialiased"
@@ -154,7 +126,7 @@ export default function RootLayout({
           margin: 0,
           background: "var(--app-canvas)",
           color: "var(--app-ink)",
-          fontFamily: "var(--font-geist-sans), Geist, sans-serif",
+          fontFamily: "var(--font-geist-sans), Geist, sans-serif"
         }}
       >
         <a className="skip-link" href="#main-content">

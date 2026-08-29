@@ -1393,27 +1393,12 @@ export function PrecisionDashboard(props: DashboardProps) {
                   action={
                     <Tabs
                       value={activityMode}
-                      onValueChange={(value) =>
-                        changeActivityMode(value === "team" ? "team" : "recent")
-                      }
+                      onValueChange={(value) => changeActivityMode(value === "team" ? "team" : "recent")}
                       className="block"
                     >
-                      <TabsList
-                        aria-label="Activity view"
-                        className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5"
-                      >
-                        <TabsTrigger
-                          value="recent"
-                          className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]"
-                        >
-                          Recent
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="team"
-                          className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]"
-                        >
-                          Team
-                        </TabsTrigger>
+                      <TabsList aria-label="Activity view" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
+                        <TabsTrigger value="recent" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Recent</TabsTrigger>
+                        <TabsTrigger value="team" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Team</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   }
