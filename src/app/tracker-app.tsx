@@ -391,7 +391,6 @@ type SettingsState = {
   rolePermissions: Record<string, Record<string, boolean>>;
   theme: string;
   accentColor: string;
-  density: string;
 };
 type ToastState = {
   message: string;
@@ -520,7 +519,6 @@ const defaultSettings: SettingsState = {
   rolePermissions: JSON.parse(JSON.stringify(defaultRolePermissions)),
   theme: "Dark",
   accentColor: defaultAccent,
-  density: "Comfortable",
 };
 
 const SettingsContext = createContext<SettingsState>(defaultSettings);
@@ -956,8 +954,9 @@ export function TrackerApp({
     const settledProjectIds = new Set(
       salaryBatches.flatMap((batch) => batch.projectIds ?? [])
     );
-    const unsettledSalaryProjects = deliveredSalaryProjects
-      .filter((project) => !settledProjectIds.has(project.id));
+    const unsettledSalaryProjects = deliveredSalaryProjects.filter(
+      (project) => !settledProjectIds.has(project.id)
+    );
     const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) =>
       isDoneStatus(item.status)
@@ -1676,6 +1675,7 @@ export function TrackerApp({
             : undefined
         }
         currencyCode={settings.currencyCode}
+        returnFocusRef={projectLauncherTriggerRef}
         onCreateClient={(client) =>
           handleAddClient({ ...client, contactName: "", phone: "", notes: "" })
         }
@@ -1738,11 +1738,7 @@ export function TrackerApp({
   if (page === "profile") {
     return (
       <div
-        className={`motion-enter min-h-dvh transition-colors ${
-          settings.density === "Compact"
-            ? "[&_[data-density-panel]]:!p-3 [&_[data-density-row]]:!py-2"
-            : ""
-        }`}
+        className="motion-enter min-h-dvh transition-colors"
         style={{ backgroundColor: canvas, color: ink }}
       >
         <SettingsContext.Provider value={settings}>
@@ -1789,11 +1785,7 @@ export function TrackerApp({
       >
         {isSample ? <SampleModeBar /> : null}
         <div
-          className={`min-h-full transition-colors lg:h-full ${
-            settings.density === "Compact"
-              ? "[&_[data-density-panel]]:!p-3 [&_[data-density-row]]:!py-2"
-              : ""
-          }`}
+          className="min-h-full transition-colors lg:h-full"
           style={{ backgroundColor: canvas, color: ink }}
         >
           <SettingsContext.Provider value={settings}>
@@ -2896,7 +2888,7 @@ function TemplatesDesignPage({
             </OwnedBadge>
           }
           aria-label="Project templates"
-          bodyClassName={`grid md:grid-cols-2 xl:grid-cols-3 ${settings.density === "Compact" ? "gap-3" : "gap-4"}`}
+          bodyClassName="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
           {templates.map((template) => (
             <article
@@ -4528,11 +4520,9 @@ function IntegrationsDesignPage({
     const query = integrationSearch.trim().toLowerCase();
     const matchesSearch =
       !query ||
-      [
-        name,
-        integrationDescriptions[name],
-        config.account,
-      ].some((value) => value.toLowerCase().includes(query));
+      [name, integrationDescriptions[name], config.account].some((value) =>
+        value.toLowerCase().includes(query)
+      );
     const matchesFilter =
       integrationFilter === "all" ||
       (integrationFilter === "connected" ? connected : !connected);
@@ -4674,11 +4664,8 @@ function IntegrationsDesignPage({
             {visibleIntegrationNames.map((name) => {
               const config =
                 settings.integrationConfigs[name] ?? emptyIntegrationConfig;
-              const connected = Boolean(
-                config.connected
-              );
-              const account =
-                config.account;
+              const connected = Boolean(config.connected);
+              const account = config.account;
               return (
                 <li
                   key={name}
@@ -5631,7 +5618,7 @@ function SettingsDesignPage({
                 aria-label={`${settingsNavigation.find((item) => item.id === activeSection)?.label} settings`}
                 className={cn(
                   "grid min-h-0 min-w-0 content-start overflow-visible p-1 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pr-2",
-                  settings.density === "Compact" ? "gap-2" : "gap-3"
+                  "gap-3"
                 )}
                 tabIndex={0}
               >
@@ -6144,7 +6131,7 @@ function SettingsDesignPage({
                     title="Appearance"
                     subtitle="Customize how Relay looks and feels for your tracker."
                   >
-                    <div className="grid items-end gap-5 md:grid-cols-3">
+                    <div className="grid items-end gap-5 md:grid-cols-2">
                       <SegmentedSetting
                         label="Theme"
                         options={["Light", "Dark", "System"]}
@@ -6180,14 +6167,6 @@ function SettingsDesignPage({
                           ))}
                         </div>
                       </div>
-                      <SegmentedSetting
-                        label="Density"
-                        options={["Comfortable", "Compact"]}
-                        active={settings.density}
-                        onChange={(value) =>
-                          setSettings({ ...settings, density: value })
-                        }
-                      />
                     </div>
                   </SettingsPanel>
                 ) : null}
@@ -7973,14 +7952,7 @@ function applyRootThemeVariables(settings: SettingsState) {
   root.style.colorScheme = isDark ? "dark" : "light";
   root.dataset.theme = isDark ? "dark" : "light";
   root.classList.toggle("dark", isDark);
-  root.classList.toggle(
-    "relay-density-compact",
-    settings.density === "Compact"
-  );
-  root.classList.toggle(
-    "relay-density-balanced",
-    settings.density !== "Compact"
-  );
+  root.classList.add("relay-density-balanced");
 }
 
 function themeIsDark(settings: SettingsState) {

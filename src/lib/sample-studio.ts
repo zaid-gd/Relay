@@ -20,9 +20,36 @@ export const sampleStudioSettings: SettingsState = {
   currencyCode: "USD",
   customClients: ["Aperture Coffee", "Field Notes", "Orbit Labs"],
   clients: [
-    { id: "client-aperture-coffee", name: "Aperture Coffee", company: "Aperture Coffee", contactName: "", email: "", phone: "", notes: "", archived: false },
-    { id: "client-field-notes", name: "Field Notes", company: "Field Notes", contactName: "", email: "", phone: "", notes: "", archived: false },
-    { id: "client-orbit-labs", name: "Orbit Labs", company: "Orbit Labs", contactName: "", email: "", phone: "", notes: "", archived: false },
+    {
+      id: "client-aperture-coffee",
+      name: "Aperture Coffee",
+      company: "Aperture Coffee",
+      contactName: "",
+      email: "",
+      phone: "",
+      notes: "",
+      archived: false,
+    },
+    {
+      id: "client-field-notes",
+      name: "Field Notes",
+      company: "Field Notes",
+      contactName: "",
+      email: "",
+      phone: "",
+      notes: "",
+      archived: false,
+    },
+    {
+      id: "client-orbit-labs",
+      name: "Orbit Labs",
+      company: "Orbit Labs",
+      contactName: "",
+      email: "",
+      phone: "",
+      notes: "",
+      archived: false,
+    },
   ],
   customProjectTemplates: [],
   projectTags: ["Client Work", "Retainer", "Personal Channel"],
@@ -36,9 +63,8 @@ export const sampleStudioSettings: SettingsState = {
   teamRole: "Owner",
   teamMembers: [],
   rolePermissions: {},
-    theme: "Dark",
-    accentColor: "#14B8A6",
-  density: "Comfortable",
+  theme: "Dark",
+  accentColor: "#14B8A6",
 };
 
 export const sampleStudioProjects: WorkItem[] = [
@@ -53,9 +79,20 @@ export const sampleStudioProjects: WorkItem[] = [
     startDate: "2026-07-18",
     dueDate: "2026-07-24",
     earnings: 1800,
-    notes: "Picture lock is due next. Sound mix and final captions follow after approval.",
-    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
-    checklistItems: ["Organize selects", "Complete fine cut", "Send review link", "Export masters"],
+    notes:
+      "Picture lock is due next. Sound mix and final captions follow after approval.",
+    workflowStages: workflowStagesFromLabels([
+      "Assembly",
+      "Fine cut",
+      "Client Review",
+      "Delivery",
+    ]),
+    checklistItems: [
+      "Organize selects",
+      "Complete fine cut",
+      "Send review link",
+      "Export masters",
+    ],
     checklistCompleted: { "Organize selects": true, "Complete fine cut": true },
   },
   {
@@ -69,10 +106,25 @@ export const sampleStudioProjects: WorkItem[] = [
     startDate: "2026-07-14",
     dueDate: "2026-07-23",
     earnings: 950,
-    notes: "Review link sent. Client requested a tighter opening and one lower-third correction.",
-    workflowStages: workflowStagesFromLabels(["Assembly", "Fine cut", "Client Review", "Delivery"]),
-    checklistItems: ["Build first cut", "Internal review", "Send client review", "Address notes"],
-    checklistCompleted: { "Build first cut": true, "Internal review": true, "Send client review": true },
+    notes:
+      "Review link sent. Client requested a tighter opening and one lower-third correction.",
+    workflowStages: workflowStagesFromLabels([
+      "Assembly",
+      "Fine cut",
+      "Client Review",
+      "Delivery",
+    ]),
+    checklistItems: [
+      "Build first cut",
+      "Internal review",
+      "Send client review",
+      "Address notes",
+    ],
+    checklistCompleted: {
+      "Build first cut": true,
+      "Internal review": true,
+      "Send client review": true,
+    },
   },
   {
     id: "sample-field-notes",
@@ -87,9 +139,20 @@ export const sampleStudioProjects: WorkItem[] = [
     earnings: 1200,
     paid: true,
     paidDate: "2026-07-15T12:00:00.000Z",
-    notes: "Approved on the second review round. Master and social cutdowns delivered.",
-    checklistItems: ["Edit episode", "Client approval", "Deliver master", "Confirm payment"],
-    checklistCompleted: { "Edit episode": true, "Client approval": true, "Deliver master": true, "Confirm payment": true },
+    notes:
+      "Approved on the second review round. Master and social cutdowns delivered.",
+    checklistItems: [
+      "Edit episode",
+      "Client approval",
+      "Deliver master",
+      "Confirm payment",
+    ],
+    checklistCompleted: {
+      "Edit episode": true,
+      "Client approval": true,
+      "Deliver master": true,
+      "Confirm payment": true,
+    },
   },
 ];
 
@@ -100,7 +163,8 @@ export const sampleStudioResources: ResourceLink[] = [
     url: "/client-portal",
     category: "Review",
     projectId: "sample-founder-story",
-    notes: "Clients open a private editor-provided link and do not need a Relay account.",
+    notes:
+      "Clients open a private editor-provided link and do not need a Relay account.",
     createdAt: "2026-07-21T09:00:00.000Z",
     updatedAt: "2026-07-21T09:00:00.000Z",
   },

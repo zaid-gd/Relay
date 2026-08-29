@@ -1,6 +1,12 @@
 import { type Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { fileCategoryValidator, fileStatusValidator, settingsTeamRoleValidator, storedTeamRoleValidator, workflowStageValidator } from "./domainValidators";
+import {
+  fileCategoryValidator,
+  fileStatusValidator,
+  settingsTeamRoleValidator,
+  storedTeamRoleValidator,
+  workflowStageValidator,
+} from "./domainValidators";
 
 const teamMemberSchema = v.object({
   id: v.string(),
@@ -28,11 +34,13 @@ const customProjectTemplateValidator = v.object({
   workType: v.union(v.literal("channel"), v.literal("freelance")),
   durationDays: v.number(),
   workflowStages: v.array(v.union(v.string(), workflowStageValidator)),
-  deliverables: v.array(v.object({
-    title: v.string(),
-    category: fileCategoryValidator,
-    initialStatus: fileStatusValidator,
-  })),
+  deliverables: v.array(
+    v.object({
+      title: v.string(),
+      category: fileCategoryValidator,
+      initialStatus: fileStatusValidator,
+    })
+  ),
   checklistItems: v.array(v.string()),
   custom: v.optional(v.boolean()),
   archived: v.optional(v.boolean()),
@@ -41,7 +49,9 @@ const customProjectTemplateValidator = v.object({
 
 type CustomProjectTemplate = Infer<typeof customProjectTemplateValidator>;
 
-function normalizeCustomProjectTemplate(template: CustomProjectTemplate): CustomProjectTemplate {
+function normalizeCustomProjectTemplate(
+  template: CustomProjectTemplate
+): CustomProjectTemplate {
   const workflowStages: CustomProjectTemplate["workflowStages"] = [];
   for (const stage of template.workflowStages) {
     if (typeof stage === "string") {
@@ -67,10 +77,16 @@ function normalizeCustomProjectTemplate(template: CustomProjectTemplate): Custom
       }))
       .filter((deliverable) => deliverable.title)
       .slice(0, 12),
-    checklistItems: template.checklistItems.map((item) => item.trim()).filter(Boolean).slice(0, 20),
+    checklistItems: template.checklistItems
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 20),
     custom: template.custom ?? true,
     archived: template.archived ?? false,
-    updatedAt: typeof template.updatedAt === "string" ? template.updatedAt : new Date().toISOString(),
+    updatedAt:
+      typeof template.updatedAt === "string"
+        ? template.updatedAt
+        : new Date().toISOString(),
   };
 }
 const integrationLinkValidator = v.record(
@@ -140,7 +156,7 @@ export const upsert = mutation({
     ),
     theme: v.string(),
     accentColor: v.string(),
-    density: v.string(),
+    density: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -148,7 +164,9 @@ export const upsert = mutation({
     const userId = identity.tokenIdentifier;
     const normalizedArgs = {
       ...args,
-      customProjectTemplates: args.customProjectTemplates?.map(normalizeCustomProjectTemplate),
+      customProjectTemplates: args.customProjectTemplates?.map(
+        normalizeCustomProjectTemplate
+      ),
     };
     const existing = await ctx.db
       .query("settings")

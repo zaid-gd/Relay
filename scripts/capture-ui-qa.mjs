@@ -5,7 +5,8 @@ import { resolve } from "node:path";
 const baseUrl = process.env.CUTLAB_UI_URL || "http://localhost:3000";
 const onlyCapture = process.env.QA_ONLY || process.argv[2] || "";
 const outputDir = resolve("docs/design/qa-artifacts");
-const referencePath = process.env.CUTLAB_REFERENCE_IMAGE || process.argv[3] || "";
+const referencePath =
+  process.env.CUTLAB_REFERENCE_IMAGE || process.argv[3] || "";
 mkdirSync(outputDir, { recursive: true });
 
 const projects = [
@@ -94,7 +95,8 @@ const settings = {
   profileName: "Jordan Lee",
   profileUsername: "jordanlee",
   profileTitle: "Video Editor & Storyteller",
-  profileBio: "Clean, cinematic edits for creators, campaigns, and client stories.",
+  profileBio:
+    "Clean, cinematic edits for creators, campaigns, and client stories.",
   profileLocation: "Dubai, UAE",
   profileImageUrl: "",
   publicActiveProjects: 3,
@@ -104,7 +106,12 @@ const settings = {
   dateFormat: "Month Day, Year",
   weekStart: "Mon",
   currencyCode: "INR",
-  customClients: ["Ethan & Priya", "Apex Solutions", "Brew House", "Momentum Co."],
+  customClients: [
+    "Ethan & Priya",
+    "Apex Solutions",
+    "Brew House",
+    "Momentum Co.",
+  ],
   projectTags: ["Job / Salary", "Freelance", "Personal Channel"],
   salaryWorkType: "Job / Salary",
   salaryBatchSize: 20,
@@ -132,22 +139,36 @@ const settings = {
   rolePermissions: {},
   theme: "Light",
   accentColor: "#3478F6",
-  density: "Comfortable",
 };
 
 const browser = await chromium.launch({ headless: true });
 
-async function capture({ name, path, viewport, theme = "Light", fullPage = true }) {
+async function capture({
+  name,
+  path,
+  viewport,
+  theme = "Light",
+  fullPage = true,
+}) {
   const context = await browser.newContext({
     viewport,
     colorScheme: theme === "Dark" ? "dark" : "light",
     deviceScaleFactor: 1,
   });
-  await context.addInitScript(({ seededProjects, seededSettings, selectedTheme }) => {
-    localStorage.setItem("cutlab-studio:auth-mode:v1", "local");
-    localStorage.setItem("video-editing-work-tracker:v1", JSON.stringify(seededProjects));
-    localStorage.setItem("video-editing-work-tracker:settings:v1", JSON.stringify({ ...seededSettings, theme: selectedTheme }));
-  }, { seededProjects: projects, seededSettings: settings, selectedTheme: theme });
+  await context.addInitScript(
+    ({ seededProjects, seededSettings, selectedTheme }) => {
+      localStorage.setItem("cutlab-studio:auth-mode:v1", "local");
+      localStorage.setItem(
+        "video-editing-work-tracker:v1",
+        JSON.stringify(seededProjects)
+      );
+      localStorage.setItem(
+        "video-editing-work-tracker:settings:v1",
+        JSON.stringify({ ...seededSettings, theme: selectedTheme })
+      );
+    },
+    { seededProjects: projects, seededSettings: settings, selectedTheme: theme }
+  );
   const page = await context.newPage();
   const errors = [];
   page.on("console", (message) => {
@@ -156,45 +177,124 @@ async function capture({ name, path, viewport, theme = "Light", fullPage = true 
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("requestfailed", (request) => {
     const failure = request.failure();
-    errors.push(`requestfailed: ${request.url()} (${failure?.errorText ?? "unknown"})`);
+    errors.push(
+      `requestfailed: ${request.url()} (${failure?.errorText ?? "unknown"})`
+    );
   });
-  await page.goto(`${baseUrl}${path}`, { waitUntil: "networkidle", timeout: 60_000 });
-  const localModeButton = page.getByRole("button", { name: /continue locally|use local|local mode/i }).first();
+  await page.goto(`${baseUrl}${path}`, {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
+  const localModeButton = page
+    .getByRole("button", { name: /continue locally|use local|local mode/i })
+    .first();
   if (await localModeButton.isVisible().catch(() => false)) {
     await localModeButton.click();
     await page.waitForTimeout(300);
   }
   await page.waitForTimeout(2_000);
   if (path === "/calendar") {
-    await page.getByRole("heading", { name: "Calendar" }).waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
-    await page.getByRole("button", { name: /previous month/i }).waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+    await page
+      .getByRole("heading", { name: "Calendar" })
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .catch(() => undefined);
+    await page
+      .getByRole("button", { name: /previous month/i })
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .catch(() => undefined);
   }
   await page.screenshot({ path: resolve(outputDir, `${name}.png`), fullPage });
   const state = await page.evaluate(() => ({
-    projectStorageCount: JSON.parse(localStorage.getItem("video-editing-work-tracker:v1") ?? "[]").length,
+    projectStorageCount: JSON.parse(
+      localStorage.getItem("video-editing-work-tracker:v1") ?? "[]"
+    ).length,
     renderedProjectRows: document.querySelectorAll("tbody tr").length,
-    calendarDayCells: location.pathname === "/calendar" ? document.querySelectorAll("main section button[aria-label^='Select']").length : 0,
-    calendarText: location.pathname === "/calendar" ? document.querySelector("main section")?.textContent?.trim().slice(0, 160) ?? "" : "",
-    calendarSectionHtml: location.pathname === "/calendar"
-      ? document.querySelector("main section")?.innerHTML.slice(0, 500) ?? ""
-      : "",
+    calendarDayCells:
+      location.pathname === "/calendar"
+        ? document.querySelectorAll("main section button[aria-label^='Select']")
+            .length
+        : 0,
+    calendarText:
+      location.pathname === "/calendar"
+        ? (document
+            .querySelector("main section")
+            ?.textContent?.trim()
+            .slice(0, 160) ?? "")
+        : "",
+    calendarSectionHtml:
+      location.pathname === "/calendar"
+        ? (document.querySelector("main section")?.innerHTML.slice(0, 500) ??
+          "")
+        : "",
   }));
-  console.log(`${name}: ${viewport.width}x${viewport.height}, errors=${errors.length}, state=${JSON.stringify(state)}`);
+  console.log(
+    `${name}: ${viewport.width}x${viewport.height}, errors=${errors.length}, state=${JSON.stringify(state)}`
+  );
   if (errors.length) console.log(errors.join("\n"));
   await context.close();
 }
 
 const captures = [
-  { name: "dashboard-light-desktop", path: "/", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "dashboard-dark-desktop", path: "/", viewport: { width: 1440, height: 1024 }, theme: "Dark" },
-  { name: "dashboard-light-mobile", path: "/", viewport: { width: 390, height: 844 }, theme: "Light" },
-  { name: "projects-light-desktop", path: "/projects", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "calendar-light-desktop", path: "/calendar", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "timeline-light-desktop", path: "/timeline", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "media-light-desktop", path: "/media", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "resources-dark-desktop", path: "/resources", viewport: { width: 1440, height: 1024 }, theme: "Dark" },
-  { name: "reports-light-desktop", path: "/reports", viewport: { width: 1440, height: 1024 }, theme: "Light" },
-  { name: "settings-dark-desktop", path: "/settings", viewport: { width: 1440, height: 1024 }, theme: "Dark" },
+  {
+    name: "dashboard-light-desktop",
+    path: "/",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "dashboard-dark-desktop",
+    path: "/",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Dark",
+  },
+  {
+    name: "dashboard-light-mobile",
+    path: "/",
+    viewport: { width: 390, height: 844 },
+    theme: "Light",
+  },
+  {
+    name: "projects-light-desktop",
+    path: "/projects",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "calendar-light-desktop",
+    path: "/calendar",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "timeline-light-desktop",
+    path: "/timeline",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "media-light-desktop",
+    path: "/media",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "resources-dark-desktop",
+    path: "/resources",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Dark",
+  },
+  {
+    name: "reports-light-desktop",
+    path: "/reports",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Light",
+  },
+  {
+    name: "settings-dark-desktop",
+    path: "/settings",
+    viewport: { width: 1440, height: 1024 },
+    theme: "Dark",
+  },
 ];
 
 for (const entry of captures) {
@@ -203,8 +303,15 @@ for (const entry of captures) {
 
 const implementationPath = resolve(outputDir, "dashboard-light-desktop.png");
 
-if ((!onlyCapture || onlyCapture === "dashboard-light-desktop") && existsSync(referencePath) && existsSync(implementationPath)) {
-  const context = await browser.newContext({ viewport: { width: 1500, height: 640 }, deviceScaleFactor: 1 });
+if (
+  (!onlyCapture || onlyCapture === "dashboard-light-desktop") &&
+  existsSync(referencePath) &&
+  existsSync(implementationPath)
+) {
+  const context = await browser.newContext({
+    viewport: { width: 1500, height: 640 },
+    deviceScaleFactor: 1,
+  });
   const page = await context.newPage();
   const reference = readFileSync(referencePath).toString("base64");
   const implementation = readFileSync(implementationPath).toString("base64");
@@ -222,7 +329,10 @@ if ((!onlyCapture || onlyCapture === "dashboard-light-desktop") && existsSync(re
       <figure><figcaption>Current implementation</figcaption><img src="data:image/png;base64,${implementation}" /></figure>
     </main>
   `);
-  await page.screenshot({ path: resolve(outputDir, "dashboard-reference-comparison.png"), fullPage: true });
+  await page.screenshot({
+    path: resolve(outputDir, "dashboard-reference-comparison.png"),
+    fullPage: true,
+  });
   await context.close();
 }
 

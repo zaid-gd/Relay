@@ -6,11 +6,6 @@ import { cn } from "@/lib/utils";
 type BrandStyleProps = {
   className?: string;
   style?: CSSProperties;
-  /**
-   * Temporary compatibility for the legacy tracker call sites that still pass
-   * plain CSS through MUI's `sx` prop.
-   */
-  sx?: CSSProperties;
 };
 
 export function CutLabLockup({
@@ -18,7 +13,6 @@ export function CutLabLockup({
   subtitle,
   className,
   style,
-  sx,
 }: {
   compact?: boolean;
   subtitle?: string;
@@ -31,7 +25,7 @@ export function CutLabLockup({
         "flex w-fit flex-col items-start gap-1 text-inherit no-underline",
         className
       )}
-      style={{ ...sx, ...style }}
+      style={style}
     >
       <span
         className={cn(

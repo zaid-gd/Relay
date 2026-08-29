@@ -461,16 +461,15 @@ export function WorkspaceShell({
       </div>
 
       {(page === "dashboard" || page === "projects") && canCreateProject ? (
-        <motion.button
+        <Button
           type="button"
           aria-label="New Project"
-          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
           className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] right-4 z-40 flex min-h-12 items-center gap-2 rounded-md bg-[var(--app-accent)] px-4 text-sm font-semibold text-[var(--app-accent-foreground)] shadow-[var(--app-shadow-2)] outline-none hover:bg-[var(--app-highlight)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-canvas)] sm:hidden"
           onClick={onNewProject}
         >
           <Plus className="size-4" />
           New project
-        </motion.button>
+        </Button>
       ) : null}
 
       <MobileNavigation
@@ -618,8 +617,9 @@ function DesktopSidebar({
           </div>
         ))}
         {starterNavigation ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className={cn(
               "mt-1 flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
               collapsed ? "justify-center" : "gap-2 px-2.5"
@@ -637,7 +637,7 @@ function DesktopSidebar({
             ) : (
               "Show all tools"
             )}
-          </button>
+          </Button>
         ) : null}
       </nav>
 
@@ -667,8 +667,9 @@ function DesktopSidebar({
             <p className="mt-1">© {new Date().getFullYear()} Relay</p>
           </footer>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="ghost"
           className={cn(
             "flex min-h-9 w-full items-center rounded-md text-xs font-semibold text-[var(--app-muted)] outline-none hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
             collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"
@@ -683,7 +684,7 @@ function DesktopSidebar({
             <PanelLeftClose className="size-4" />
           )}
           {!collapsed ? <span>Collapse sidebar</span> : null}
-        </button>
+        </Button>
       </div>
     </motion.aside>
   );
@@ -701,14 +702,6 @@ function SidebarRoute({
   reduceMotion: boolean | null;
 }) {
   const Icon = item.icon;
-  const [showPass, setShowPass] = useState(false);
-
-  useEffect(() => {
-    if (!active || reduceMotion) return;
-    setShowPass(true);
-    const timer = window.setTimeout(() => setShowPass(false), 520);
-    return () => window.clearTimeout(timer);
-  }, [active, reduceMotion]);
 
   const link = (
     <Link
@@ -716,28 +709,30 @@ function SidebarRoute({
       aria-label={collapsed ? item.label : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex h-8 items-center overflow-hidden rounded text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
+        "group relative flex h-8 items-center overflow-hidden rounded text-[13px] font-medium outline-none transition-[background-color,color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
         collapsed ? "mx-auto w-9 justify-center px-0" : "gap-2.5 px-2.5",
         active
           ? "bg-[var(--app-active)] text-[var(--app-ink)]"
           : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]"
       )}
     >
-      {showPass ? (
+      {active ? (
         <motion.span
-          initial={{ x: "-110%", opacity: 0 }}
-          animate={{ x: "110%", opacity: [0, 0.7, 0] }}
-          transition={{ duration: 0.52, ease: "easeOut" }}
-          className="pointer-events-none absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent"
+          layoutId="sidebar-active-indicator"
+          data-slot="sidebar-active-indicator"
+          aria-hidden="true"
+          transition={reduceMotion ? { duration: 0 } : shellTransition}
+          className="pointer-events-none absolute inset-y-1 left-0 w-0.5 rounded-full bg-[var(--app-accent)]"
         />
       ) : null}
-      <motion.span
-        animate={{ scale: active && !reduceMotion ? 1.04 : 1 }}
-        transition={reduceMotion ? { duration: 0 } : shellTransition}
-        className="relative z-10 flex shrink-0"
+      <span
+        className={cn(
+          "relative z-10 flex shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0",
+          active && "text-[var(--app-ink)]"
+        )}
       >
         <Icon className="size-4" strokeWidth={active ? 2.1 : 1.8} />
-      </motion.span>
+      </span>
       {!collapsed ? (
         <motion.span
           initial={reduceMotion ? false : { opacity: 0, x: -4 }}
@@ -783,11 +778,9 @@ function ProfileMenu({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <motion.button
+        <Button
           type="button"
-          whileHover={reduceMotion ? undefined : { y: -1 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.97, y: 0 }}
-          transition={{ duration: 0.12 }}
+          variant="ghost"
           className={cn(
             "flex items-center rounded-md text-left outline-none transition-[background-color,box-shadow] hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]",
             compact
@@ -823,7 +816,7 @@ function ProfileMenu({
               </motion.span>
             </>
           ) : null}
-        </motion.button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side={compact ? "bottom" : collapsed ? "right" : "top"}
@@ -1086,9 +1079,9 @@ function MobileNavigation({
       })}
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetTrigger asChild>
-          <motion.button
+          <Button
             type="button"
-            whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+            variant="ghost"
             className="flex flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium text-[var(--app-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset"
             aria-label="Open more workspace pages"
           >
@@ -1103,7 +1096,7 @@ function MobileNavigation({
               <MoreHorizontal className="size-[19px]" />
             </motion.span>
             More
-          </motion.button>
+          </Button>
         </SheetTrigger>
         <SheetContent
           side="bottom"

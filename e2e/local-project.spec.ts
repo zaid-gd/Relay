@@ -37,6 +37,131 @@ test("keeps the desktop sidebar collapsed across navigation with a fixed toggle 
   ).toBeVisible();
 });
 
+test("moves the active sidebar indicator between routes", async ({ page }) => {
+  await chooseLocalMode(page);
+  await openApp(page, "/projects");
+
+  const sidebar = page.locator("aside").first();
+  const activeIndicator = '[data-slot="sidebar-active-indicator"]';
+  await expect(
+    sidebar
+      .getByRole("link", { name: "Projects", exact: true })
+      .locator(activeIndicator)
+  ).toBeVisible();
+
+  await sidebar.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page).toHaveURL("/");
+  await expect(
+    sidebar
+      .getByRole("link", { name: "Dashboard", exact: true })
+      .locator(activeIndicator)
+  ).toBeVisible();
+  await expect(sidebar.locator(activeIndicator)).toHaveCount(1);
+});
+
+test("uses balanced workspace density without a Density setting", async ({
+  page,
+}) => {
+  await chooseLocalMode(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "video-editing-work-tracker:settings:v1",
+      JSON.stringify({ density: "Compact" })
+    );
+  });
+  await openApp(page, "/settings");
+
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+
+  await expect(page.getByText("Density", { exact: true })).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/relay-density-balanced/);
+  await expect(page.locator("html")).not.toHaveClass(/relay-density-compact/);
+});
+
+test("switches Calendar views through accessible tabs", async ({ page }) => {
+  await chooseLocalMode(page);
+  await openApp(page, "/calendar");
+
+  const views = page.getByRole("tablist", { name: "Calendar view" });
+  await expect(views.getByRole("tab", { name: "Month" })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  );
+  await views.getByRole("tab", { name: "Week" }).click();
+  await expect(page.getByRole("heading", { name: /Week of/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Previous month" })
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next month" })).toBeVisible();
+});
+
+test("keeps the authenticated workspace UI contract across routes", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  await chooseLocalMode(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  const workspaceRoutes = [
+    "/",
+    "/projects",
+    "/clients",
+    "/calendar",
+    "/timeline",
+    "/files",
+    "/media",
+    "/feedback",
+    "/templates",
+    "/resources",
+    "/integrations",
+    "/reports",
+    "/team",
+    "/team-chat",
+    "/settings",
+    "/account",
+    "/subscription",
+    "/profile/edit",
+    "/organization",
+  ] as const;
+
+  for (const route of workspaceRoutes) {
+    await openApp(page, route);
+    await expect(
+      page.getByRole("navigation", { name: "Primary navigation" })
+    ).toBeVisible();
+    await expect(page.locator("main#main-content")).toBeVisible();
+    await expect(page.locator("html")).toHaveClass(/relay-density-balanced/);
+  }
+
+  const profileMenu = page.getByRole("button", { name: "Open profile menu" });
+  await profileMenu.click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(profileMenu).toBeFocused();
+
+  const transitionDuration = await page
+    .getByRole("link", { name: "Projects", exact: true })
+    .evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(parseFloat(transitionDuration)).toBeLessThanOrEqual(0.001);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openApp(page, "/projects");
+  const more = page.getByRole("button", { name: "Open more workspace pages" });
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Workspace" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
+
+  await openApp(page, "/privacy");
+  await expect(
+    page.getByRole("navigation", { name: "Primary navigation" })
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy" })
+  ).toBeVisible();
+});
+
 test("chooses a workspace mode on first entry and remembers Local Mode", async ({
   page,
 }) => {
@@ -99,13 +224,11 @@ test("exports and restores a Local Mode backup", async ({ page }) => {
     localStorage.removeItem("video-editing-work-tracker:salary-batches:v1");
   });
   await page.reload();
-  await page
-    .getByLabel("Choose Relay backup")
-    .setInputFiles({
-      name: "relay-backup.json",
-      mimeType: "application/json",
-      buffer: backup,
-    });
+  await page.getByLabel("Choose Relay backup").setInputFiles({
+    name: "relay-backup.json",
+    mimeType: "application/json",
+    buffer: backup,
+  });
   await expect(page.getByRole("status")).toContainText("Imported 1 projects");
   await page.goto("/projects");
   await expect(projectRow(page, title)).toBeVisible();
@@ -253,7 +376,6 @@ test("shows the compact dashboard overview and links to all projects", async ({
         projectTags: ["Job / Salary", "Freelance"],
         theme: "Dark",
         accentColor: "#14B8A6",
-        density: "Comfortable",
       })
     );
     window.localStorage.setItem(
@@ -432,6 +554,14 @@ test("operates the Projects table by keyboard", async ({ page }) => {
   await expect(
     table.getByRole("columnheader", { name: "Client" })
   ).toBeVisible();
+
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Editing projects" })
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Table", exact: true }).click();
+  await expect(table).toBeVisible();
+
   const rows = table.getByTestId("project-row");
   await expect(rows).toHaveCount(2);
 
