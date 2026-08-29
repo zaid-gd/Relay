@@ -25,7 +25,7 @@ Relay is a video workflow workspace designed first for freelance video editors. 
 
 ## Selected direction
 
-The circular concept was selected on 29 August 2026. Its working vector source is [relay-circular-mark.svg](./relay-circular-mark.svg). Keep this draft separate from runtime brand assets until its geometry and wordmark are approved.
+The circular concept was selected on 29 August 2026. Its authoritative vector source is [relay-circular-mark.svg](./relay-circular-mark.svg). The production mark geometry and Geist Sans lockup were approved for the asset contract on 30 August 2026.
 
 ## Brand system
 
@@ -36,3 +36,9 @@ The circular concept was selected on 29 August 2026. Its working vector source i
 - Brand line: "From first cut to final handoff."
 - Image direction: black-and-white editorial video frames, production details, and controlled motion
 - Interface direction: thin rules, square controls, sparse labels, and no decorative card or pill chrome
+
+## Selected marketing direction
+
+Option B, "Product proof," was selected on 30 August 2026. The marketing homepage must lead with a concise centered promise, show a credible Relay workspace above the fold, and follow it with four short workflow principles. On mobile, reduce the workspace preview to a focused project queue instead of shrinking the desktop dashboard.
+
+Ticket 03 may use React Bits as a source for selected marketing interactions. Add components one at a time and keep their source inside the marketing package. Do not add gradients, glow, continuous animation, or effects that fail reduced-motion, keyboard, contrast, or mobile performance checks.

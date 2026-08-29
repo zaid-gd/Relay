@@ -1,0 +1,1160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Relay marketing directions</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --black: #000;
+        --white: #fff;
+        --zinc: #71717a;
+        --line: #27272a;
+        --soft: #a1a1aa;
+        --sans: Geist, "Segoe UI", sans-serif;
+        --mono: "Geist Mono", Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: #111;
+        color: var(--white);
+        font-family: var(--sans);
+        font-synthesis: none;
+      }
+      a {
+        color: inherit;
+      }
+      button,
+      a {
+        outline-offset: 4px;
+      }
+      svg {
+        display: block;
+      }
+      .review-nav {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 22px;
+        background: #111;
+        border-bottom: 1px solid #333;
+      }
+      .review-nav strong {
+        font-size: 14px;
+      }
+      .review-nav div {
+        display: flex;
+        gap: 8px;
+      }
+      .review-nav a {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid #444;
+        text-decoration: none;
+        font: 12px var(--mono);
+      }
+      .review-intro {
+        max-width: 1080px;
+        margin: auto;
+        padding: 72px 24px 48px;
+      }
+      .review-intro p {
+        max-width: 650px;
+        color: #c4c4ca;
+        line-height: 1.6;
+      }
+      .criteria {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-top: 1px solid #333;
+        border-left: 1px solid #333;
+        margin-top: 34px;
+      }
+      .criteria span {
+        padding: 16px;
+        border-right: 1px solid #333;
+        border-bottom: 1px solid #333;
+        font: 11px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .option {
+        max-width: 1440px;
+        margin: 0 auto 96px;
+        padding: 0 24px;
+        scroll-margin-top: 80px;
+      }
+      .option-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 18px;
+      }
+      .option-id {
+        font: 12px var(--mono);
+        color: #d4d4d8;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .option h2 {
+        font-size: clamp(34px, 5vw, 68px);
+        letter-spacing: -0.055em;
+        margin: 8px 0 0;
+      }
+      .tradeoff {
+        max-width: 510px;
+        color: #c4c4ca;
+        line-height: 1.5;
+      }
+      .stage {
+        background: var(--black);
+        border: 1px solid #333;
+        overflow: hidden;
+      }
+      .stage-label {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        font: 10px var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #a1a1aa;
+      }
+      .desktop {
+        min-height: 760px;
+      }
+      .mobile-wrap {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 32px;
+        align-items: start;
+        padding: 32px;
+        background: #18181b;
+        border-top: 1px solid #333;
+      }
+      .phone {
+        width: 260px;
+        min-height: 570px;
+        background: #000;
+        border: 1px solid #3f3f46;
+        overflow: hidden;
+      }
+      .mobile-note {
+        color: #a1a1aa;
+        line-height: 1.6;
+        max-width: 430px;
+      }
+      .mobile-note b {
+        color: #fff;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+      .brand svg {
+        width: 30px;
+        height: 30px;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .navlinks {
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        font-size: 13px;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 18px;
+        background: #fff;
+        color: #000;
+        text-decoration: none;
+        font-weight: 650;
+        font-size: 13px;
+      }
+      .ghost {
+        background: transparent;
+        color: #fff;
+        border: 1px solid #52525b;
+      }
+      .kicker {
+        font: 10px var(--mono);
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: #a1a1aa;
+      }
+      .display {
+        font-size: clamp(58px, 8vw, 122px);
+        letter-spacing: -0.075em;
+        line-height: 0.88;
+        margin: 0;
+      }
+      .body {
+        font-size: 17px;
+        line-height: 1.55;
+        color: #c4c4ca;
+      }
+      .rule {
+        height: 1px;
+        background: #3f3f46;
+      }
+      .workflow {
+        font: 11px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .workflow span {
+        color: #71717a;
+      }
+      .ui {
+        border: 1px solid #3f3f46;
+        background: #09090b;
+      }
+      .ui-head {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid #27272a;
+        font: 10px var(--mono);
+        color: #a1a1aa;
+      }
+      .ui-grid {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        min-height: 360px;
+      }
+      .ui-side {
+        border-right: 1px solid #27272a;
+        padding: 18px 14px;
+      }
+      .ui-side div {
+        padding: 8px 0;
+        font-size: 11px;
+        color: #71717a;
+      }
+      .ui-side .active {
+        color: #fff;
+      }
+      .ui-main {
+        padding: 24px;
+      }
+      .ui-title {
+        font-size: 26px;
+        letter-spacing: -0.04em;
+      }
+      .metric-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin: 24px 0;
+        border-top: 1px solid #27272a;
+        border-left: 1px solid #27272a;
+      }
+      .metric {
+        padding: 18px;
+        border-right: 1px solid #27272a;
+        border-bottom: 1px solid #27272a;
+      }
+      .metric strong {
+        display: block;
+        font-size: 28px;
+      }
+      .metric span {
+        font: 9px var(--mono);
+        color: #71717a;
+        text-transform: uppercase;
+      }
+      .jobs {
+        display: grid;
+        gap: 1px;
+        background: #27272a;
+        border: 1px solid #27272a;
+      }
+      .job {
+        display: grid;
+        grid-template-columns: 1fr 100px 90px;
+        gap: 12px;
+        padding: 12px;
+        background: #09090b;
+        font-size: 11px;
+      }
+      .job span {
+        color: #a1a1aa;
+      }
+      .status {
+        font: 9px var(--mono);
+        text-transform: uppercase;
+      }
+      .a .desktop {
+        padding: 28px 34px 0;
+      }
+      .a .hero {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 52px;
+        align-items: end;
+        padding: 100px 0 72px;
+      }
+      .a .hero-copy {
+        max-width: 820px;
+      }
+      .a .hero-copy .body {
+        max-width: 520px;
+        margin: 28px 0;
+      }
+      .a .actions {
+        display: flex;
+        gap: 10px;
+      }
+      .a .side-brief {
+        padding: 22px 0;
+        border-top: 1px solid #3f3f46;
+      }
+      .a .side-brief p {
+        font-size: 13px;
+        color: #a1a1aa;
+        line-height: 1.6;
+      }
+      .a .flowline {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-top: 1px solid #3f3f46;
+      }
+      .a .flowline div {
+        padding: 20px 0;
+        border-right: 1px solid #3f3f46;
+        font: 11px var(--mono);
+      }
+      .a .flowline div:last-child {
+        border: 0;
+      }
+      .a .flowline b {
+        display: block;
+        color: #71717a;
+        margin-bottom: 8px;
+      }
+      .a .proof {
+        display: grid;
+        grid-template-columns: 0.68fr 1.32fr;
+        gap: 38px;
+        padding: 70px 0;
+      }
+      .a .proof-copy h3 {
+        font-size: 36px;
+        letter-spacing: -0.05em;
+        margin: 12px 0;
+      }
+      .a .proof-copy p {
+        color: #a1a1aa;
+        line-height: 1.6;
+      }
+      .a .phone {
+        padding: 18px 16px;
+      }
+      .a .phone .topbar .navlinks {
+        display: none;
+      }
+      .a .phone .display {
+        font-size: 48px;
+        margin-top: 72px;
+      }
+      .a .phone .body {
+        font-size: 13px;
+        margin: 20px 0 28px;
+      }
+      .a .phone .flowline {
+        grid-template-columns: 1fr 1fr;
+        margin-top: 62px;
+      }
+      .a .phone .flowline div {
+        font-size: 8px;
+        padding: 12px 0;
+      }
+      .b .desktop {
+        padding: 28px 34px;
+      }
+      .b .hero {
+        text-align: center;
+        padding: 78px 0 46px;
+      }
+      .b .hero .display {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      .b .hero .body {
+        max-width: 620px;
+        margin: 26px auto;
+      }
+      .b .hero .actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+      }
+      .b .product-frame {
+        max-width: 1120px;
+        margin: 16px auto 0;
+        padding: 8px;
+        border: 1px solid #3f3f46;
+      }
+      .b .principles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1120px;
+        margin: 44px auto 0;
+        border-top: 1px solid #3f3f46;
+      }
+      .b .principles div {
+        padding: 22px;
+        border-right: 1px solid #3f3f46;
+      }
+      .b .principles div:last-child {
+        border: 0;
+      }
+      .b .principles b {
+        font-size: 13px;
+      }
+      .b .principles p {
+        font-size: 11px;
+        color: #71717a;
+        line-height: 1.5;
+      }
+      .b .phone {
+        padding: 18px 14px;
+      }
+      .b .phone .navlinks {
+        display: none;
+      }
+      .b .phone .hero {
+        padding: 55px 0 30px;
+      }
+      .b .phone .display {
+        font-size: 43px;
+      }
+      .b .phone .body {
+        font-size: 12px;
+      }
+      .b .phone .product-frame {
+        padding: 4px;
+      }
+      .b .phone .ui-grid {
+        display: block;
+        min-height: auto;
+      }
+      .b .phone .ui-side {
+        display: none;
+      }
+      .b .phone .ui-main {
+        padding: 12px;
+      }
+      .b .phone .metric-row {
+        grid-template-columns: 1fr;
+      }
+      .b .phone .metric:nth-child(n + 2) {
+        display: none;
+      }
+      .b .phone .jobs .job {
+        grid-template-columns: 1fr 60px;
+      }
+      .b .phone .jobs .job span:last-child {
+        display: none;
+      }
+      .c .desktop {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        min-height: 800px;
+      }
+      .c .rail {
+        padding: 28px 30px;
+        border-right: 1px solid #27272a;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .c .rail nav {
+        display: grid;
+        gap: 14px;
+        font: 11px var(--mono);
+        text-transform: uppercase;
+        color: #71717a;
+      }
+      .c .rail nav b {
+        color: #fff;
+      }
+      .c .rail .body {
+        font-size: 14px;
+      }
+      .c .chapters {
+        padding: 30px 40px 70px;
+      }
+      .c .chapter {
+        display: grid;
+        grid-template-columns: 80px 1fr 250px;
+        gap: 30px;
+        padding: 64px 0;
+        border-bottom: 1px solid #27272a;
+        align-items: start;
+      }
+      .c .chapter:last-child {
+        border: 0;
+      }
+      .c .num {
+        font: 11px var(--mono);
+        color: #71717a;
+      }
+      .c .chapter h3 {
+        font-size: 50px;
+        letter-spacing: -0.055em;
+        line-height: 0.95;
+        margin: 0;
+      }
+      .c .chapter p {
+        color: #a1a1aa;
+        line-height: 1.6;
+        margin: 0;
+      }
+      .c .finish {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        padding-top: 70px;
+      }
+      .c .finish h2 {
+        max-width: 700px;
+      }
+      .c .phone {
+        padding: 18px 16px;
+      }
+      .c .phone .navlinks {
+        display: none;
+      }
+      .c .phone .display {
+        font-size: 43px;
+        margin: 60px 0 32px;
+      }
+      .c .phone .chapter {
+        display: block;
+        padding: 26px 0;
+      }
+      .c .phone .chapter h3 {
+        font-size: 28px;
+        margin: 10px 0;
+      }
+      .c .phone .chapter p {
+        font-size: 11px;
+      }
+      .c .phone .finish {
+        display: block;
+        padding-top: 38px;
+      }
+      .c .phone .finish .cta {
+        margin-top: 22px;
+      }
+      .comparison {
+        max-width: 1080px;
+        margin: 0 auto 100px;
+        padding: 0 24px;
+      }
+      .comparison h2 {
+        font-size: 42px;
+        letter-spacing: -0.05em;
+      }
+      .compare-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid #3f3f46;
+        border-left: 1px solid #3f3f46;
+      }
+      .compare-grid article {
+        padding: 24px;
+        border-right: 1px solid #3f3f46;
+        border-bottom: 1px solid #3f3f46;
+      }
+      .compare-grid h3 {
+        font-size: 20px;
+      }
+      .compare-grid p {
+        color: #a1a1aa;
+        line-height: 1.5;
+        font-size: 14px;
+      }
+      .choose {
+        padding: 36px 24px;
+        background: #000;
+        text-align: center;
+        border-top: 1px solid #333;
+      }
+      .choose p {
+        color: #a1a1aa;
+      }
+      @media (max-width: 760px) {
+        .review-nav {
+          padding: 10px 12px;
+        }
+        .review-intro {
+          padding: 48px 16px 32px;
+        }
+        .criteria {
+          grid-template-columns: 1fr 1fr;
+        }
+        .option {
+          padding: 0 10px;
+          margin-bottom: 64px;
+        }
+        .option-head {
+          display: block;
+        }
+        .tradeoff {
+          font-size: 14px;
+        }
+        .desktop {
+          display: none !important;
+        }
+        .mobile-wrap {
+          display: block;
+          padding: 20px;
+        }
+        .phone {
+          margin: auto;
+        }
+        .mobile-note {
+          margin: 24px auto 0;
+        }
+        .compare-grid {
+          grid-template-columns: 1fr;
+        }
+        .option h2 {
+          font-size: 38px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+      <defs>
+        <mask id="relay-cut">
+          <rect width="100" height="100" fill="white" />
+          <path
+            d="M-8 33h46c9 0 13 6 20 12l6 5h44M-8 67h46c9 0 13-6 20-12l6-5h44"
+            fill="none"
+            stroke="black"
+            stroke-width="10"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </mask>
+        <symbol id="relay-mark" viewBox="0 0 100 100">
+          <circle
+            cx="50"
+            cy="50"
+            r="46"
+            fill="currentColor"
+            mask="url(#relay-cut)"
+          />
+        </symbol>
+      </defs>
+    </svg>
+    <nav class="review-nav" aria-label="Direction navigation">
+      <strong>Relay marketing review</strong>
+      <div>
+        <a href="#a">A</a><a href="#b">B</a><a href="#c">C</a
+        ><a href="#compare">Compare</a>
+      </div>
+    </nav>
+    <header class="review-intro">
+      <div class="option-id">Decision artifact · 30 August 2026</div>
+      <h1>Choose the page structure.</h1>
+      <p>
+        All three directions use the same approved Relay mark, product facts,
+        palette, typography, brand line, and primary action. The choice is about
+        what a visitor understands first.
+      </p>
+      <div class="criteria">
+        <span>True black + white</span><span>Geist Sans + Mono</span
+        ><span>Desktop + mobile</span><span>No continuous motion</span>
+      </div>
+    </header>
+
+    <section class="option a" id="a">
+      <header class="option-head">
+        <div>
+          <div class="option-id">Option A</div>
+          <h2>Cutline editorial</h2>
+        </div>
+        <p class="tradeoff">
+          Leads with Relay's promise and a clear four-step workflow. Strongest
+          story, with less product detail above the fold.
+        </p>
+      </header>
+      <div class="stage">
+        <div class="stage-label">
+          <span>Desktop · 1440</span><span>Direction A</span>
+        </div>
+        <div class="desktop">
+          <div class="topbar">
+            <div class="brand">
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <defs>
+                  <mask id="ma">
+                    <rect width="100" height="100" fill="white" />
+                    <path
+                      d="M-8 33h46c9 0 13 6 20 12l6 5h44M-8 67h46c9 0 13-6 20-12l6-5h44"
+                      fill="none"
+                      stroke="black"
+                      stroke-width="10"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </mask>
+                </defs>
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="46"
+                  fill="white"
+                  mask="url(#ma)"
+                /></svg
+              >Relay
+            </div>
+            <div class="navlinks">
+              <span>Workflow</span><span>For editors</span><span>Sign in</span
+              ><a class="cta" href="#">Start a workspace</a>
+            </div>
+          </div>
+          <div class="hero">
+            <div class="hero-copy">
+              <div class="kicker">Video workflow workspace</div>
+              <h2 class="display">From first cut to final handoff.</h2>
+              <p class="body">
+                Relay keeps projects, revisions, client feedback, files,
+                deadlines, and delivery in one production record.
+              </p>
+              <div class="actions">
+                <a class="cta" href="#">Start a workspace</a
+                ><a class="cta ghost" href="#">See the workflow</a>
+              </div>
+            </div>
+            <aside class="side-brief">
+              <div class="kicker">Built for the edit</div>
+              <p>
+                For freelance video editors and small teams who need the next
+                production step to stay clear.
+              </p>
+              <div class="rule"></div>
+              <p class="workflow">
+                01 Brief &nbsp; 02 Cut &nbsp; 03 Review &nbsp; 04 Handoff
+              </p>
+            </aside>
+          </div>
+          <div class="flowline">
+            <div><b>01</b>Brief and plan</div>
+            <div><b>02</b>Track the cut</div>
+            <div><b>03</b>Resolve feedback</div>
+            <div><b>04</b>Deliver cleanly</div>
+          </div>
+          <div class="proof">
+            <div class="proof-copy">
+              <div class="kicker">One production record</div>
+              <h3>Know what changed, what is blocked, and what ships next.</h3>
+              <p>
+                Relay connects the schedule, files, versions, comments,
+                approvals, and handoff.
+              </p>
+            </div>
+            <div class="ui">
+              <div class="ui-head">
+                <span>Project / Atlas launch</span><span>In review</span>
+              </div>
+              <div class="ui-grid">
+                <div class="ui-side">
+                  <div class="active">Overview</div>
+                  <div>Files</div>
+                  <div>Reviews</div>
+                  <div>Timeline</div>
+                </div>
+                <div class="ui-main">
+                  <div class="ui-title">Atlas launch film</div>
+                  <div class="metric-row">
+                    <div class="metric">
+                      <strong>03</strong><span>Open cuts</span>
+                    </div>
+                    <div class="metric">
+                      <strong>08</strong><span>Notes resolved</span>
+                    </div>
+                    <div class="metric">
+                      <strong>Fri</strong><span>Final handoff</span>
+                    </div>
+                  </div>
+                  <div class="jobs">
+                    <div class="job">
+                      <b>Final colour pass</b><span>Today</span
+                      ><b class="status">In progress</b>
+                    </div>
+                    <div class="job">
+                      <b>Client review v4</b><span>Tomorrow</span
+                      ><b class="status">Ready</b>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-wrap">
+          <div class="phone">
+            <div class="topbar">
+              <div class="brand">
+                <svg aria-hidden="true"><use href="#relay-mark" /></svg>Relay
+              </div>
+              <div class="kicker">Menu</div>
+            </div>
+            <div class="kicker">Video workflow workspace</div>
+            <h3 class="display">From first cut to final handoff.</h3>
+            <p class="body">
+              Projects, revisions, feedback, files, deadlines, and delivery in
+              one record.
+            </p>
+            <a class="cta" href="#">Start a workspace</a>
+            <div class="flowline">
+              <div><b>01</b>Brief</div>
+              <div><b>02</b>Cut</div>
+              <div><b>03</b>Review</div>
+              <div><b>04</b>Handoff</div>
+            </div>
+          </div>
+          <p class="mobile-note">
+            <b>Mobile rule.</b> The story collapses into one clear promise, one
+            action, then the four production stages. Nothing needs horizontal
+            scrolling.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="option b" id="b">
+      <header class="option-head">
+        <div>
+          <div class="option-id">Option B · Selected 30 August 2026</div>
+          <h2>Product proof</h2>
+        </div>
+        <p class="tradeoff">
+          Shows the workspace first and makes the product easier to judge. The
+          emotional brand statement has less room to dominate.
+        </p>
+      </header>
+      <div class="stage">
+        <div class="stage-label">
+          <span>Desktop · 1440</span><span>Direction B</span>
+        </div>
+        <div class="desktop">
+          <div class="topbar">
+            <div class="brand">
+              <svg aria-hidden="true"><use href="#relay-mark" /></svg>Relay
+            </div>
+            <div class="navlinks">
+              <span>Product</span><span>Workflow</span><span>Sign in</span
+              ><a class="cta" href="#">Start a workspace</a>
+            </div>
+          </div>
+          <div class="hero">
+            <div class="kicker">A production workspace for video editors</div>
+            <h2 class="display">Keep every edit moving.</h2>
+            <p class="body">
+              From first cut to final handoff. Relay gives freelance editors and
+              small teams one place to plan work, manage review, and deliver.
+            </p>
+            <div class="actions">
+              <a class="cta" href="#">Start a workspace</a
+              ><a class="cta ghost" href="#">View product</a>
+            </div>
+          </div>
+          <div class="product-frame">
+            <div class="ui">
+              <div class="ui-head">
+                <span>Relay / Production overview</span
+                ><span>Monday · 09:41</span>
+              </div>
+              <div class="ui-grid">
+                <div class="ui-side">
+                  <div class="active">Home</div>
+                  <div>Projects</div>
+                  <div>Calendar</div>
+                  <div>Files</div>
+                  <div>Reports</div>
+                </div>
+                <div class="ui-main">
+                  <div class="ui-title">Good morning, Jordan.</div>
+                  <div class="metric-row">
+                    <div class="metric">
+                      <strong>06</strong><span>Active projects</span>
+                    </div>
+                    <div class="metric">
+                      <strong>03</strong><span>Awaiting review</span>
+                    </div>
+                    <div class="metric">
+                      <strong>02</strong><span>Due this week</span>
+                    </div>
+                  </div>
+                  <div class="jobs">
+                    <div class="job">
+                      <b>Atlas launch film</b><span>Client review</span
+                      ><b class="status">Tomorrow</b>
+                    </div>
+                    <div class="job">
+                      <b>Northline social cut</b><span>Fine cut</span
+                      ><b class="status">Thursday</b>
+                    </div>
+                    <div class="job">
+                      <b>Field notes episode</b><span>Handoff</span
+                      ><b class="status">Friday</b>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="principles">
+            <div>
+              <b>Plan the edit</b>
+              <p>Briefs, dates, stages, and ownership.</p>
+            </div>
+            <div>
+              <b>Review in context</b>
+              <p>Versions, comments, and approval state.</p>
+            </div>
+            <div>
+              <b>Keep files attached</b>
+              <p>Working media and delivery links.</p>
+            </div>
+            <div>
+              <b>Finish the handoff</b>
+              <p>Know what is ready and what remains.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-wrap">
+          <div class="phone">
+            <div class="topbar">
+              <div class="brand">
+                <svg aria-hidden="true"><use href="#relay-mark" /></svg>Relay
+              </div>
+              <div class="kicker">Menu</div>
+            </div>
+            <div class="hero">
+              <div class="kicker">For video editors</div>
+              <h3 class="display">Keep every edit moving.</h3>
+              <p class="body">From first cut to final handoff.</p>
+              <a class="cta" href="#">Start a workspace</a>
+            </div>
+            <div class="product-frame">
+              <div class="ui">
+                <div class="ui-head">
+                  <span>Production overview</span><span>09:41</span>
+                </div>
+                <div class="ui-grid">
+                  <div class="ui-main">
+                    <div class="metric-row">
+                      <div class="metric">
+                        <strong>06</strong><span>Active projects</span>
+                      </div>
+                    </div>
+                    <div class="jobs">
+                      <div class="job">
+                        <b>Atlas launch</b><span>Review</span>
+                      </div>
+                      <div class="job">
+                        <b>Northline</b><span>Fine cut</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mobile-note">
+            <b>Mobile rule.</b> The product proof stays above the fold. The
+            desktop workspace becomes a focused project queue instead of a
+            squeezed dashboard.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="option c" id="c">
+      <header class="option-head">
+        <div>
+          <div class="option-id">Option C</div>
+          <h2>Production sequence</h2>
+        </div>
+        <p class="tradeoff">
+          Explains Relay through the editor's real sequence. Best for depth and
+          differentiation, but asks the visitor to scroll before seeing the full
+          product picture.
+        </p>
+      </header>
+      <div class="stage">
+        <div class="stage-label">
+          <span>Desktop · 1440</span><span>Direction C</span>
+        </div>
+        <div class="desktop">
+          <aside class="rail">
+            <div class="brand">
+              <svg aria-hidden="true"><use href="#relay-mark" /></svg>Relay
+            </div>
+            <nav>
+              <b>01 Brief</b><span>02 Cut</span><span>03 Review</span
+              ><span>04 Handoff</span>
+            </nav>
+            <div>
+              <p class="body">
+                A video workflow workspace for freelance editors and small
+                teams.
+              </p>
+              <a class="cta" href="#">Start a workspace</a>
+            </div>
+          </aside>
+          <main class="chapters">
+            <div class="topbar">
+              <div class="kicker">From first cut to final handoff.</div>
+              <div class="navlinks">
+                <span>Product</span><span>Sign in</span>
+              </div>
+            </div>
+            <div class="chapter">
+              <span class="num">01 / Brief</span>
+              <h3>Start with the work, not a blank board.</h3>
+              <p>
+                Keep the client, deliverables, dates, references, and production
+                stages attached to one project.
+              </p>
+            </div>
+            <div class="chapter">
+              <span class="num">02 / Cut</span>
+              <h3>See the next edit before it becomes late.</h3>
+              <p>
+                Track ownership, files, versions, and deadlines without
+                rebuilding the workflow for each job.
+              </p>
+            </div>
+            <div class="chapter">
+              <span class="num">03 / Review</span>
+              <h3>Keep feedback beside the version it changes.</h3>
+              <p>
+                Collect review notes, resolve decisions, and keep approval state
+                clear.
+              </p>
+            </div>
+            <div class="chapter">
+              <span class="num">04 / Handoff</span>
+              <h3>Finish with a clean record.</h3>
+              <p>
+                Deliver the approved work with its files, links, dates, and
+                history intact.
+              </p>
+            </div>
+            <div class="finish">
+              <h2 class="display">Every edit has a next step.</h2>
+              <a class="cta" href="#">Start a workspace</a>
+            </div>
+          </main>
+        </div>
+        <div class="mobile-wrap">
+          <div class="phone">
+            <div class="topbar">
+              <div class="brand">
+                <svg aria-hidden="true"><use href="#relay-mark" /></svg>Relay
+              </div>
+              <div class="kicker">Menu</div>
+            </div>
+            <h3 class="display">Every edit has a next step.</h3>
+            <div class="chapter">
+              <span class="num">01 / Brief</span>
+              <h3>Start with the work.</h3>
+              <p>Client, deliverables, dates, and references stay together.</p>
+            </div>
+            <div class="chapter">
+              <span class="num">02 / Cut</span>
+              <h3>Know what moves next.</h3>
+              <p>Track ownership, versions, and deadlines.</p>
+            </div>
+            <div class="chapter">
+              <span class="num">03 / Review</span>
+              <h3>Resolve feedback.</h3>
+              <p>Keep notes beside the version they change.</p>
+            </div>
+            <div class="finish">
+              <div class="kicker">From first cut to final handoff.</div>
+              <a class="cta" href="#">Start a workspace</a>
+            </div>
+          </div>
+          <p class="mobile-note">
+            <b>Mobile rule.</b> The fixed desktop chapter rail becomes a plain
+            sequence. Each section stays short enough to scan with one thumb.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="comparison" id="compare">
+      <div class="option-id">Direct comparison</div>
+      <h2>What should lead?</h2>
+      <div class="compare-grid">
+        <article>
+          <div class="option-id">A</div>
+          <h3>The promise</h3>
+          <p>
+            Choose Cutline editorial if the first job is to explain Relay's
+            place in an edit from start to finish.
+          </p>
+        </article>
+        <article>
+          <div class="option-id">B</div>
+          <h3>The product</h3>
+          <p>
+            Choose Product proof if visitors need to judge the workspace before
+            they read the full story.
+          </p>
+        </article>
+        <article>
+          <div class="option-id">C</div>
+          <h3>The process</h3>
+          <p>
+            Choose Production sequence if Relay should teach its value through
+            the editor's actual working order.
+          </p>
+        </article>
+      </div>
+    </section>
+    <footer class="choose">
+      <div class="option-id">Selection recorded</div>
+      <h2>Option B. Product proof.</h2>
+      <p>This structure is the binding target for Ticket 03.</p>
+    </footer>
+  </body>
+</html>
