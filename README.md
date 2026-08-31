@@ -134,6 +134,13 @@ pnpm deploy
 
 Cloudflare Workers Builds must run `pnpm exec opennextjs-cloudflare build` as the build command and `pnpm exec wrangler deploy` as the deploy command. Do not run `next build` alone; that skips the Worker bundle.
 
+Create two Workers Builds projects from this repository:
+
+| Worker            | Root directory | Build command                           | Deploy command              |
+| ----------------- | -------------- | --------------------------------------- | --------------------------- |
+| `relay-web`       | `/`            | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+| `relay-marketing` | `/website`     | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+
 Set these in the Worker environment:
 
 - `NEXT_PUBLIC_CONVEX_URL`
