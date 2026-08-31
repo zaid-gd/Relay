@@ -1,16 +1,13 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "relay",
+  "name": "relay-marketing-page",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-07",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
   "workers_dev": true,
   "vars": {
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsucmVsYXktYXBwLmNjLmNkJA",
     "NEXT_PUBLIC_CONVEX_URL": "https://spotted-pheasant-146.convex.cloud",
-    "NEXT_PUBLIC_FILE_STORAGE_PROVIDER": "convex",
-    "NEXT_PUBLIC_SITE_URL": "https://relay-app.cc.cd",
   },
   "assets": {
     "directory": ".open-next/assets",
@@ -24,11 +21,6 @@
       "head_sampling_rate": 1,
       "persist": true,
       "invocation_logs": true,
-    },
-    "traces": {
-      "enabled": false,
-      "persist": true,
-      "head_sampling_rate": 1,
     },
   },
 }

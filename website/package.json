@@ -5,10 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "start": "next start",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "1.20.2",
     "@gsap/react": "^2.1.2",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
@@ -16,7 +20,7 @@
     "lucide-react": "^1.37.0",
     "maath": "^0.10.8",
     "motion": "^12.43.0",
-    "next": "16.2.7",
+    "next": "16.3.2",
     "ogl": "^1.0.11",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -36,6 +40,7 @@
     "@types/three": "^0.185.4",
     "jsrepo": "^3.8.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wrangler": "^4.120.0"
   }
 }
