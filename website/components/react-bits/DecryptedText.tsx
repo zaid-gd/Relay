@@ -19,6 +19,14 @@ interface DecryptedTextProps extends HTMLMotionProps<"span"> {
 
 type Direction = "forward" | "reverse";
 
+function getInitialEncryptedText(text: string, characters: string) {
+  const pool = characters || "_";
+  return text
+    .split("")
+    .map((char, index) => (char === " " ? " " : pool[index % pool.length]))
+    .join("");
+}
+
 export default function DecryptedText({
   text,
   speed = 50,
@@ -34,14 +42,17 @@ export default function DecryptedText({
   clickMode = "once",
   ...props
 }: DecryptedTextProps) {
-  const [displayText, setDisplayText] = useState<string>(text);
+  const startsEncrypted = animateOn === "click" || animateOn === "view";
+  const [displayText, setDisplayText] = useState<string>(() =>
+    startsEncrypted ? getInitialEncryptedText(text, characters) : text
+  );
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [revealedIndices, setRevealedIndices] = useState<Set<number>>(
     new Set()
   );
   const [hasAnimated, setHasAnimated] = useState<boolean>(false);
   const [isDecrypted, setIsDecrypted] = useState<boolean>(
-    animateOn !== "click"
+    animateOn !== "click" && animateOn !== "view"
   );
   const [direction, setDirection] = useState<Direction>("forward");
 
@@ -359,7 +370,7 @@ export default function DecryptedText({
   }, [animateOn, hasAnimated, triggerDecrypt]);
 
   useEffect(() => {
-    if (animateOn === "click") {
+    if (animateOn === "click" || animateOn === "view") {
       encryptInstantly();
     } else {
       setDisplayText(text);
@@ -388,7 +399,7 @@ export default function DecryptedText({
       {...animateProps}
       {...props}
     >
-      <span className="sr-only">{displayText}</span>
+      <span className="sr-only">{text}</span>
 
       <span aria-hidden="true">
         {displayText.split("").map((char, index) => {

@@ -10,6 +10,7 @@
 
 import type * as clientPortals from "../clientPortals.js";
 import type * as domainValidators from "../domainValidators.js";
+import type * as http from "../http.js";
 import type * as mediaVersionComments from "../mediaVersionComments.js";
 import type * as projectActivity from "../projectActivity.js";
 import type * as projectFiles from "../projectFiles.js";
@@ -23,6 +24,7 @@ import type * as resourceLinks from "../resourceLinks.js";
 import type * as salaryPlans from "../salaryPlans.js";
 import type * as settings from "../settings.js";
 import type * as team from "../team.js";
+import type * as waitlist from "../waitlist.js";
 import type * as workspaceDiscovery from "../workspaceDiscovery.js";
 
 import type {
@@ -34,6 +36,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   clientPortals: typeof clientPortals;
   domainValidators: typeof domainValidators;
+  http: typeof http;
   mediaVersionComments: typeof mediaVersionComments;
   projectActivity: typeof projectActivity;
   projectFiles: typeof projectFiles;
@@ -47,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   salaryPlans: typeof salaryPlans;
   settings: typeof settings;
   team: typeof team;
+  waitlist: typeof waitlist;
   workspaceDiscovery: typeof workspaceDiscovery;
 }>;
 

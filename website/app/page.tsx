@@ -16,6 +16,7 @@ import FluidGlass from "../components/react-bits/FluidGlass";
 import GradualBlur from "../components/react-bits/GradualBlur";
 import LaserFlow from "../components/react-bits/LaserFlow";
 import MagicRings from "../components/react-bits/MagicRings";
+import SpecularButton from "../components/react-bits/SpecularButton";
 import Threads from "../components/react-bits/Threads";
 
 export default function Home() {
@@ -34,6 +35,11 @@ export default function Home() {
     const timer = window.setTimeout(() => setLoading(false), 1500);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("is-site-loading", loading);
+    return () => document.documentElement.classList.remove("is-site-loading");
+  }, [loading]);
 
   return (
     <div className={loading ? "site is-loading" : "site is-ready"} id="top">
@@ -75,9 +81,9 @@ export default function Home() {
         <nav className="site-nav" aria-label="Main navigation">
           <a href="#product">Product</a>
           <a href="#pricing">Pricing</a>
-          <a className="nav-action" href="#product">
-            View workspace
-          </a>
+          <SpecularButton className="nav-action" href="/waitlist">
+            Join waitlist
+          </SpecularButton>
         </nav>
       </motion.header>
 
@@ -106,9 +112,9 @@ export default function Home() {
                 Plan work, collect client feedback, and deliver the right cut
                 from one focused workspace.
               </p>
-              <a className="hero-action" href="#product">
-                View the workspace
-              </a>
+              <SpecularButton className="hero-action" href="/waitlist">
+                Join the waitlist
+              </SpecularButton>
             </div>
           </div>
 
@@ -185,7 +191,7 @@ export default function Home() {
       <GradualBlur
         position="top"
         strength={2.8}
-        height="8rem"
+        height="4.5rem"
         divCount={8}
         curve="bezier"
         exponential
@@ -197,7 +203,7 @@ export default function Home() {
       <GradualBlur
         position="bottom"
         strength={2.7}
-        height="9rem"
+        height="4.5rem"
         divCount={9}
         curve="bezier"
         exponential
@@ -206,29 +212,28 @@ export default function Home() {
         className="page-scroll-blur"
       />
 
-      {loading ? (
-        <div
-          className="loading-screen"
-          role="status"
-          aria-label="Loading Relay"
-        >
-          <div className="loading-copy" aria-hidden="true">
-            <small>Starting production workspace</small>
-            <DecryptedText
-              text="LOADING RELAY"
-              speed={42}
-              sequential
-              revealDirection="start"
-              animateOn="view"
-              characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ_01"
-              className="loading-resolved"
-              encryptedClassName="loading-encrypted"
-              parentClassName="loading-decrypted"
-            />
-            <small>FRAME 041 / 068</small>
-          </div>
+      <div
+        className={`loading-screen ${loading ? "is-visible" : "is-leaving"}`}
+        role="status"
+        aria-label="Loading Relay"
+        aria-hidden={!loading}
+      >
+        <div className="loading-copy" aria-hidden="true">
+          <small>Starting production workspace</small>
+          <DecryptedText
+            text="LOADING RELAY"
+            speed={42}
+            sequential
+            revealDirection="start"
+            animateOn="view"
+            characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ_01"
+            className="loading-resolved"
+            encryptedClassName="loading-encrypted"
+            parentClassName="loading-decrypted"
+          />
+          <small>FRAME 041 / 068</small>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

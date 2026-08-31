@@ -18,7 +18,9 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import GradientBlinds from "./react-bits/GradientBlinds";
 import { MagicBentoSurface } from "./react-bits/MagicBento";
+import SpecularButton from "./react-bits/SpecularButton";
 import SplitText from "./react-bits/SplitText";
 import Stepper, { Step } from "./react-bits/Stepper";
 
@@ -77,7 +79,7 @@ const plans = [
       "External video embeds",
     ],
     note: null,
-    cta: "Start free",
+    cta: "Join waitlist",
   },
   {
     name: "Creator",
@@ -94,7 +96,7 @@ const plans = [
       "Client Hub and custom portal branding",
     ],
     note: null,
-    cta: "Start free trial",
+    cta: "Join waitlist",
   },
   {
     name: "Team",
@@ -112,7 +114,7 @@ const plans = [
       "Free Viewer access",
     ],
     note: "Extra Editor seats cost $5/month and add 2 GB of shared storage.",
-    cta: "Choose Team",
+    cta: "Join waitlist",
   },
 ] as const;
 
@@ -742,26 +744,34 @@ export default function ProductStory() {
       >
         <div className="story-heading">
           <p className="story-index">05 / Pricing</p>
-          <SectionTitle>Start free.</SectionTitle>
-          <p>Use the full production line now. Upgrade when the team grows.</p>
+          <SectionTitle>Plans for launch.</SectionTitle>
+          <p>
+            Early access storage, limits, and features may differ from these
+            planned tiers.
+          </p>
         </div>
         <div className="pricing-grid">
-          {plans.map((plan, index) => (
+          {plans.map((plan) => (
             <article
-              className={`price-plan${index === 0 ? " is-live" : ""}`}
+              className={`price-plan${plan.name === "Creator" ? " is-featured" : ""}`}
               key={plan.name}
             >
+              {plan.name === "Creator" ? (
+                <div className="plan-badge">Best value</div>
+              ) : null}
               <span>{plan.name}</span>
               <strong>
                 {plan.price}
                 <small>{plan.billing}</small>
               </strong>
-              {plan.annual ? (
-                <div className="plan-status">or {plan.annual}</div>
-              ) : null}
-              {plan.trial ? (
-                <div className="plan-trial">{plan.trial}</div>
-              ) : null}
+              <div className="plan-billing-meta">
+                {plan.annual ? (
+                  <div className="plan-status">or {plan.annual}</div>
+                ) : null}
+                {plan.trial ? (
+                  <div className="plan-trial">{plan.trial}</div>
+                ) : null}
+              </div>
               <p>{plan.description}</p>
               <ul>
                 {plan.features.map((feature) => (
@@ -774,15 +784,30 @@ export default function ProductStory() {
               {plan.note ? (
                 <small className="plan-note">{plan.note}</small>
               ) : null}
-              <a href="#top">
+              <SpecularButton href="/waitlist">
                 {plan.cta} <ArrowRight size={15} />
-              </a>
+              </SpecularButton>
             </article>
           ))}
         </div>
       </section>
 
       <footer className="story-footer">
+        <GradientBlinds
+          className="footer-gradient-blinds"
+          gradientColors={["#C4FF9F", "#30FF27"]}
+          angle={20}
+          noise={0.5}
+          blindCount={16}
+          blindMinWidth={60}
+          spotlightRadius={0.5}
+          spotlightSoftness={1}
+          spotlightOpacity={1}
+          mouseDampening={0.15}
+          distortAmount={0}
+          shineDirection="left"
+          mixBlendMode="lighten"
+        />
         <div className="footer-main">
           <div className="footer-statement">
             <a className="footer-brand" href="#top" aria-label="Relay home">
@@ -800,9 +825,9 @@ export default function ProductStory() {
               Projects, client notes, approvals, and delivery in one production
               workspace.
             </p>
-            <a href="#top">
-              View the workspace <ArrowRight size={17} />
-            </a>
+            <SpecularButton href="/waitlist">
+              Join the waitlist <ArrowRight size={17} />
+            </SpecularButton>
             <nav className="footer-socials" aria-label="Social links">
               <a
                 href="https://www.instagram.com/zns.studios/"

@@ -19,6 +19,7 @@ import {
   storedProjectStatusValidator,
   storedTeamRoleValidator,
   teamActivityKindValidator,
+  waitlistAudienceValidator,
   workflowStageValidator,
 } from "./domainValidators";
 
@@ -597,4 +598,13 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
   }).index("by_userId", ["userId"]),
+
+  waitlistSignups: defineTable({
+    name: v.string(),
+    email: v.string(),
+    audience: waitlistAudienceValidator,
+    source: v.literal("marketing_site"),
+    status: v.literal("pending"),
+    submittedAt: v.number(),
+  }).index("by_email", ["email"]),
 });
