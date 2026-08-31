@@ -100,20 +100,20 @@ Local work can be imported once into a new empty cloud account. Existing cloud w
 
 ## Development
 
-Requires Node.js 22+.
+Requires Node.js 22+ and pnpm 10.11.1.
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Useful commands:
 
 ```bash
-npm run lint          # TypeScript check
-npm run check         # Lint, build, audit, UI allowlist
-npm run test:e2e      # Playwright journeys
-npm run verify        # Route and source-invariant checks
+pnpm lint          # TypeScript check
+pnpm check         # Lint, build, audit, UI allowlist
+pnpm test:e2e      # Playwright journeys
+pnpm verify        # Route and source-invariant checks
 ```
 
 ## Cloudflare Deployment
@@ -123,16 +123,16 @@ The app deploys to Cloudflare Workers through OpenNext; it is not a static uploa
 For a local Worker preview:
 
 ```bash
-npm run preview
+pnpm preview
 ```
 
 To deploy from a machine authenticated with Wrangler:
 
 ```bash
-npm run deploy
+pnpm deploy
 ```
 
-Cloudflare Workers Builds must run `npx opennextjs-cloudflare build` and `npx opennextjs-cloudflare deploy`. Do not chain `next build` with `wrangler deploy`; that skips the Worker bundle.
+Cloudflare Workers Builds must run `pnpm exec opennextjs-cloudflare build` as the build command and `pnpm exec wrangler deploy` as the deploy command. Do not run `next build` alone; that skips the Worker bundle.
 
 Set these in the Worker environment:
 

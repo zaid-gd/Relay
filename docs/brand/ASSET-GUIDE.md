@@ -2,7 +2,7 @@
 
 The approved source is [`relay-circular-mark.svg`](./relay-circular-mark.svg). The build script copies its geometry into each production SVG and renders every PNG from those SVGs. Do not trace the mark from `relay-brand-kit.png`. That board guides composition, type, and image choices only.
 
-Run `npm run brand:build` after changing the approved SVG. Run `npm run verify:brand-assets` before using or shipping an export.
+Run `pnpm brand:build` after changing the approved SVG. Run `pnpm verify:brand-assets` before using or shipping an export.
 
 ## Usage
 

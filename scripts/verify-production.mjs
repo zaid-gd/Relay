@@ -6,19 +6,25 @@ const startupTimeoutMs = 30_000;
 
 const port = await getOpenPort();
 const baseUrl = `http://localhost:${port}`;
-const serverCommand = process.platform === "win32" ? "cmd.exe" : "npm";
-const serverArgs = process.platform === "win32"
-  ? ["/d", "/s", "/c", `npm run start -- -p ${port}`]
-  : ["run", "start", "--", "-p", String(port)];
-const accessPassword = process.env.ACCESS_WALL_PASSWORD || "frame-desk-production-verifier";
+const serverCommand = process.platform === "win32" ? "cmd.exe" : "pnpm";
+const serverArgs =
+  process.platform === "win32"
+    ? ["/d", "/s", "/c", `pnpm start -- -p ${port}`]
+    : ["run", "start", "--", "-p", String(port)];
+const accessPassword =
+  process.env.ACCESS_WALL_PASSWORD || "frame-desk-production-verifier";
 
 let server;
 
 try {
   server = spawn(serverCommand, serverArgs, {
-    env: { ...process.env, ACCESS_WALL_PASSWORD: accessPassword, PORT: String(port) },
+    env: {
+      ...process.env,
+      ACCESS_WALL_PASSWORD: accessPassword,
+      PORT: String(port),
+    },
     stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true
+    windowsHide: true,
   });
 
   let output = "";
@@ -38,7 +44,7 @@ try {
       CUTLAB_VERIFY_URL: baseUrl,
     },
     stdio: "inherit",
-    windowsHide: true
+    windowsHide: true,
   });
   const code = await waitForExit(verifier);
   if (code !== 0) process.exit(code ?? 1);
@@ -55,7 +61,9 @@ async function getOpenPort() {
     socket.listen(0, () => {
       const address = socket.address();
       if (!address || typeof address === "string") {
-        socket.close(() => reject(new Error("Could not allocate a local port.")));
+        socket.close(() =>
+          reject(new Error("Could not allocate a local port."))
+        );
         return;
       }
       const selectedPort = address.port;
@@ -74,11 +82,15 @@ async function waitForServer(url, getOutput) {
       // Retry until the server is ready or the startup timeout expires.
     }
     if (server?.exitCode !== null) {
-      throw new Error(`Production server exited before verification.\n${getOutput()}`);
+      throw new Error(
+        `Production server exited before verification.\n${getOutput()}`
+      );
     }
     await delay(300);
   }
-  throw new Error(`Production server did not start within ${startupTimeoutMs / 1000}s.\n${getOutput()}`);
+  throw new Error(
+    `Production server did not start within ${startupTimeoutMs / 1000}s.\n${getOutput()}`
+  );
 }
 
 function waitForExit(child) {
@@ -89,7 +101,9 @@ function waitForExit(child) {
 
 function stopServer(child) {
   if (process.platform === "win32") {
-    spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+      stdio: "ignore",
+    });
     return;
   }
   child.kill("SIGTERM");
