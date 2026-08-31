@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   appIconSizes,
+  brandAccent,
   brandSource,
   brandTargets,
   faviconSizes,
@@ -37,7 +38,7 @@ const lockup = (color) =>
   );
 const social = svg(
   "0 0 1600 900",
-  `<rect width="1600" height="900" fill="#000"/><style>@font-face{font-family:Geist;src:url(data:font/woff2;base64,${font})}.name{font-family:Geist,sans-serif;font-size:126px;font-weight:600;letter-spacing:-5px}.line{font-family:Geist,sans-serif;font-size:42px;font-weight:400;letter-spacing:-1px}</style><g transform="translate(170 260) scale(2.2)" color="#fff">${body}</g><text class="name" x="430" y="426" fill="#fff">Relay</text><path d="M170 550H1430" stroke="#71717A"/><text class="line" x="170" y="650" fill="#fff">From first cut to final handoff.</text>`,
+  `<rect width="1600" height="900" fill="#000"/><style>@font-face{font-family:Geist;src:url(data:font/woff2;base64,${font})}.name{font-family:Geist,sans-serif;font-size:126px;font-weight:600;letter-spacing:-5px}.line{font-family:Geist,sans-serif;font-size:42px;font-weight:400;letter-spacing:-1px}</style><g transform="translate(170 260) scale(2.2)" color="${brandAccent}">${body}</g><text class="name" x="430" y="426" fill="#fff">Relay</text><path d="M170 550H1430" stroke="${brandAccent}"/><text class="line" x="170" y="650" fill="#fff">From first cut to final handoff.</text>`,
   "Relay. From first cut to final handoff."
 );
 
@@ -58,8 +59,10 @@ for (const target of targets) {
   const files = {
     "mark-black.svg": mark("#000"),
     "mark-white.svg": mark("#fff"),
+    "mark-accent.svg": mark(brandAccent),
     "lockup-black.svg": lockup("#000"),
     "lockup-white.svg": lockup("#fff"),
+    "lockup-accent.svg": lockup(brandAccent),
     "social-preview.svg": social,
   };
   for (const [name, content] of Object.entries(files)) {
@@ -67,7 +70,7 @@ for (const target of targets) {
   }
   for (const size of faviconSizes) {
     await renderPng(
-      mark("#000"),
+      mark(brandAccent),
       size,
       size,
       resolve(target, `favicon-${size}.png`)
@@ -76,12 +79,12 @@ for (const target of targets) {
   for (const size of appIconSizes) {
     const darkIcon = svg(
       "0 0 100 100",
-      `<rect width="100" height="100" fill="#000"/><g transform="translate(14 14) scale(.72)" color="#fff">${body}</g>`,
+      `<rect width="100" height="100" fill="#000"/><g transform="translate(14 14) scale(.72)" color="${brandAccent}">${body}</g>`,
       "Relay app icon"
     );
     const lightIcon = svg(
       "0 0 100 100",
-      `<rect width="100" height="100" fill="#fff"/><g transform="translate(14 14) scale(.72)" color="#000">${body}</g>`,
+      `<rect width="100" height="100" fill="${brandAccent}"/><g transform="translate(14 14) scale(.72)" color="#000">${body}</g>`,
       "Relay app icon"
     );
     await renderPng(

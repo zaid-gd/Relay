@@ -44,7 +44,11 @@ export const projectPortalStatusValidator = v.union(
 );
 
 export const mediaSourceValidator = v.union(
-  v.object({ kind: v.literal("youtube"), url: v.string(), videoId: v.string() }),
+  v.object({
+    kind: v.literal("youtube"),
+    url: v.string(),
+    videoId: v.string(),
+  }),
   v.object({ kind: v.literal("vimeo"), url: v.string(), videoId: v.string() }),
   v.object({ kind: v.literal("link"), url: v.string() })
 );
@@ -99,6 +103,11 @@ export const settingsTeamRoleValidator = v.union(
 export const memberStatusValidator = v.union(
   v.literal("invited"),
   v.literal("active")
+);
+
+export const waitlistAudienceValidator = v.union(
+  v.literal("freelancer"),
+  v.literal("team")
 );
 
 export const clientPortalStageValidator = v.union(

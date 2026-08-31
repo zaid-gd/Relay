@@ -1,0 +1,66 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+interface NoiseProps {
+  patternSize?: number;
+  patternScaleX?: number;
+  patternScaleY?: number;
+  patternRefreshInterval?: number;
+  patternAlpha?: number;
+}
+
+export default function Noise({
+  patternSize = 250,
+  patternScaleX = 1,
+  patternScaleY = 1,
+  patternRefreshInterval = 2,
+  patternAlpha = 15,
+}: NoiseProps) {
+  const grainRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = grainRef.current;
+    const context = canvas?.getContext("2d", { alpha: true });
+    if (!canvas || !context) return;
+
+    const canvasSize = Math.max(1024, patternSize);
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    let frame = 0;
+    let animationId = 0;
+
+    const drawGrain = () => {
+      const imageData = context.createImageData(canvasSize, canvasSize);
+      const data = imageData.data;
+      for (let index = 0; index < data.length; index += 4) {
+        const value = Math.random() * 255;
+        data[index] = value;
+        data[index + 1] = value;
+        data[index + 2] = value;
+        data[index + 3] = patternAlpha;
+      }
+      context.putImageData(imageData, 0, 0);
+    };
+
+    const loop = () => {
+      if (frame % Math.max(1, patternRefreshInterval) === 0) drawGrain();
+      frame += 1;
+      animationId = window.requestAnimationFrame(loop);
+    };
+
+    loop();
+    return () => window.cancelAnimationFrame(animationId);
+  }, [patternAlpha, patternRefreshInterval, patternSize]);
+
+  return (
+    <canvas
+      ref={grainRef}
+      className="noise-overlay"
+      style={{
+        imageRendering: "pixelated",
+        transform: `scale(${patternScaleX}, ${patternScaleY})`,
+      }}
+    />
+  );
+}
