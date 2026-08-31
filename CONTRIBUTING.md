@@ -5,7 +5,7 @@ Thank you for helping improve CutLab Studio. Keep changes focused, preserve the 
 ## Requirements
 
 - Node.js 22+
-- npm
+- pnpm 10.11.1
 - A Convex account and development project
 - A Clerk application
 
@@ -14,9 +14,9 @@ Thank you for helping improve CutLab Studio. Keep changes focused, preserve the 
 ```bash
 git clone https://github.com/zaid-gd/Cutlab-Studio.git
 cd Cutlab-Studio
-npm ci
+pnpm install --frozen-lockfile
 cp .env.example .env.local
-npm run dev
+pnpm dev
 ```
 
 Use your own development credentials in `.env.local`. Configure the Clerk issuer variable in the Convex development deployment as described in `.env.example`.
@@ -37,7 +37,7 @@ Examples: `feature/portal-expiry`, `fix/file-version-order`, or `docs/setup-guid
 Run the Next.js app and Convex development deployment together:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Keep the change scoped, update tests and documentation when behavior changes, and avoid mixing unrelated formatting or refactors into the same pull request.
@@ -47,13 +47,13 @@ Keep the change scoped, update tests and documentation when behavior changes, an
 Run the standard project check for every change:
 
 ```bash
-npm run check
+pnpm check
 ```
 
 Run the full suite when changing Convex functions or schema, authentication, project files, team permissions, client portals, or application routes:
 
 ```bash
-npm run check:full
+pnpm check:full
 ```
 
 Describe the checks you ran in the pull request. Include clear reproduction and verification steps for user-facing fixes.
@@ -82,19 +82,19 @@ or reuses an existing local server on that address.
 Install the browser once:
 
 ```bash
-npx playwright install chromium
+pnpm exec playwright install chromium
 ```
 
 Run the suite:
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 Open a headed browser:
 
 ```bash
-npm run test:e2e:headed
+pnpm test:e2e:headed
 ```
 
 The app needs its normal public Clerk and Convex development variables to boot.
@@ -114,5 +114,5 @@ Playwright writes failure traces, screenshots, and videos to `test-results/`.
 Open the HTML report with:
 
 ```bash
-npx playwright show-report
+pnpm exec playwright show-report
 ```

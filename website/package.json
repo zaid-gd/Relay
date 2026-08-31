@@ -22,21 +22,18 @@
     "motion": "^12.43.0",
     "next": "16.3.2",
     "ogl": "^1.0.11",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "three": "^0.180.0"
-  },
-  "overrides": {
-    "postcss": "8.5.15"
   },
   "dependencyNotes": {
     "postcss": "Pins Next.js's transitive PostCSS dependency to the current compatible 8.5.15 release; keep until Next.js declares an equivalent or newer version."
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "24.10.1",
-    "@types/react": "19.2.6",
-    "@types/react-dom": "19.2.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
     "@types/three": "^0.185.4",
     "jsrepo": "^3.8.1",
     "tailwindcss": "^4.3.3",

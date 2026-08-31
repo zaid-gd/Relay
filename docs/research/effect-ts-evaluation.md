@@ -124,7 +124,7 @@ Pilot acceptance criteria:
 - all existing success paths and user-facing messages remain equivalent;
 - tests distinguish preparation, upload HTTP, timeout/cancel, and finalization failures;
 - cancellation aborts the browser request and always clears busy UI state;
-- `npm run lint`, relevant Convex tests, browser verification, and a production build pass;
+- `pnpm lint`, relevant Convex tests, browser verification, and a production build pass;
 - before/after client bundle output is recorded for routes that include `TrackerApp`;
 - reviewers judge the extracted workflow easier to read and modify than an equivalent typed Promise implementation.
 
@@ -143,15 +143,15 @@ If the pilot does not clearly improve failure modeling and tests, remove it. The
 
 ## Decision
 
-| Question | Decision |
-| --- | --- |
-| Is Effect compatible in principle? | Yes. Stable v3 interoperates with Promise APIs and supports browser and Node environments. |
-| Should it replace Convex hooks? | No. Preserve Convex’s reactive query and mutation/action hook model. |
-| Should it be used inside Convex now? | No. First prove value and bundling in an isolated client workflow. |
-| Should it be app-wide infrastructure? | No. Do not add an Effect provider/runtime to the root. |
-| Should it be adopted during the MUI redesign? | No. Keep the UI migration and async-model experiment independently measurable. |
-| Best pilot | Extract the three-step project-file upload workflow behind a Promise facade with typed failures and cancellation, no retries. |
-| Expansion gate | Expand only if tests/readability improve materially and measured browser bundle cost is acceptable. |
+| Question                                      | Decision                                                                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Is Effect compatible in principle?            | Yes. Stable v3 interoperates with Promise APIs and supports browser and Node environments.                                    |
+| Should it replace Convex hooks?               | No. Preserve Convex’s reactive query and mutation/action hook model.                                                          |
+| Should it be used inside Convex now?          | No. First prove value and bundling in an isolated client workflow.                                                            |
+| Should it be app-wide infrastructure?         | No. Do not add an Effect provider/runtime to the root.                                                                        |
+| Should it be adopted during the MUI redesign? | No. Keep the UI migration and async-model experiment independently measurable.                                                |
+| Best pilot                                    | Extract the three-step project-file upload workflow behind a Promise facade with typed failures and cancellation, no retries. |
+| Expansion gate                                | Expand only if tests/readability improve materially and measured browser bundle cost is acceptable.                           |
 
 ## Remaining uncertainties
 

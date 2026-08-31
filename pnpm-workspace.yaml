@@ -2,6 +2,12 @@ packages:
   - "."
   - "website"
 
+overrides:
+  esbuild: 0.28.1
+  postcss: ^8.5.15
+  sharp: 0.35.3
+  ws: ^8.20.1
+
 onlyBuiltDependencies:
   - esbuild
   - workerd

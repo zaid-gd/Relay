@@ -10,7 +10,10 @@ if (existsSync(envPath)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
     const [key, ...valueParts] = trimmed.split("=");
-    const value = valueParts.join("=").trim().replace(/^['"]|['"]$/g, "");
+    const value = valueParts
+      .join("=")
+      .trim()
+      .replace(/^['"]|['"]$/g, "");
     envValues[key.trim()] = value;
   }
 }
@@ -21,12 +24,14 @@ const requiredEnv = [
   "NEXT_PUBLIC_CONVEX_URL",
 ];
 
-const missing = requiredEnv.filter((key) => !process.env[key] && !envValues[key]);
+const missing = requiredEnv.filter(
+  (key) => !process.env[key] && !envValues[key]
+);
 const hasClerkIssuer = Boolean(
   process.env.CLERK_FRONTEND_API_URL ||
-    process.env.CLERK_JWT_ISSUER_DOMAIN ||
-    envValues.CLERK_FRONTEND_API_URL ||
-    envValues.CLERK_JWT_ISSUER_DOMAIN
+  process.env.CLERK_JWT_ISSUER_DOMAIN ||
+  envValues.CLERK_FRONTEND_API_URL ||
+  envValues.CLERK_JWT_ISSUER_DOMAIN
 );
 
 if (!hasClerkIssuer) {
@@ -36,7 +41,9 @@ if (!hasClerkIssuer) {
 if (missing.length) {
   console.error("Team live smoke test prerequisites are missing:");
   for (const key of missing) console.error(`- ${key}`);
-  console.error("\nAdd these values to .env.local before running the two-account Clerk/Convex smoke test.");
+  console.error(
+    "\nAdd these values to .env.local before running the two-account Clerk/Convex smoke test."
+  );
   process.exit(1);
 }
 
@@ -44,7 +51,9 @@ const authConfigPath = resolve("convex/auth.config.ts");
 if (!existsSync(authConfigPath)) {
   console.error("Team live smoke test prerequisites are missing:");
   console.error("- convex/auth.config.ts");
-  console.error("\nConvex auth must be configured before Clerk users can access Team mutations and queries.");
+  console.error(
+    "\nConvex auth must be configured before Clerk users can access Team mutations and queries."
+  );
   process.exit(1);
 }
 
@@ -54,16 +63,20 @@ const authConfigChecks = [
   ["clerkIssuerDomain", "Clerk issuer domain wiring"],
   ['applicationID: "convex"', "Convex JWT audience"],
 ];
-const missingAuthConfig = authConfigChecks.filter(([text]) => !authConfigSource.includes(text));
+const missingAuthConfig = authConfigChecks.filter(
+  ([text]) => !authConfigSource.includes(text)
+);
 
 if (missingAuthConfig.length) {
-  console.error("Convex auth config is present but does not contain the expected Clerk/Convex wiring:");
+  console.error(
+    "Convex auth config is present but does not contain the expected Clerk/Convex wiring:"
+  );
   for (const [, label] of missingAuthConfig) console.error(`- ${label}`);
   process.exit(1);
 }
 
 const checklist = [
-  "Start the app with Convex enabled: npm run dev",
+  "Start the app with Convex enabled: pnpm dev",
   "In browser session A, sign in as the owner and create a Team workspace.",
   "Invite a second Clerk user by email and copy the six-character invite code.",
   "In browser session B, sign in with the invited email and join using the invite code.",
@@ -76,7 +89,9 @@ const checklist = [
 ];
 
 console.log("Team live smoke prerequisites look configured.");
-console.log("\nRun this manual two-account smoke test before marking Team complete:\n");
+console.log(
+  "\nRun this manual two-account smoke test before marking Team complete:\n"
+);
 for (const [index, step] of checklist.entries()) {
   console.log(`${index + 1}. ${step}`);
 }
