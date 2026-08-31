@@ -1,6 +1,6 @@
 # 04: Apply Relay to shared app identity
 
-**What to build:** Apply the production Relay identity through the app's existing shared seams. Cover the App Shell, authentication, metadata, manifest, loading and entry states, errors, and not-found pages. Reuse the app's current monochrome direction and Geist setup. Change identity only. Do not reopen the approved workspace layout or alter product behavior.
+**What to build:** Apply the production Relay identity through the app's existing shared seams. Cover the App Shell, authentication, metadata, manifest, loading and entry states, errors, and not-found pages. Reuse the app's current black-led direction and Geist setup, with acid lime limited to approved identity and action seams. Change identity only. Do not reopen the approved workspace layout or alter product behavior.
 
 **Blocked by:** Ticket 03.
 

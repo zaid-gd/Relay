@@ -10,6 +10,7 @@
         --black: #000;
         --white: #fff;
         --zinc: #71717a;
+        --accent: #c6ff00;
         --line: #27272a;
         --soft: #a1a1aa;
         --sans: Geist, "Segoe UI", sans-serif;
@@ -395,6 +396,20 @@
       .b .desktop {
         padding: 28px 34px;
       }
+      .b .brand svg,
+      .b .kicker,
+      .b .status {
+        color: var(--accent);
+      }
+      .b .cta:not(.ghost) {
+        background: var(--accent);
+      }
+      .b .product-frame {
+        border-color: var(--accent);
+      }
+      .b .metric strong {
+        color: var(--accent);
+      }
       .b .hero {
         text-align: center;
         padding: 78px 0 46px;
@@ -416,7 +431,7 @@
         max-width: 1120px;
         margin: 16px auto 0;
         padding: 8px;
-        border: 1px solid #3f3f46;
+        border: 1px solid var(--accent);
       }
       .b .principles {
         display: grid;
@@ -696,7 +711,7 @@
         what a visitor understands first.
       </p>
       <div class="criteria">
-        <span>True black + white</span><span>Geist Sans + Mono</span
+        <span>Black + acid lime</span><span>Geist Sans + Mono</span
         ><span>Desktop + mobile</span><span>No continuous motion</span>
       </div>
     </header>
@@ -860,7 +875,7 @@
     <section class="option b" id="b">
       <header class="option-head">
         <div>
-          <div class="option-id">Option B · Selected 30 August 2026</div>
+          <div class="option-id">Option B · Selected · Acid lime identity</div>
           <h2>Product proof</h2>
         </div>
         <p class="tradeoff">

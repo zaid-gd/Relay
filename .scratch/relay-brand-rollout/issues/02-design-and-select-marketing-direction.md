@@ -11,7 +11,7 @@
 - [x] Every direction explains Relay as a video workflow workspace for freelance video editors and small editing teams.
 - [x] Every direction includes the line "From first cut to final handoff." and uses concise product-specific copy.
 - [x] Every direction shows desktop and mobile layouts with usable navigation and a clear primary call to action.
-- [x] The designs avoid gradients, glow, glass effects, decorative card systems, fixed accent colours, and continuous animation.
+- [x] The designs avoid gradients, glow, glass effects, decorative card systems, extra accent colours, and continuous animation.
 - [x] The artifacts are published through the project's static review flow and can be opened at a stable review URL.
 - [x] The product owner reviews the three directions and selects one.
 - [x] The selected direction and any binding notes are recorded in the current brand guidance.

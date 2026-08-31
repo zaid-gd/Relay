@@ -9,7 +9,7 @@ Relay is a video workflow workspace designed first for freelance video editors. 
 - Use forward progress and convergence only as construction prompts, not as a story the audience must understand.
 - Make the identity feel dependable first, then fast.
 - Aim for bold technology rather than cinematic luxury or quiet utility.
-- Use a fully monochrome identity with no fixed accent color.
+- Use acid lime as a controlled production accent. Keep black and white logo treatments for contexts where colour is unavailable or unsuitable.
 - Build the symbol from three measured geometric curves moving left to right into one compact solid form, using negative space to separate the paths.
 - Keep the symbol free-standing and use controlled asymmetry.
 - Avoid literal play buttons, film strips, cameras, timelines, chain links, arrows, and lightning bolts. An `R` monogram may be explored when it feels simple and ownable.
@@ -31,7 +31,7 @@ The circular concept was selected on 29 August 2026. Its authoritative vector so
 
 - Overview board: [relay-brand-kit.png](./relay-brand-kit.png)
 - Use the SVG as the logo source. The overview board defines the visual system, not logo geometry.
-- Palette: true black `#000000`, white `#FFFFFF`, and zinc `#71717A`
+- Palette: true black `#000000`, white `#FFFFFF`, acid lime `#C6FF00`, and zinc `#71717A`
 - Typography: Geist Sans with Geist Mono for small technical labels
 - Brand line: "From first cut to final handoff."
 - Image direction: black-and-white editorial video frames, production details, and controlled motion

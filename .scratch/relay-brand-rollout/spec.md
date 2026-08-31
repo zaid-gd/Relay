@@ -5,7 +5,7 @@ Date: 2026-08-29
 
 ## Problem Statement
 
-Relay has an approved circular mark and a monochrome brand direction, but the live product does not yet use them as one system. The repository contains three conflicting visual identities: the old CutLab teal system, the marketing site's warm coral system, and the current Relay app's black-and-white system. User-facing copy also mixes Relay, CutLab Studio, and Frame Desk across the marketing site, app surfaces, legal pages, support details, metadata, scripts, and brand assets.
+Relay has an approved circular mark and a black-led brand direction with an acid-lime accent, but the live product does not yet use them as one system. The repository contains three conflicting visual identities: the old CutLab teal system, the marketing site's warm coral system, and the current Relay app's black-and-white system. User-facing copy also mixes Relay, CutLab Studio, and Frame Desk across the marketing site, app surfaces, legal pages, support details, metadata, scripts, and brand assets.
 
 This inconsistency weakens trust and makes routine design work harder. A visitor can move between surfaces that appear to belong to different products. Contributors do not have one production source for the logo, wordmark, app icons, favicons, social images, typography, colours, or imagery. The approved brand-kit board communicates the direction, but it is a raster reference and cannot serve as production logo geometry.
 
@@ -66,14 +66,14 @@ Finish with a repository-wide cleanup of active CutLab and Frame Desk branding. 
 
 ## Implementation Decisions
 
-- Use the approved circular SVG as the sole source of logo geometry. Keep it monochrome and suitable for black-on-white and white-on-black use.
+- Use the approved circular SVG as the sole source of logo geometry. Keep black and white treatments alongside the primary acid-lime treatment.
 - Create the minimum production asset pack: standalone mark, horizontal Relay lockup, required favicon sizes, required app-icon sizes, and one social image.
 - Generate raster sizes deterministically from the vector source. Reuse installed tooling or platform features and do not add an image dependency without a measured need.
 - Treat the brand-kit overview as the source for visual direction only. It governs composition, imagery, typography, and system character but cannot replace the production SVG or lockup.
-- Use true black `#000000`, white `#FFFFFF`, and zinc `#71717A` as the brand palette. Additional neutral values may support accessible borders and muted text, but no fixed accent colour is introduced.
+- Use true black `#000000`, white `#FFFFFF`, acid lime `#C6FF00`, and zinc `#71717A` as the brand palette. Reserve acid lime for identity, primary actions, current status, and final handoff.
 - Use Geist Sans for product and marketing typography. Use Geist Mono only for small technical labels, metadata, and details that benefit from fixed-width alignment.
 - Use the brand line "From first cut to final handoff." as the short public expression of Relay's scope. Longer marketing copy must remain product-specific and concise.
-- Preserve the existing monochrome app direction. The brand rollout refines identity and shared surfaces; it does not reopen the approved Workspace layout or product interaction model.
+- Preserve the existing black-led app direction. Apply acid lime through shared identity and action seams without reopening the approved Workspace layout or product interaction model.
 - Create three static marketing-site directions from the same content, logo, palette, typography, viewport assumptions, and product constraints. Each direction must differ in structure rather than colour alone.
 - Publish the marketing directions as review artifacts outside production code. Implement only the product owner's recorded selection.
 - Treat the marketing package as an independent build target during verification. Do not change repository workspace topology unless implementation proves that the current separation blocks reliable builds.
@@ -112,7 +112,7 @@ Finish with a repository-wide cleanup of active CutLab and Frame Desk branding. 
 - Migrating, deleting, or rewriting cloud data.
 - Removing persisted compatibility keys that protect existing local data.
 - Rewriting historical research, prior specs, archived screenshots, or completed decision records to use current branding.
-- Adding a fixed accent colour, gradients, glow, glass effects, decorative card systems, or continuous logo animation.
+- Adding another fixed accent colour, gradients, glow, glass effects, decorative card systems, or continuous logo animation.
 - Creating custom fonts or purchasing a commercial typeface.
 - Custom domains, email provisioning, social-account setup, app-store submission, trademark work, or formal Relay name clearance.
 - Production deployment, DNS changes, live-database access, or changes to daily development and preview channels.
@@ -121,7 +121,7 @@ Finish with a repository-wide cleanup of active CutLab and Frame Desk branding. 
 ## Further Notes
 
 - The approved brand sources already exist: the circular vector mark, the logo brief, and the brand-kit overview board. The vector mark is authoritative when the board and SVG differ.
-- The existing full-product rebuild chose the Studio Split monochrome Workspace direction. This brand rollout keeps that app direction and supplies the missing production identity and public-site application.
+- The existing full-product rebuild chose the Studio Split black-led Workspace direction. This brand rollout keeps that structure and adds the selected acid-lime identity.
 - The current marketing package still presents CutLab Studio and uses a separate warm coral system. It requires a selected static Relay mock before implementation.
 - The current app already uses Geist and a true-black dark canvas in many shared surfaces. Reuse those foundations instead of introducing a second token layer.
 - An existing legacy-retirement ticket covers broad CutLab and Frame Desk compatibility cleanup. Reconcile overlap before implementation so active branding is replaced once and persisted identifiers remain safe.

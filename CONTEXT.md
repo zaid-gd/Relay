@@ -46,6 +46,33 @@ A person with Owner, Editor, or Viewer access inside a Workspace.
 **Client Portal**:
 A token-based, Project-specific page for client review and delivery. It exposes only content selected for that portal.
 
+**Client Contact**:
+A person associated with a Client who can sign in to Relay. A Client Contact is not a Team Member and does not consume an internal seat.
+
+**Client Hub**:
+An authenticated, Client-specific area that shows the Projects explicitly published for that Client across the Workspace.
+
+**External Video Embed**:
+A reference to video hosted outside Relay. It lets a Project use video without consuming Relay file storage.
+
+**Subscription Plan**:
+A commercial access level assigned to a Workspace. It defines the Workspace's paid capabilities and Storage Quota.
+
+**Creator Plan**:
+The Subscription Plan for a solo editor who works in a personal Workspace and may share work with Clients.
+
+**Team Plan**:
+The Subscription Plan for a Workspace with multiple internal Editors and Viewers.
+
+**Editor Seat**:
+Paid capacity for one internal Editor in a Team Workspace. An Editor Seat also increases the Workspace's shared Storage Quota.
+
+**Storage Quota**:
+The maximum amount of Relay-hosted media a Workspace may store. Reaching the quota blocks new uploads but keeps existing files available.
+
+**Storage Add-on**:
+An extra Storage Quota purchased separately from a Subscription Plan.
+
 **Public Profile**:
 A public page containing only the identity, work, links, and stats its owner chose to publish.
 
