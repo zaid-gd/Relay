@@ -71,17 +71,17 @@ export const publish = mutation({
       .query("publicProfiles")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
-    if (existingBySlug && existingBySlug.ownerUserId !== identity.tokenIdentifier) {
+    if (existingBySlug && existingBySlug.ownerUserId !== identity.subject) {
       throw new Error("That public profile username is already taken");
     }
 
     const existingByOwner = await ctx.db
       .query("publicProfiles")
-      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.tokenIdentifier))
+      .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", identity.subject))
       .unique();
     const now = new Date().toISOString();
     const snapshot = {
-      ownerUserId: identity.tokenIdentifier,
+      ownerUserId: identity.subject,
       slug,
       studioName: args.studioName.trim(),
       profileName: args.profileName.trim(),
