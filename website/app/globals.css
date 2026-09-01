@@ -2764,6 +2764,12 @@ h1 span {
   transform: translateY(-100%);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen {
+    transition: none;
+  }
+}
+
 .site.is-loading > :not(.loading-screen) {
   filter: saturate(0.18) brightness(0.62);
 }
@@ -3267,5 +3273,26 @@ h1 span {
     background: #0a0a0a;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .product-story {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 3.5%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px);
+    background-size: 30px 30px;
   }
 }

@@ -19,7 +19,7 @@ export default function GlassCursor() {
 
     const render = () => {
       frame = null;
-      cursor.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      cursor.style.transform = `translate3d(${x - 14}px, ${y - 14}px, 0)`;
       cursor.style.opacity = "1";
     };
 
