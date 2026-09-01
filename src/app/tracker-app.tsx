@@ -590,6 +590,10 @@ export function TrackerApp({
     api.team.getMyWorkspace,
     shouldLoadTeamPermissions ? {} : "skip"
   );
+  const workspaceSubscription = useQuery(
+    api.workspaceSubscriptions.getCurrent,
+    shouldLoadTeamPermissions ? {} : "skip"
+  );
   const workspaceDiscovery = useQuery(
     workspaceDiscoveryApi.list,
     shouldLoadTeamPermissions ? {} : "skip"
@@ -1593,23 +1597,42 @@ export function TrackerApp({
       <TemplatesDesignPage
         onUseBlank={() => openBlankProject("personal")}
         onUseTemplate={(template) => openTemplateProject(template, "personal")}
-        canManageTemplates={!teamData || canManageTeamProjects}
+        canManageTemplates={
+          (!teamData || canManageTeamProjects) &&
+          (!isAuthEnabled ||
+            Boolean(
+              workspaceSubscription?.capabilities.customWorkflowTemplates
+            ))
+        }
       />
     ) : page === "reports" ? (
       <div className="grid gap-4">
-        <PrecisionReports
-          projects={projects}
-          salaryBatches={salaryBatches}
-          settings={settings}
-          editors={activeTeamMembers.map((member) => ({
-            userId: member.userId,
-            name: member.name,
-          }))}
-          currentUserId={teamData?.currentMember.userId}
-          canManageFinance={canManageFinance}
-          onUpdateBatchPayment={updateSalaryBatchPayment}
-        />
-        {!teamData || teamData.currentMember.role === "Owner" ? (
+        {!isAuthEnabled ||
+        workspaceSubscription?.capabilities.advancedReports ? (
+          <PrecisionReports
+            projects={projects}
+            salaryBatches={salaryBatches}
+            settings={settings}
+            editors={activeTeamMembers.map((member) => ({
+              userId: member.userId,
+              name: member.name,
+            }))}
+            currentUserId={teamData?.currentMember.userId}
+            canManageFinance={canManageFinance}
+            onUpdateBatchPayment={updateSalaryBatchPayment}
+          />
+        ) : (
+          <ContentSection
+            title="Advanced reports"
+            description="Creator or Team plan required."
+          >
+            <OwnedButton asChild size="sm">
+              <Link href="/subscription">View plans</Link>
+            </OwnedButton>
+          </ContentSection>
+        )}
+        {(!teamData || teamData.currentMember.role === "Owner") &&
+        (!isAuthEnabled || workspaceSubscription?.capabilities.salaryPlans) ? (
           <SalaryPlansPanel
             settings={settings}
             projects={personalProjects}

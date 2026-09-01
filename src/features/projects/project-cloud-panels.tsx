@@ -45,7 +45,8 @@ import {
   TIMECODE_FORMAT_HINT,
 } from "@/lib/timecode";
 import type { WorkItem } from "@/lib/types";
-import { useAuth } from "@clerk/nextjs";
+import { api } from "../../../convex/_generated/api";
+import { useQuery } from "convex/react";
 import {
   Clock3,
   Download,
@@ -203,7 +204,6 @@ export function ProjectFileManager({
   project: WorkItem;
   canEdit: boolean;
 }) {
-  const { has, isLoaded } = useAuth();
   const [showArchived, setShowArchived] = useState(false);
   const {
     isAuthenticated: isConvexAuthenticated,
@@ -220,6 +220,10 @@ export function ProjectFileManager({
     removeFile,
     parseStorageId,
   } = useProjectFilesAdapter(project.id, showArchived);
+  const subscription = useQuery(
+    api.workspaceSubscriptions.getCurrent,
+    isConvexAuthenticated ? {} : "skip"
+  );
   const [view, setView] = useState<"files" | "history">("files");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -238,9 +242,7 @@ export function ProjectFileManager({
   const useR2Storage =
     R2_STORAGE_ENABLED &&
     process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
-  const canUploadFiles =
-    isLoaded &&
-    (has?.({ plan: "creator" }) || has?.({ plan: "studio" }) || false);
+  const canUploadFiles = subscription?.capabilities.fileUploads ?? false;
 
   useEffect(() => {
     if (!fileData) return;

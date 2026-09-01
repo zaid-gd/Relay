@@ -7,7 +7,10 @@ import {
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { insertPendingFreeProjection } from "./workspaceSubscriptions";
+import {
+  insertPendingFreeProjection,
+  requireWorkspaceCapability,
+} from "./workspaceSubscriptions";
 import { recordProjectActivity } from "./projectActivity";
 import { teamRoleValidator } from "./domainValidators";
 import type {
@@ -544,6 +547,9 @@ export const inviteMember = mutation({
       args.teamId,
       "manageTeam"
     );
+    const workspaceId = ctx.db.normalizeId("teamWorkspaces", args.teamId);
+    if (!workspaceId) throw new Error("Workspace not found");
+    await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
     const email = normalizeEmail(args.email);
     if (!email.includes("@")) throw new Error("Enter a valid email address");
 

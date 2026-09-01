@@ -196,6 +196,56 @@ function entitlements(projection: SubscriptionProjection) {
   };
 }
 
+type WorkspaceCapability = keyof ReturnType<
+  typeof entitlements
+>["capabilities"];
+
+const capabilityErrors: Record<WorkspaceCapability, string> = {
+  fileUploads:
+    "File uploads require a Creator or Team plan. External links remain available on Free.",
+  customWorkflowTemplates:
+    "Custom Workflow Templates require a Creator or Team plan.",
+  advancedReports: "Advanced reports require a Creator or Team plan.",
+  salaryPlans: "Salary Plans require a Creator or Team plan.",
+  customPortalBranding:
+    "Custom portal branding requires a Creator or Team plan.",
+  clientHub: "Client Hub requires a Creator or Team plan.",
+  teamFeatures: "Team features require a Team plan.",
+};
+
+export async function requireWorkspaceCapability(
+  ctx: QueryCtx | MutationCtx,
+  workspaceId: Id<"teamWorkspaces">,
+  capability: WorkspaceCapability
+) {
+  const projection = await projectionForWorkspace(ctx, workspaceId);
+  const resolved = entitlements(
+    projection ?? {
+      ...pendingFreeProjection(workspaceId),
+      reconciliationState: "repair",
+    }
+  );
+  if (!resolved.capabilities[capability]) {
+    throw new Error(capabilityErrors[capability]);
+  }
+  return resolved;
+}
+
+export async function requireCurrentWorkspaceCapability(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+  clerkOrganizationId: unknown,
+  capability: WorkspaceCapability
+) {
+  const current = await currentWorkspace(ctx, userId, clerkOrganizationId);
+  if (!current) throw new Error("Workspace required");
+  return await requireWorkspaceCapability(
+    ctx,
+    current.workspace._id,
+    capability
+  );
+}
+
 export const getCurrent = query({
   args: {},
   returns: v.union(entitlementValidator, v.null()),

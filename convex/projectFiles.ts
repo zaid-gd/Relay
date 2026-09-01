@@ -28,7 +28,10 @@ import type {
   ProjectActivityKind,
   TeamActivityKind,
 } from "../src/lib/domain-values";
-import { planIncludesFileUploads } from "../src/lib/subscription-entitlements";
+import {
+  requireCurrentWorkspaceCapability,
+  requireWorkspaceCapability,
+} from "./workspaceSubscriptions";
 
 const MAX_PROJECT_FILES = 100;
 const MAX_PROJECT_VERSIONS = 500;
@@ -82,14 +85,23 @@ async function requireProjectAccess(
   return { identity, project };
 }
 
-function requireFileUploadPlan(
-  identity: Awaited<ReturnType<typeof requireIdentity>>
+async function requireFileUploadCapability(
+  ctx: QueryCtx | MutationCtx,
+  identity: Awaited<ReturnType<typeof requireIdentity>>,
+  project: ProjectRecord
 ) {
-  if (!planIncludesFileUploads(identity.pla)) {
-    throw new Error(
-      "File uploads require a Creator or Team plan. External links remain available on Free."
-    );
+  const workspaceId = project.teamId
+    ? ctx.db.normalizeId("teamWorkspaces", project.teamId)
+    : null;
+  if (workspaceId) {
+    return await requireWorkspaceCapability(ctx, workspaceId, "fileUploads");
   }
+  return await requireCurrentWorkspaceCapability(
+    ctx,
+    identity.tokenIdentifier,
+    identity.org_id,
+    "fileUploads"
+  );
 }
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
@@ -532,7 +544,7 @@ export const generateUploadUrl = mutation({
       args.projectId,
       "editProjects"
     );
-    requireFileUploadPlan(identity);
+    await requireFileUploadCapability(ctx, identity, project);
     await requireWorkspaceCapacity(ctx, project);
     return await ctx.storage.generateUploadUrl();
   },
@@ -550,7 +562,7 @@ export const createR2UploadSession = internalMutation({
       args.projectId,
       "editProjects"
     );
-    requireFileUploadPlan(identity);
+    await requireFileUploadCapability(ctx, identity, project);
     await requireWorkspaceCapacity(ctx, project);
     const safeName =
       cleanText(args.fileName, 160).replace(/[^a-zA-Z0-9._-]+/g, "-") || "file";
@@ -618,7 +630,7 @@ export const finalizeR2Upload = internalMutation({
       args.projectId,
       "editProjects"
     );
-    requireFileUploadPlan(identity);
+    await requireFileUploadCapability(ctx, identity, project);
     const session = await ctx.db.get(args.sessionId);
     if (
       !session ||
@@ -683,7 +695,7 @@ export const saveStorageVersion = mutation({
       args.projectId,
       "editProjects"
     );
-    requireFileUploadPlan(identity);
+    await requireFileUploadCapability(ctx, identity, project);
     const metadata = await ctx.db.system.get(args.storageId);
     if (!metadata) throw new Error("Uploaded file not found");
     return await insertVersion(ctx, {

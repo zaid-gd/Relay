@@ -68,34 +68,49 @@ const editorPermissions = {
   useChat: true,
 };
 
-async function setupProject(team = false) {
+async function setupProject(
+  team = false,
+  plan: "free" | "creator" | "team" = "creator"
+) {
   const t = convexTest(schema, modules);
   const createdAt = new Date().toISOString();
-  const teamId = team
-    ? await t.run((ctx) =>
-        ctx.db.insert("teamWorkspaces", {
-          ownerUserId: "owner",
-          name: "File Team",
-          inviteCode: "FILES1",
-          createdAt,
-        })
-      )
-    : undefined;
-  if (teamId) {
+  const workspaceId = await t.run((ctx) =>
+    ctx.db.insert("teamWorkspaces", {
+      ownerUserId: "owner",
+      name: "File Team",
+      inviteCode: "FILES1",
+      createdAt,
+    })
+  );
+  await t.run(async (ctx) => {
+    await ctx.db.insert("teamMembers", {
+      teamId: workspaceId,
+      userId: "owner",
+      email: "owner@example.com",
+      name: "Owner User",
+      role: "Owner",
+      status: "active",
+      permissions: ownerPermissions,
+      createdAt,
+      joinedAt: createdAt,
+    });
+    await ctx.db.insert("workspaceSubscriptions", {
+      workspaceId,
+      plan,
+      billingPeriod: plan === "free" ? null : "monthly",
+      subscriptionStatus: plan === "free" ? "free" : "active",
+      confirmedEditorQuantity: team ? 2 : 1,
+      includedEditorSeatQuantity: plan === "team" ? 3 : 1,
+      purchasedExtraEditorSeatQuantity: 0,
+      storageAddonQuantity: 0,
+      reconciliationState: "synced",
+      updatedAt: createdAt,
+    });
+  });
+  if (team) {
     await t.run(async (ctx) => {
       await ctx.db.insert("teamMembers", {
-        teamId,
-        userId: "owner",
-        email: "owner@example.com",
-        name: "Owner User",
-        role: "Owner",
-        status: "active",
-        permissions: ownerPermissions,
-        createdAt,
-        joinedAt: createdAt,
-      });
-      await ctx.db.insert("teamMembers", {
-        teamId,
+        teamId: workspaceId,
         userId: "editor",
         email: "editor@example.com",
         name: "Editor User",
@@ -106,7 +121,7 @@ async function setupProject(team = false) {
         joinedAt: createdAt,
       });
       await ctx.db.insert("teamMembers", {
-        teamId,
+        teamId: workspaceId,
         userId: "reviewer",
         email: "reviewer@example.com",
         name: "Review User",
@@ -122,7 +137,7 @@ async function setupProject(team = false) {
     ctx.db.insert("projects", {
       ownerUserId: "owner",
       id: "project-files",
-      teamId,
+      teamId: team ? workspaceId : undefined,
       assigneeUserIds: team ? ["reviewer"] : [],
       profileId: "video-editing",
       title: "Project Files",
@@ -172,7 +187,7 @@ async function setupProject(team = false) {
 
 describe("project file management", () => {
   test("blocks Free users from creating or saving uploads", async () => {
-    const { t } = await setupProject();
+    const { t } = await setupProject(false, "free");
     const freeOwner = t.withIdentity({
       tokenIdentifier: "owner",
       subject: "owner",
@@ -204,19 +219,52 @@ describe("project file management", () => {
     ).rejects.toThrow("Creator or Team");
   });
 
-  test("allows Team members to create upload URLs", async () => {
-    const { t } = await setupProject(true);
-    const teamOwner = t.withIdentity({
-      tokenIdentifier: "owner",
-      subject: "owner",
-      pla: "o:team",
-    });
-
+  test("allows Editors to use their Workspace Creator entitlement", async () => {
+    const { editor } = await setupProject(true, "creator");
     await expect(
-      teamOwner.mutation(api.projectFiles.generateUploadUrl, {
+      editor.mutation(api.projectFiles.generateUploadUrl, {
         projectId: "project-files",
       })
     ).resolves.toBeTypeOf("string");
+  });
+
+  test("allows uploads during a confirmed Creator trial", async () => {
+    const { t, owner } = await setupProject(false, "creator");
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, {
+        subscriptionStatus: "trialing",
+        trialEndsAt: "2026-09-08T00:00:00.000Z",
+      });
+    });
+
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+      })
+    ).resolves.toBeTypeOf("string");
+  });
+
+  test("blocks new uploads after a paid Workspace becomes past due", async () => {
+    const { t, owner } = await setupProject(false, "creator");
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, { subscriptionStatus: "past_due" });
+    });
+
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+      })
+    ).rejects.toThrow("Creator or Team");
   });
 
   test("rejects unknown file categories, statuses, and providers", async () => {

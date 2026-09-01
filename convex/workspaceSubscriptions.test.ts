@@ -86,6 +86,41 @@ describe("Workspace subscription authority", () => {
     });
   });
 
+  test("Free blocks Team invitations and Team allows them", async () => {
+    const t = convexTest(schema, modules);
+    const owner = asUser(t, "owner");
+    const workspaceId = await createWorkspace(t, "owner", "Invite Workspace");
+
+    await expect(
+      owner.mutation(api.team.inviteMember, {
+        teamId: workspaceId,
+        email: "editor@example.com",
+        role: "Editor",
+      })
+    ).rejects.toThrow("Team plan");
+
+    await t.mutation(internal.workspaceSubscriptions.confirm, {
+      workspaceId,
+      clerkOrganizationId: "org_team",
+      clerkPlanId: "team",
+      billingPeriod: "monthly",
+      subscriptionStatus: "active",
+      confirmedEditorQuantity: 1,
+      includedEditorSeatQuantity: 3,
+      purchasedExtraEditorSeatQuantity: 0,
+      storageAddonQuantity: 0,
+      clerkEventAt: "2026-09-01T00:00:00.000Z",
+    });
+
+    await expect(
+      owner.mutation(api.team.inviteMember, {
+        teamId: workspaceId,
+        email: "editor@example.com",
+        role: "Editor",
+      })
+    ).resolves.toBeNull();
+  });
+
   test("subscription state is isolated to the authenticated Workspace", async () => {
     const t = convexTest(schema, modules);
     const firstWorkspaceId = await createWorkspace(t, "first", "First");
