@@ -18,6 +18,10 @@ import {
   storedFileStatusValidator,
   storedProjectStatusValidator,
   storedTeamRoleValidator,
+  subscriptionPlanValidator,
+  billingPeriodValidator,
+  subscriptionStatusValidator,
+  reconciliationStateValidator,
   teamActivityKindValidator,
   waitlistAudienceValidator,
   workflowStageValidator,
@@ -374,6 +378,27 @@ export default defineSchema({
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_inviteCode", ["inviteCode"]),
+
+  workspaceSubscriptions: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clerkOrganizationId: v.optional(v.string()),
+    clerkSubscriptionId: v.optional(v.string()),
+    clerkPlanId: v.optional(v.string()),
+    plan: subscriptionPlanValidator,
+    billingPeriod: billingPeriodValidator,
+    subscriptionStatus: subscriptionStatusValidator,
+    trialStartsAt: v.optional(v.string()),
+    trialEndsAt: v.optional(v.string()),
+    confirmedEditorQuantity: v.number(),
+    includedEditorSeatQuantity: v.number(),
+    purchasedExtraEditorSeatQuantity: v.number(),
+    storageAddonQuantity: v.number(),
+    lastClerkEventAt: v.optional(v.string()),
+    reconciliationState: reconciliationStateValidator,
+    updatedAt: v.string(),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_clerkOrganizationId", ["clerkOrganizationId"]),
 
   teamMembers: defineTable({
     teamId: v.string(),

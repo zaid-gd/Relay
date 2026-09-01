@@ -26,6 +26,8 @@ import type * as settings from "../settings.js";
 import type * as team from "../team.js";
 import type * as waitlist from "../waitlist.js";
 import type * as workspaceDiscovery from "../workspaceDiscovery.js";
+import type * as workspaceSubscriptionProvisioning from "../workspaceSubscriptionProvisioning.js";
+import type * as workspaceSubscriptions from "../workspaceSubscriptions.js";
 
 import type {
   ApiFromModules,
@@ -52,6 +54,8 @@ declare const fullApi: ApiFromModules<{
   team: typeof team;
   waitlist: typeof waitlist;
   workspaceDiscovery: typeof workspaceDiscovery;
+  workspaceSubscriptionProvisioning: typeof workspaceSubscriptionProvisioning;
+  workspaceSubscriptions: typeof workspaceSubscriptions;
 }>;
 
 /**
