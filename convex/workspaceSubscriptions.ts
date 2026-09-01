@@ -32,6 +32,7 @@ const entitlementValidator = v.object({
   plan: subscriptionPlanValidator,
   billingPeriod: billingPeriodValidator,
   subscriptionStatus: subscriptionStatusValidator,
+  trialEndsAt: v.union(v.string(), v.null()),
   reconciliationState: reconciliationStateValidator,
   editorSeatAllowance: v.number(),
   storageQuotaBytes: v.number(),
@@ -40,6 +41,7 @@ const entitlementValidator = v.object({
     v.union(v.literal("payment_past_due"), v.literal("subscription_canceled"))
   ),
   capabilities: capabilityValidator,
+  canManageBilling: v.boolean(),
 });
 
 const CLERK_PLAN_ID_TO_RELAY_PLAN = {
@@ -167,6 +169,7 @@ function entitlements(projection: SubscriptionProjection) {
     plan,
     billingPeriod: paid ? projection.billingPeriod : null,
     subscriptionStatus: projection.subscriptionStatus,
+    trialEndsAt: projection.trialEndsAt ?? null,
     reconciliationState: projection.reconciliationState,
     editorSeatAllowance:
       plan === "team"
@@ -203,12 +206,15 @@ export const getCurrent = query({
     );
     if (!current) return null;
     const projection = await projectionForWorkspace(ctx, current.workspace._id);
-    return entitlements(
-      projection ?? {
-        ...pendingFreeProjection(current.workspace._id),
-        reconciliationState: "repair",
-      }
-    );
+    return {
+      ...entitlements(
+        projection ?? {
+          ...pendingFreeProjection(current.workspace._id),
+          reconciliationState: "repair",
+        }
+      ),
+      canManageBilling: current.membership.role === "Owner",
+    };
   },
 });
 

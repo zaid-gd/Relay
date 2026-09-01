@@ -1,43 +1,33 @@
 "use client";
 
-import { PricingTable, useUser } from "@clerk/nextjs";
-import { Check } from "lucide-react";
+import {
+  OrganizationProfile,
+  OrganizationSwitcher,
+  PricingTable,
+  useOrganization,
+  useUser,
+} from "@clerk/nextjs";
+import type { FunctionReturnType } from "convex/server";
+import Link from "next/link";
 import { useState } from "react";
 
+import { api } from "../../convex/_generated/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { shouldShowSubscriptionWelcome } from "@/lib/subscription-onboarding";
-import { cn } from "@/lib/utils";
 
-const welcomePlans = [
-  {
-    name: "Free",
-    price: "$0",
-    description: "Core Relay tools for solo editing work.",
-    features: ["Projects and Clients", "Reviews and delivery", "Cloud workspace"],
-    available: true,
-  },
-  {
-    name: "Creator",
-    price: "$6.99 / month",
-    description: "More storage, Team Members, and priority support.",
-    features: ["More Team Members", "More storage", "Priority support"],
-    available: false,
-  },
-  {
-    name: "Studio",
-    price: "$11.99 / month",
-    description: "Higher limits and early access for growing studios.",
-    features: ["Largest storage limit", "More Team access", "Early feature access"],
-    available: false,
-  },
-] as const;
+export type WorkspaceSubscriptionState = NonNullable<
+  FunctionReturnType<typeof api.workspaceSubscriptions.getCurrent>
+>;
 
 const pricingAppearance = {
   variables: {
@@ -55,23 +45,207 @@ const pricingAppearance = {
     pricingTableCardBody: "flex-1",
     pricingTableCardFeatures: "mt-5 border-t border-[var(--app-border)] pt-5",
     pricingTableCardFeaturesList: "gap-0",
-    pricingTableCardFeaturesListItem: "min-h-11 border-b border-[var(--app-border)] py-3 last:border-b-0",
+    pricingTableCardFeaturesListItem:
+      "min-h-11 border-b border-[var(--app-border)] py-3 last:border-b-0",
     pricingTableCardFooter: "mt-auto",
   },
 };
 
-export function ClerkPricingPlans() {
+type BillingStatusContent = {
+  title: string;
+  body: string;
+  variant: "destructive" | "secondary";
+};
+
+function getBillingStatus(
+  checkoutReturned: boolean,
+  subscription: WorkspaceSubscriptionState
+): BillingStatusContent | null {
+  if (subscription.subscriptionStatus === "past_due") {
+    return {
+      title: "Payment needs attention",
+      body: "Relay is using safe Free limits until Clerk confirms payment.",
+      variant: "destructive",
+    };
+  }
+  if (subscription.subscriptionStatus === "canceled") {
+    return {
+      title: "Subscription canceled",
+      body: "Existing work stays available. New paid access remains locked.",
+      variant: "secondary",
+    };
+  }
+  if (subscription.subscriptionStatus === "trialing") {
+    return {
+      title: "Creator trial active",
+      body: subscription.trialEndsAt
+        ? `Trial ends ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(subscription.trialEndsAt))}.`
+        : "Clerk will manage the first charge when the trial ends.",
+      variant: "secondary",
+    };
+  }
+  if (checkoutReturned && subscription.plan === "free") {
+    return {
+      title: "Checking for a confirmed subscription update",
+      body: "Paid access stays locked until Relay verifies Clerk.",
+      variant: "secondary",
+    };
+  }
+  if (subscription.reconciliationState === "pending") {
+    return {
+      title: "Setting up Workspace billing",
+      body: "Free access remains available while Relay connects Clerk.",
+      variant: "secondary",
+    };
+  }
+  return null;
+}
+
+function BillingStatus({
+  checkoutReturned,
+  subscription,
+}: {
+  checkoutReturned: boolean;
+  subscription: WorkspaceSubscriptionState;
+}) {
+  const status = getBillingStatus(checkoutReturned, subscription);
+
+  if (!status) return null;
   return (
-    <div className="w-full">
+    <Card role="status" className="mb-4 rounded-none">
+      <CardContent className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-semibold">{status.title}</p>
+          <p className="text-sm text-muted-foreground">{status.body}</p>
+        </div>
+        <Badge variant={status.variant}>{subscription.plan}</Badge>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function SubscriptionPricingView({
+  activeOrganizationId,
+  checkoutReturned,
+  subscription,
+}: {
+  activeOrganizationId: string | null;
+  checkoutReturned: boolean;
+  subscription: WorkspaceSubscriptionState;
+}) {
+  if (!subscription.canManageBilling) {
+    return (
+      <div className="grid gap-2 p-5 md:p-6">
+        <h2 className="text-lg font-semibold">
+          Only the Workspace Owner can change billing
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          You can view Workspace work, but checkout and subscription settings
+          stay with the Owner.
+        </p>
+      </div>
+    );
+  }
+
+  if (!subscription.clerkOrganizationId) {
+    return (
+      <div className="grid gap-2 p-5 md:p-6" role="status">
+        <h2 className="text-lg font-semibold">Setting up Workspace billing</h2>
+        <p className="text-sm text-muted-foreground">
+          Free access remains available while Relay connects this Workspace to
+          Clerk.
+        </p>
+      </div>
+    );
+  }
+
+  if (activeOrganizationId !== subscription.clerkOrganizationId) {
+    return (
+      <div className="grid max-w-xl gap-4 p-5 md:p-6">
+        <h2 className="text-lg font-semibold">
+          Select this Workspace in Clerk
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Billing follows the active Clerk Organization. Select the matching
+          Workspace to view its plans.
+        </p>
+        <OrganizationSwitcher
+          hidePersonal
+          afterSelectOrganizationUrl="/subscription"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Confirmed plan</span>
+          <Badge variant="outline">{subscription.plan}</Badge>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/organization-profile">Manage billing in Clerk</Link>
+        </Button>
+      </div>
+      <BillingStatus
+        checkoutReturned={checkoutReturned}
+        subscription={subscription}
+      />
       <PricingTable
-        for="user"
+        for="organization"
+        highlightedPlan="creator"
         collapseFeatures={false}
         ctaPosition="bottom"
-        newSubscriptionRedirectUrl="/subscription"
+        newSubscriptionRedirectUrl="/subscription?checkout=return"
         appearance={pricingAppearance}
+        checkoutProps={{ appearance: pricingAppearance }}
       />
     </div>
   );
+}
+
+export function ClerkPricingPlans({
+  checkoutReturned = false,
+  subscription,
+}: {
+  checkoutReturned?: boolean;
+  subscription: WorkspaceSubscriptionState;
+}) {
+  const { isLoaded, organization } = useOrganization();
+  if (!isLoaded) return null;
+  return (
+    <SubscriptionPricingView
+      activeOrganizationId={organization?.id ?? null}
+      checkoutReturned={checkoutReturned}
+      subscription={subscription}
+    />
+  );
+}
+
+export function OrganizationBillingProfile({
+  subscription,
+}: {
+  subscription: WorkspaceSubscriptionState | null | undefined;
+}) {
+  const { isLoaded, organization } = useOrganization();
+  if (!subscription) return null;
+  if (!subscription.canManageBilling) {
+    return <p>Only the Workspace Owner can manage billing.</p>;
+  }
+  if (!isLoaded) return null;
+  if (organization?.id !== subscription.clerkOrganizationId) {
+    return (
+      <div className="grid gap-4">
+        <p>Select this Workspace in Clerk to manage its billing.</p>
+        <OrganizationSwitcher
+          hidePersonal
+          afterSelectOrganizationUrl="/organization-profile"
+        />
+      </div>
+    );
+  }
+  return <OrganizationProfile routing="hash" />;
 }
 
 export function FirstLoginPlanDialog() {
@@ -82,16 +256,16 @@ export function FirstLoginPlanDialog() {
   const open = Boolean(
     !completed &&
     isLoaded &&
-      isSignedIn &&
-      user &&
-      shouldShowSubscriptionWelcome({
-        completed: user.unsafeMetadata.relayPlanWelcomeComplete,
-        createdAt: user.createdAt,
-        lastSignInAt: user.lastSignInAt,
-      }),
+    isSignedIn &&
+    user &&
+    shouldShowSubscriptionWelcome({
+      completed: user.unsafeMetadata.relayPlanWelcomeComplete,
+      createdAt: user.createdAt,
+      lastSignInAt: user.lastSignInAt,
+    })
   );
 
-  async function continueWithFree() {
+  async function continueToWorkspace() {
     if (!user || saving) return;
     setSaving(true);
     setError("");
@@ -113,52 +287,31 @@ export function FirstLoginPlanDialog() {
     <Dialog open={open}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-lg p-5 sm:max-w-5xl sm:p-7"
+        className="sm:max-w-md"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Welcome to Relay</p>
-          <DialogTitle className="text-2xl sm:text-3xl">Choose how you want to start</DialogTitle>
-          <DialogDescription>Free is ready now. Creator and Studio will open soon.</DialogDescription>
+          <DialogTitle>Welcome to Relay</DialogTitle>
+          <DialogDescription>
+            Your Workspace starts on Free. The Workspace Owner can compare Clerk
+            plans from Subscription settings.
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 md:grid-cols-3">
-          {welcomePlans.map((plan) => (
-            <section
-              key={plan.name}
-              className={cn(
-                "flex min-h-72 flex-col rounded-md border bg-card p-5 text-card-foreground",
-                plan.available ? "border-foreground" : "border-border text-muted-foreground",
-              )}
-            >
-              <span className="w-fit rounded-full border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]">
-                {plan.available ? "Available now" : "Coming soon"}
-              </span>
-              <h2 className="mt-4 text-lg font-semibold">{plan.name}</h2>
-              <p className="mt-1 text-2xl font-semibold text-foreground">{plan.price}</p>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.description}</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <Check className="size-4" aria-hidden="true" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                type="button"
-                variant={plan.available ? "default" : "outline"}
-                disabled={!plan.available || saving}
-                className="mt-auto"
-                onClick={plan.available ? () => void continueWithFree() : undefined}
-              >
-                {plan.available ? (saving ? "Starting..." : "Continue with Free") : "Coming soon"}
-              </Button>
-            </section>
-          ))}
-        </div>
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <p className="text-center text-xs text-muted-foreground">Clerk manages your plan and billing. Change plans later from the top bar.</p>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void continueToWorkspace()}
+          >
+            {saving ? "Starting..." : "Continue to Workspace"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

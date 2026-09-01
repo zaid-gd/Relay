@@ -7706,6 +7706,17 @@ function normalizeChecklistCompleted(
 function SubscriptionPage() {
   const { isAuthEnabled } = useData();
   const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
+  const subscription = useQuery(
+    api.workspaceSubscriptions.getCurrent,
+    isSignedIn ? {} : "skip"
+  );
+  const [checkoutReturned, setCheckoutReturned] = useState(false);
+
+  useEffect(() => {
+    setCheckoutReturned(
+      new URLSearchParams(window.location.search).get("checkout") === "return"
+    );
+  }, []);
 
   return (
     <WorkspacePage
@@ -7728,7 +7739,7 @@ function SubscriptionPage() {
           description="Plan selection, checkout, and subscription status."
           bodyMode="flush"
         >
-          {!isLoaded ? (
+          {!isLoaded || (isSignedIn && subscription === undefined) ? (
             <div
               role="status"
               className="grid min-h-[220px] place-items-center p-6"
@@ -7738,9 +7749,19 @@ function SubscriptionPage() {
                 className="size-7 animate-spin text-[var(--app-accent)]"
               />
             </div>
+          ) : isSignedIn && subscription ? (
+            <ClerkPricingPlans
+              checkoutReturned={checkoutReturned}
+              subscription={subscription}
+            />
           ) : isSignedIn ? (
-            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6">
-              <ClerkPricingPlans />
+            <div className="grid max-w-[620px] gap-2 p-5 md:p-6">
+              <h2 className="text-xl font-semibold text-foreground">
+                Workspace required
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Create or join a Workspace before choosing a subscription.
+              </p>
             </div>
           ) : (
             <div className="grid max-w-[620px] gap-4 p-5 md:p-6">

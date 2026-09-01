@@ -82,6 +82,7 @@ describe("Workspace subscription authority", () => {
       storageQuotaBytes: 0,
       billingHealthy: true,
       capabilities: { fileUploads: false },
+      canManageBilling: true,
     });
   });
 
@@ -211,6 +212,7 @@ describe("Workspace subscription authority", () => {
       asUser(t, "editor").query(api.workspaceSubscriptions.getCurrent, {})
     ).resolves.toMatchObject({
       clerkOrganizationId: "org_transfer",
+      canManageBilling: true,
     });
   });
 });
