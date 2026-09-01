@@ -1,12 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "motion/react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import InteractiveDashboard from "../components/InteractiveDashboard";
 import ProductStory from "../components/ProductStory";
@@ -38,7 +33,6 @@ function useViewportEntry() {
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
-  const reduceMotion = useReducedMotion();
   const { scrollY } = useScroll();
   const headerWidth = useTransform(scrollY, [0, 260], ["90vw", "60vw"]);
   const headerHeight = useTransform(scrollY, [0, 260], [68, 56]);
@@ -48,11 +42,6 @@ export default function Home() {
   const [laserRef, laserInView] = useViewportEntry();
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setLoading(false);
-      return;
-    }
-
     const timer = window.setTimeout(() => setLoading(false), 1500);
     return () => window.clearTimeout(timer);
   }, []);
@@ -70,11 +59,7 @@ export default function Home() {
 
       <motion.header
         className="site-header"
-        style={
-          reduceMotion
-            ? { width: "90vw", height: 68 }
-            : { width: headerWidth, height: headerHeight }
-        }
+        style={{ width: headerWidth, height: headerHeight }}
       >
         <div ref={headerRef} className="nav-glass" aria-hidden="true">
           {headerInView && (
@@ -113,7 +98,7 @@ export default function Home() {
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
           <div ref={threadsRef} className="hero-backdrop" aria-hidden="true">
-            {!reduceMotion && threadsInView && (
+            {threadsInView && (
               <Threads
                 color={[0.82, 0.82, 0.85]}
                 amplitude={0.55}
@@ -145,7 +130,7 @@ export default function Home() {
 
           <div className="product-reveal" id="product">
             <div ref={ringsRef} className="magic-rings" aria-hidden="true">
-              {!reduceMotion && ringsInView && (
+              {ringsInView && (
                 <MagicRings
                   color="#c6ff00"
                   colorTwo="#f4f4f5"
@@ -171,7 +156,7 @@ export default function Home() {
             </div>
 
             <div ref={laserRef} className="laser-flow" aria-hidden="true">
-              {!reduceMotion && laserInView && (
+              {laserInView && (
                 <LaserFlow
                   color="#c6ff00"
                   backgroundColor="transparent"

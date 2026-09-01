@@ -499,10 +499,6 @@ export const LaserFlow: React.FC<Props> = ({
     canvas.addEventListener("webglcontextrestored", onCtxRestored, false);
 
     let raf = 0;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
     const clamp = (v: number, lo: number, hi: number) =>
       Math.max(lo, Math.min(hi, v));
     const dprFloor = 0.6;
@@ -546,9 +542,7 @@ export const LaserFlow: React.FC<Props> = ({
 
     const animate = () => {
       const now = performance.now();
-      if (!reduceMotion) {
-        raf = requestAnimationFrame(animate);
-      }
+      raf = requestAnimationFrame(animate);
       if (pausedRef.current || !inViewRef.current) {
         prevTime = clock.getElapsedTime();
         return;

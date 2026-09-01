@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
-import Noise from "../components/react-bits/Noise";
+import GlassCursor from "../components/GlassCursor";
 import "./globals.css";
 
 const geist = Geist({
@@ -97,19 +97,7 @@ export default function RootLayout({
       <body
         className={`${geist.variable} ${geistMono.variable} ${display.variable}`}
       >
-        <div className="global-noise" aria-hidden="true">
-          <div
-            style={{ width: "1080px", height: "1080px", position: "relative" }}
-          >
-            <Noise
-              patternSize={250}
-              patternScaleX={1}
-              patternScaleY={1}
-              patternRefreshInterval={2}
-              patternAlpha={15}
-            />
-          </div>
-        </div>
+        <GlassCursor />
         <div className="site-content">{children}</div>
       </body>
     </html>

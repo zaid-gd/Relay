@@ -231,15 +231,9 @@ const Threads: React.FC<ThreadsProps> = ({
     );
     intersectionObserver.observe(container);
 
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
     function update(t: number) {
-      animationFrameId.current = reduceMotion
-        ? 0
-        : requestAnimationFrame(update);
-      if ((!isVisible || document.hidden) && !reduceMotion) return;
+      animationFrameId.current = requestAnimationFrame(update);
+      if (!isVisible || document.hidden) return;
 
       const { color, amplitude, distance, enableMouseInteraction } =
         propsRef.current;

@@ -7,6 +7,7 @@
   --zinc: #a1a1aa;
   --muted: #71717a;
   --line: #27272a;
+  --button-radius: 10px;
 }
 
 * {
@@ -36,12 +37,43 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-.global-noise {
+.glass-cursor {
   position: fixed;
-  z-index: 0;
-  inset: 0;
-  overflow: hidden;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgb(255 255 255 / 42%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 9%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%),
+    0 0 24px rgb(198 255 0 / 18%);
+  opacity: 0;
   pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 160ms ease;
+  -webkit-backdrop-filter: blur(9px) saturate(150%);
+  backdrop-filter: blur(9px) saturate(150%);
+}
+
+.glass-cursor::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 10px var(--lime);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+html.has-glass-cursor,
+html.has-glass-cursor * {
+  cursor: none !important;
 }
 
 .site-content {
@@ -55,7 +87,7 @@ a {
 }
 
 button {
-  border-radius: 10px;
+  border-radius: var(--button-radius);
 }
 
 .specular-button {
@@ -220,7 +252,7 @@ button {
 
 .nav-action {
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: var(--button-radius);
 }
 
 .hero {
@@ -455,7 +487,7 @@ h1 span {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   color: var(--zinc);
   font-size: 10px;
   font-weight: 650;
@@ -691,10 +723,10 @@ h1 span {
 .laser-flow {
   position: absolute;
   z-index: 1;
-  top: -385px;
+  top: -500px;
   left: 50%;
   width: 118%;
-  height: 680px;
+  height: 820px;
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -909,7 +941,7 @@ h1 span {
   min-height: 26px;
   padding: 0 10px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--button-radius);
   background: #fafafa;
   color: #09090b;
   font-weight: 650;
@@ -1394,15 +1426,6 @@ h1 span {
   background: transparent;
 }
 
-.noise-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  transform-origin: center;
-}
-
 .product-story::before {
   position: absolute;
   z-index: 1;
@@ -1856,7 +1879,7 @@ h1 span {
   height: 30px;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 22%);
-  border-radius: 7px;
+  border-radius: var(--button-radius);
   background: rgb(0 0 0 / 55%);
   color: inherit;
   cursor: pointer;
@@ -2233,7 +2256,7 @@ h1 span {
   height: 32px;
   place-items: center;
   border: 1px solid #3f3f46;
-  border-radius: 4px;
+  border-radius: var(--button-radius);
   background: #0c0c0e;
   color: var(--white);
   cursor: pointer;
@@ -2479,7 +2502,7 @@ h1 span {
   justify-content: space-between;
   min-height: 48px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: var(--button-radius);
   border-color: rgb(198 255 0 / 68%);
   background: #11140a;
   color: var(--white);
@@ -2594,7 +2617,7 @@ h1 span {
   padding: 0 20px;
   align-items: center;
   gap: 28px;
-  border-radius: 10px;
+  border-radius: var(--button-radius);
   border-color: rgb(198 255 0 / 68%);
   background: #11140a;
   color: var(--white);
@@ -2739,12 +2762,6 @@ h1 span {
   visibility: hidden;
   pointer-events: none;
   transform: translateY(-100%);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .loading-screen {
-    transition: none;
-  }
 }
 
 .site.is-loading > :not(.loading-screen) {
@@ -2941,9 +2958,9 @@ h1 span {
   }
 
   .laser-flow {
-    top: -409px;
+    top: -520px;
     width: 150vw;
-    height: 720px;
+    height: 860px;
   }
 
   .magic-rings {
@@ -3250,26 +3267,5 @@ h1 span {
     background: #0a0a0a;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-
-  .product-story {
-    background-image:
-      linear-gradient(rgb(255 255 255 / 3.5%) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px);
-    background-size: 30px 30px;
   }
 }
