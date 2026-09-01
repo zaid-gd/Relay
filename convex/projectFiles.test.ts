@@ -148,21 +148,21 @@ async function setupProject(team = false) {
   return {
     t,
     owner: t.withIdentity({
-      tokenIdentifier: "test|owner",
+      tokenIdentifier: "owner",
       subject: "owner",
       name: "Owner User",
       email: "owner@example.com",
       pla: "u:creator",
     }),
     editor: t.withIdentity({
-      tokenIdentifier: "test|editor",
+      tokenIdentifier: "editor",
       subject: "editor",
       name: "Editor User",
       email: "editor@example.com",
       pla: "u:creator",
     }),
     reviewer: t.withIdentity({
-      tokenIdentifier: "test|reviewer",
+      tokenIdentifier: "reviewer",
       subject: "reviewer",
       name: "Review User",
       email: "reviewer@example.com",
@@ -174,7 +174,7 @@ describe("project file management", () => {
   test("blocks Free users from creating or saving uploads", async () => {
     const { t } = await setupProject();
     const freeOwner = t.withIdentity({
-      tokenIdentifier: "test|owner",
+      tokenIdentifier: "owner",
       subject: "owner",
       pla: "u:free",
     });
@@ -186,7 +186,7 @@ describe("project file management", () => {
       freeOwner.mutation(api.projectFiles.generateUploadUrl, {
         projectId: "project-files",
       })
-    ).rejects.toThrow("Creator or Studio");
+    ).rejects.toThrow("Creator or Team");
     await expect(
       freeOwner.mutation(api.projectFiles.saveStorageVersion, {
         projectId: "project-files",
@@ -201,7 +201,22 @@ describe("project file management", () => {
         mimeType: "text/plain",
         notes: "",
       })
-    ).rejects.toThrow("Creator or Studio");
+    ).rejects.toThrow("Creator or Team");
+  });
+
+  test("allows Team members to create upload URLs", async () => {
+    const { t } = await setupProject(true);
+    const teamOwner = t.withIdentity({
+      tokenIdentifier: "owner",
+      subject: "owner",
+      pla: "o:team",
+    });
+
+    await expect(
+      teamOwner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+      })
+    ).resolves.toBeTypeOf("string");
   });
 
   test("rejects unknown file categories, statuses, and providers", async () => {

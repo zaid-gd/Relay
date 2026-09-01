@@ -465,6 +465,7 @@ export const LaserFlow: React.FC<Props> = ({
 
     const onVis = () => {
       pausedRef.current = document.hidden;
+      prevTime = clock.getElapsedTime();
     };
     document.addEventListener("visibilitychange", onVis, { passive: true });
 
@@ -491,6 +492,7 @@ export const LaserFlow: React.FC<Props> = ({
     };
     const onCtxRestored = () => {
       pausedRef.current = false;
+      prevTime = clock.getElapsedTime();
       scheduleResize();
     };
     canvas.addEventListener("webglcontextlost", onCtxLost, false);

@@ -47,10 +47,14 @@ export default function Noise({
     };
 
     const loop = () => {
+      if (isPaused) {
+        animationId = 0;
+        return;
+      }
       if (!isPaused && frame % Math.max(1, patternRefreshInterval) === 0)
         drawGrain();
       frame += 1;
-      if (!isPaused) animationId = window.requestAnimationFrame(loop);
+      animationId = window.requestAnimationFrame(loop);
     };
 
     const resume = () => {

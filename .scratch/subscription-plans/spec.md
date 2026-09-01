@@ -96,6 +96,7 @@ Clerk webhooks are asynchronous and may retry. Relay verifies every event, dedup
 - Test verified webhook input through the public webhook route and Convex billing mutation boundary. Cover invalid signatures, duplicate delivery IDs, out-of-order events, retries, and unsupported events.
 - Test checkout return behavior as pending until Convex confirms or reconciles the Clerk subscription.
 - Test storage through upload reservation, completion, failed upload, expiry, deletion, downgrade, Editor Seat changes, and Storage Add-on changes.
+- Include a positive Team upload case and assert that upload entitlement checks resolve the Team Clerk slug.
 - Test membership through Owner creation, Editor invitation, pending invitation reservation, Viewer invitation, promotion, demotion, removal, extra-seat purchase, downgrade, and ownership transfer.
 - Test Client Hub publication with two Clients and multiple Client Contacts. Prove that each contact sees only explicitly published Projects for their Client.
 - Test feature gates through the real capability entry points for Workflow Templates, advanced reports, Salary Plans, portal branding, assignments, payouts, and workload reports.

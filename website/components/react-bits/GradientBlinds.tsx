@@ -72,6 +72,8 @@ const GradientBlinds: React.FC<GradientBlindsProps> = ({
   const mouseTargetRef = useRef<[number, number]>([0, 0]);
   const lastTimeRef = useRef<number>(0);
   const firstResizeRef = useRef<boolean>(true);
+  const containerWidthRef = useRef(0);
+  const startLoopRef = useRef<(() => void) | null>(null);
   const propsRef = useRef({
     paused,
     gradientColors,
@@ -338,6 +340,7 @@ void main() {
     const resize = () => {
       const current = propsRef.current;
       const rect = container.getBoundingClientRect();
+      containerWidthRef.current = rect.width;
       renderer.setSize(rect.width, rect.height);
       uniforms.iResolution.value = [
         gl.drawingBufferWidth,
@@ -386,10 +389,19 @@ void main() {
 
     let isVisible = true;
     let loop: (t: number) => void;
+    const startLoop = () => {
+      if (
+        isVisible &&
+        !document.hidden &&
+        !propsRef.current.paused &&
+        !rafRef.current
+      ) {
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    };
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       isVisible = entry?.isIntersecting ?? false;
-      if (isVisible && !document.hidden && !rafRef.current)
-        rafRef.current = requestAnimationFrame(loop);
+      startLoop();
     });
     intersectionObserver.observe(container);
 
@@ -402,9 +414,18 @@ void main() {
       }
       const current = propsRef.current;
       const { arr, count } = prepStops(current.gradientColors);
+      const maxByMinWidth = current.blindMinWidth
+        ? Math.max(
+            1,
+            Math.floor(containerWidthRef.current / current.blindMinWidth)
+          )
+        : Infinity;
+      const effectiveBlindCount = current.blindMinWidth
+        ? Math.min(current.blindCount || maxByMinWidth, maxByMinWidth)
+        : current.blindCount;
       uniforms.uAngle.value = (current.angle * Math.PI) / 180;
       uniforms.uNoise.value = current.noise;
-      uniforms.uBlindCount.value = Math.max(1, current.blindCount);
+      uniforms.uBlindCount.value = Math.max(1, effectiveBlindCount);
       uniforms.uSpotlightRadius.value = current.spotlightRadius;
       uniforms.uSpotlightSoftness.value = current.spotlightSoftness;
       uniforms.uSpotlightOpacity.value = current.spotlightOpacity;
@@ -439,15 +460,16 @@ void main() {
         }
       }
     };
+    startLoopRef.current = startLoop;
     const onVisibilityChange = () => {
-      if (!document.hidden && !rafRef.current)
-        rafRef.current = requestAnimationFrame(loop);
+      startLoop();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
-    rafRef.current = requestAnimationFrame(loop);
+    startLoop();
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      startLoopRef.current = null;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       intersectionObserver.disconnect();
       canvas.removeEventListener("pointermove", onPointerMove);
@@ -476,6 +498,10 @@ void main() {
       rendererRef.current = null;
     };
   }, [dpr]);
+
+  useEffect(() => {
+    if (!paused) startLoopRef.current?.();
+  }, [paused]);
 
   return (
     <div

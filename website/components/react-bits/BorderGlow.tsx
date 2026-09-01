@@ -269,8 +269,10 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
     ];
     return () => {
       cancellations.forEach((cancel) => cancel());
-      if (pointerFrameRef.current !== null)
+      if (pointerFrameRef.current !== null) {
         cancelAnimationFrame(pointerFrameRef.current);
+        pointerFrameRef.current = null;
+      }
     };
   }, [animated]);
 

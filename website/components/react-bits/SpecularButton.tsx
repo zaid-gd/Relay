@@ -313,7 +313,7 @@ export default function SpecularButton(props: SpecularButtonProps) {
       if (
         current.autoAnimate ||
         brightness > 0.001 ||
-        Math.abs(difference) > 0.001
+        (current.autoAnimate && Math.abs(difference) > 0.001)
       ) {
         frame = requestAnimationFrame(update);
       }
@@ -358,7 +358,12 @@ export default function SpecularButton(props: SpecularButtonProps) {
         }}
         href={props.href}
         onClick={(event) => {
-          if (props.href?.startsWith("/")) {
+          if (
+            props.href?.startsWith("/") &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.shiftKey
+          ) {
             event.preventDefault();
             router.push(props.href);
           }

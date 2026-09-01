@@ -522,6 +522,7 @@ const GlobalSpotlight: React.FC<{
     let isSectionVisible = true;
     const observer = new IntersectionObserver(([entry]) => {
       isSectionVisible = entry?.isIntersecting ?? false;
+      if (!isSectionVisible) handleMouseLeave();
     });
     if (section) observer.observe(section);
     let latestPointer: MouseEvent | null = null;

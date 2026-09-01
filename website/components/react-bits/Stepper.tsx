@@ -303,6 +303,7 @@ function StepIndicator({
     <motion.button
       type="button"
       aria-label={`Go to step ${step}`}
+      aria-current={status === "active" ? "step" : undefined}
       onClick={handleClick}
       disabled={disableStepIndicators}
       className={`relative ${disableStepIndicators ? "opacity-50" : "cursor-pointer"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6ff00]`}
