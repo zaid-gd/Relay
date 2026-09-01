@@ -68,7 +68,7 @@ const structuredData = {
     "@type": "Organization",
     name: "Relay",
     url: siteUrl,
-    email: "Cutlab.Studios@gmail.com",
+    email: "zns.stuioss@gmail.com",
   },
 };
 

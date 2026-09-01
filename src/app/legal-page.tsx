@@ -1,19 +1,27 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RelayBrand } from "./relay-brand";
 import styles from "./legal-page.module.css";
 
 type LegalSection = { title: string; body: ReactNode };
-type LegalPageProps = { title: string; updatedAt: string; intro: string; sections: LegalSection[] };
+type LegalPageProps = {
+  title: string;
+  updatedAt: string;
+  intro: string;
+  sections: LegalSection[];
+};
 
-export function LegalPage({ title, updatedAt, intro, sections }: LegalPageProps) {
+export function LegalPage({
+  title,
+  updatedAt,
+  intro,
+  sections,
+}: LegalPageProps) {
   return (
     <main className={styles.page} id="main-content">
       <div className={styles.shell}>
         <header className={styles.header}>
-          <Link className={styles.brand} href="/" aria-label="Relay home">
-            <span className={styles.mark} aria-hidden="true">F</span>
-            <span>FRAME DESK</span>
-          </Link>
+          <RelayBrand compact className={styles.brand} />
           <nav aria-label="Support and legal pages" className={styles.nav}>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
@@ -24,10 +32,12 @@ export function LegalPage({ title, updatedAt, intro, sections }: LegalPageProps)
 
         <article className={styles.card}>
           <div className={styles.hero}>
-            <p className={styles.eyebrow}>FRAME DESK · DOCUMENTATION</p>
+            <p className={styles.eyebrow}>RELAY DOCUMENTATION</p>
             <h1>{title}</h1>
             <p className={styles.intro}>{intro}</p>
-            <p className={styles.updated}>Last updated <time>{updatedAt}</time></p>
+            <p className={styles.updated}>
+              Last updated <time>{updatedAt}</time>
+            </p>
           </div>
           <div className={styles.content}>
             {sections.map((section) => (

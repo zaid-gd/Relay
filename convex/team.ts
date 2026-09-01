@@ -173,11 +173,7 @@ async function requirePermission(
   permission: string
 ) {
   const identity = await requireIdentity(ctx);
-  const member = await findActiveMembership(
-    ctx,
-    teamId,
-    identity.subject
-  );
+  const member = await findActiveMembership(ctx, teamId, identity.subject);
   if (!member.permissions[permission]) throw new Error("Permission denied");
   return { identity, member };
 }
@@ -387,9 +383,7 @@ export const getMyWorkspace = query({
     const notifications = await ctx.db
       .query("teamNotifications")
       .withIndex("by_teamId_and_userId_and_createdAt", (q) =>
-        q
-          .eq("teamId", currentMember.teamId)
-          .eq("userId", identity.subject)
+        q.eq("teamId", currentMember.teamId).eq("userId", identity.subject)
       )
       .order("desc")
       .take(25);
@@ -431,7 +425,7 @@ export const createWorkspace = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    const workspaceName = (args.name.trim() || "CutLab Studio Team").slice(
+    const workspaceName = (args.name.trim() || "Relay Team").slice(
       0,
       TEAM_WORKSPACE_NAME_LIMIT
     );
@@ -757,10 +751,7 @@ export const transferOwnership = mutation({
     ) {
       throw new Error("Choose an active team member");
     }
-    if (
-      nextOwner.userId === identity.subject ||
-      nextOwner.role === "Owner"
-    ) {
+    if (nextOwner.userId === identity.subject || nextOwner.role === "Owner") {
       throw new Error("Choose a different team member");
     }
     const workspace = await ctx.db.get(

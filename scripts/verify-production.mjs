@@ -1,18 +1,21 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const startupTimeoutMs = 30_000;
 
 const port = await getOpenPort();
 const baseUrl = `http://localhost:${port}`;
-const serverCommand = process.platform === "win32" ? "cmd.exe" : "pnpm";
-const serverArgs =
-  process.platform === "win32"
-    ? ["/d", "/s", "/c", `pnpm start -- -p ${port}`]
-    : ["run", "start", "--", "-p", String(port)];
+const serverCommand = process.execPath;
+const serverArgs = [
+  join("node_modules", "next", "dist", "bin", "next"),
+  "start",
+  "-p",
+  String(port),
+];
 const accessPassword =
-  process.env.ACCESS_WALL_PASSWORD || "frame-desk-production-verifier";
+  process.env.ACCESS_WALL_PASSWORD || "relay-production-verifier";
 
 let server;
 
@@ -40,8 +43,8 @@ try {
   const verifier = spawn(process.execPath, ["scripts/verify.mjs"], {
     env: {
       ...process.env,
-      CUTLAB_VERIFY_ACCESS_PASSWORD: accessPassword,
-      CUTLAB_VERIFY_URL: baseUrl,
+      RELAY_VERIFY_ACCESS_PASSWORD: accessPassword,
+      RELAY_VERIFY_URL: baseUrl,
     },
     stdio: "inherit",
     windowsHide: true,

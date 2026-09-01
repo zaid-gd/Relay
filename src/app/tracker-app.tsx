@@ -89,7 +89,7 @@ import {
   isValidIntegrationUrl,
   normalizeIntegrationLink,
 } from "@/lib/integrations";
-import { cutlab } from "./design-system";
+import { relay } from "./design-system";
 import { RelayBrand } from "./relay-brand";
 import { emptyStateAssetFor, emptyStateAssets } from "./brand-assets";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -310,18 +310,18 @@ const TEAM_MEMBER_PERMISSION_LABELS = [
 ] as const;
 const MIN_PUBLIC_SLUG_LENGTH = 2;
 const LOCAL_PROJECT_ACTIVITY_STORAGE_KEY = "cutlab-studio:project-activity:v1";
-const headingFont = cutlab.font.heading;
-const defaultAccent = cutlab.color.teal;
-const accent = `var(--app-accent, ${cutlab.color.teal})`;
-const ink = `var(--app-ink, ${cutlab.color.softWhite})`;
+const headingFont = relay.font.heading;
+const defaultAccent = relay.color.teal;
+const accent = `var(--app-accent, ${relay.color.teal})`;
+const ink = `var(--app-ink, ${relay.color.softWhite})`;
 const muted = "var(--app-muted)";
 const border = "var(--app-border)";
-const panel = `var(--app-panel, ${cutlab.color.graphite})`;
-const canvas = `var(--app-canvas, ${cutlab.color.charcoal})`;
+const panel = `var(--app-panel, ${relay.color.graphite})`;
+const canvas = `var(--app-canvas, ${relay.color.charcoal})`;
 const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
-const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;
-const successColor = `var(--app-success, ${cutlab.color.success})`;
-const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
+const avatarSurface = `var(--app-avatar-surface, ${relay.color.slate})`;
+const successColor = `var(--app-success, ${relay.color.success})`;
+const warningColor = `var(--app-warning, ${relay.color.warning})`;
 
 type PageKey =
   | "dashboard"
@@ -6155,12 +6155,12 @@ function SettingsDesignPage({
                         </p>
                         <div className="flex gap-3">
                           {[
-                            cutlab.color.teal,
-                            cutlab.color.cyan,
-                            cutlab.color.sky,
-                            cutlab.color.indigo,
-                            cutlab.color.pink,
-                            cutlab.color.deepTeal,
+                            relay.color.teal,
+                            relay.color.cyan,
+                            relay.color.sky,
+                            relay.color.indigo,
+                            relay.color.pink,
+                            relay.color.deepTeal,
                           ].map((color) => (
                             <OwnedButton
                               key={color}

@@ -67,9 +67,7 @@ async function requireProjectAccess(
   const member = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q
-        .eq("teamId", project.teamId as string)
-        .eq("userId", identity.subject)
+      q.eq("teamId", project.teamId as string).eq("userId", identity.subject)
     )
     .unique();
   if (
@@ -93,7 +91,7 @@ function requireFileUploadPlan(
 }
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
-  return identity.name || identity.nickname || identity.email || "CutLab user";
+  return identity.name || identity.nickname || identity.email || "Relay user";
 }
 
 function cleanText(value: string, maxLength: number) {
@@ -575,8 +573,7 @@ export const getR2UploadSession = internalQuery({
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.uploaderUserId !== identity.subject)
-      return null;
+    if (!session || session.uploaderUserId !== identity.subject) return null;
     return session;
   },
 });

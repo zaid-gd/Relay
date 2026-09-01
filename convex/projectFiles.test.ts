@@ -148,19 +148,22 @@ async function setupProject(team = false) {
   return {
     t,
     owner: t.withIdentity({
-      tokenIdentifier: "owner",
+      tokenIdentifier: "test|owner",
+      subject: "owner",
       name: "Owner User",
       email: "owner@example.com",
       pla: "u:creator",
     }),
     editor: t.withIdentity({
-      tokenIdentifier: "editor",
+      tokenIdentifier: "test|editor",
+      subject: "editor",
       name: "Editor User",
       email: "editor@example.com",
       pla: "u:creator",
     }),
     reviewer: t.withIdentity({
-      tokenIdentifier: "reviewer",
+      tokenIdentifier: "test|reviewer",
+      subject: "reviewer",
       name: "Review User",
       email: "reviewer@example.com",
     }),
@@ -171,7 +174,8 @@ describe("project file management", () => {
   test("blocks Free users from creating or saving uploads", async () => {
     const { t } = await setupProject();
     const freeOwner = t.withIdentity({
-      tokenIdentifier: "owner",
+      tokenIdentifier: "test|owner",
+      subject: "owner",
       pla: "u:free",
     });
     const storageId = await t.run((ctx) =>

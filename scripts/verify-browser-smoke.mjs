@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
+import { chromium } from "@playwright/test";
 
 const routes = [
   { path: "/", label: "dashboard", expectedText: ["Dashboard"] },
@@ -74,12 +75,24 @@ const routes = [
   {
     path: "/client-portal",
     label: "client-portal",
-    expectedText: ["Client Portal", "A project link is required"],
+    expectedText: ["A project link is required"],
   },
   {
-    path: "/u/frame-desk-smoke-profile",
+    path: "/u/relay-smoke-profile",
     label: "public-profile",
     expectedText: ["Loading public profile"],
+  },
+  {
+    path: "/privacy",
+    label: "privacy",
+    expectedText: ["Privacy Policy", "Relay"],
+  },
+  { path: "/terms", label: "terms", expectedText: ["Terms", "Relay"] },
+  { path: "/contact", label: "contact", expectedText: ["Contact", "Relay"] },
+  {
+    path: "/accessibility",
+    label: "accessibility",
+    expectedText: ["Accessibility", "Relay"],
   },
   {
     path: "/route-that-does-not-exist",
@@ -89,7 +102,7 @@ const routes = [
   },
 ];
 const startupTimeoutMs = 30_000;
-const outputDirectory = mkdtempSync(join(tmpdir(), "cutlab-browser-smoke-"));
+const outputDirectory = mkdtempSync(join(tmpdir(), "relay-browser-smoke-"));
 class BrowserSmokeSkipped extends Error {}
 
 let server;
@@ -143,6 +156,60 @@ try {
   }
   console.log(
     `Browser smoke verified route HTML for ${routes.length} routes against ${baseUrl}.`
+  );
+
+  const publicRoutes = [
+    "/client-portal",
+    "/u/relay-smoke-profile",
+    "/privacy",
+    "/terms",
+    "/contact",
+    "/accessibility",
+    "/route-that-does-not-exist",
+  ];
+  const chromiumBrowser = await chromium.launch({ headless: true });
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
+    const context = await chromiumBrowser.newContext({
+      viewport,
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    for (const path of publicRoutes) {
+      await page.goto(`${baseUrl}${path}`, { waitUntil: "domcontentloaded" });
+      const pageState = await page.evaluate(() => ({
+        hasMain: Boolean(document.querySelector("main")),
+        horizontalOverflow:
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth,
+      }));
+      if (!pageState.hasMain || pageState.horizontalOverflow) {
+        throw new Error(`Responsive public-page check failed for ${path}.`);
+      }
+      await page.keyboard.press("Tab");
+      if (await page.evaluate(() => document.activeElement === document.body)) {
+        throw new Error(`Keyboard focus did not enter ${path}.`);
+      }
+      const resizedOverflow = await page.evaluate(() => {
+        document.documentElement.style.fontSize = "200%";
+        return (
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth
+        );
+      });
+      if (resizedOverflow) {
+        throw new Error(
+          `Two-hundred-percent text resizing overflowed ${path}.`
+        );
+      }
+    }
+    await context.close();
+  }
+  await chromiumBrowser.close();
+  console.log(
+    "Public Relay pages verified at 1440x1000 and 390x844 with reduced motion and keyboard focus."
   );
 
   const firefoxPath = findFirefox();
@@ -228,7 +295,7 @@ function findFirefox() {
 }
 
 function canCaptureScreenshot(browserPath) {
-  const directory = mkdtempSync(join(tmpdir(), "cutlab-firefox-preflight-"));
+  const directory = mkdtempSync(join(tmpdir(), "relay-firefox-preflight-"));
   const screenshotPath = join(directory, "preflight.png");
   try {
     spawnSync(

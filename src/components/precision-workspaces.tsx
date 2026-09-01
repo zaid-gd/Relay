@@ -1361,14 +1361,14 @@ export function PrecisionReports({
   function exportReport() {
     downloadCsv(
       payoutReportToCsv(report, settings.currencyCode),
-      `cutlab-payout-report-${period}.csv`
+      `relay-payout-report-${period}.csv`
     );
   }
 
   function exportInvoiceDrafts() {
     downloadCsv(
       invoiceDraftsToCsv(invoiceDrafts),
-      `cutlab-invoice-drafts-${period}.csv`
+      `relay-invoice-drafts-${period}.csv`
     );
   }
 

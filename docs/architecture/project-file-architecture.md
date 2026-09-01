@@ -1,6 +1,6 @@
 # Project File Architecture
 
-CutLab stores project file identity separately from file versions.
+Relay stores project file identity separately from file versions.
 
 ## Canonical Model
 

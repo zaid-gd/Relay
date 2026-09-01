@@ -68,9 +68,7 @@ async function requireProjectAccess(
   const member = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q
-        .eq("teamId", project.teamId as string)
-        .eq("userId", identity.subject)
+      q.eq("teamId", project.teamId as string).eq("userId", identity.subject)
     )
     .unique();
   if (
@@ -408,7 +406,11 @@ export const getForProject = query({
     const portal = await portalForEditor(ctx, args.projectId);
     if (!portal) return null;
 
-    const deliverables = await projectDeliverables(ctx, portal.projectId, false);
+    const deliverables = await projectDeliverables(
+      ctx,
+      portal.projectId,
+      false
+    );
     const revisions = await ctx.db
       .query("portalRevisions")
       .withIndex("by_portalId_and_createdAt", (q) =>
@@ -578,7 +580,7 @@ export const publish = mutation({
       await recordProjectActivity(ctx, {
         project,
         actorUserId: identity.subject,
-        actorName: identity.name || identity.email || "CutLab user",
+        actorName: identity.name || identity.email || "Relay user",
         kind: statusChanged ? "client_stage_changed" : "client_portal_updated",
         message: statusChanged
           ? `Client workflow stage changed to ${snapshot.status}.`
@@ -627,7 +629,7 @@ export const publish = mutation({
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.subject,
-      actorName: identity.name || identity.email || "CutLab user",
+      actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_published",
       message: "The client portal was published.",
     });
@@ -650,7 +652,7 @@ export const setPublished = mutation({
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.subject,
-      actorName: identity.name || identity.email || "CutLab user",
+      actorName: identity.name || identity.email || "Relay user",
       kind: args.published
         ? "client_portal_published"
         : "client_portal_unpublished",
@@ -684,7 +686,7 @@ export const setAccessControls = mutation({
       await recordProjectActivity(ctx, {
         project,
         actorUserId: identity.subject,
-        actorName: identity.name || identity.email || "CutLab user",
+        actorName: identity.name || identity.email || "Relay user",
         kind: args.enabled ? "client_portal_enabled" : "client_portal_disabled",
         message: `Client portal access was ${args.enabled ? "enabled" : "disabled"}.`,
         createdAt: now,
@@ -693,7 +695,7 @@ export const setAccessControls = mutation({
       await recordProjectActivity(ctx, {
         project,
         actorUserId: identity.subject,
-        actorName: identity.name || identity.email || "CutLab user",
+        actorName: identity.name || identity.email || "Relay user",
         kind: "client_portal_updated",
         message: expiresAt
           ? `Client portal expiry was set to ${expiresAt}.`
@@ -718,7 +720,7 @@ export const regenerateToken = mutation({
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.subject,
-      actorName: identity.name || identity.email || "CutLab user",
+      actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_token_regenerated",
       message:
         "The client portal link was regenerated. The previous link no longer works.",
@@ -749,7 +751,7 @@ export const setPasswordProtection = mutation({
       await recordProjectActivity(ctx, {
         project,
         actorUserId: identity.subject,
-        actorName: identity.name || identity.email || "CutLab user",
+        actorName: identity.name || identity.email || "Relay user",
         kind: "client_portal_updated",
         message: "Client portal password protection was removed.",
         createdAt: now,
@@ -763,7 +765,7 @@ export const setPasswordProtection = mutation({
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.subject,
-      actorName: identity.name || identity.email || "CutLab user",
+      actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_updated",
       message: `Client portal password protection was ${wasProtected ? "updated" : "enabled"}.`,
       createdAt: now,
@@ -790,7 +792,7 @@ export const addDeliverable = mutation({
     const detail = cleanText(args.detail, 300);
     const url = args.url.trim();
     const status = normalizeDeliverableStatus(args.status);
-    const actor = identity.name || identity.email || "CutLab user";
+    const actor = identity.name || identity.email || "Relay user";
     if (!title) throw new Error("Deliverable title is required");
     if (!validPublicUrl(url))
       throw new Error("Enter a valid http or https deliverable URL");
@@ -977,7 +979,7 @@ export const updateRevisionStatus = mutation({
     await recordProjectActivity(ctx, {
       project,
       actorUserId: identity.subject,
-      actorName: identity.name || identity.email || "CutLab user",
+      actorName: identity.name || identity.email || "Relay user",
       kind: "revision_status_changed",
       message: `A revision request changed from ${revision.status} to ${status}.`,
     });

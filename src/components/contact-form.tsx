@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const supportEmail = "Cutlab.Studios@gmail.com";
 const fieldClass =
   "min-h-12 w-full rounded-md border border-[var(--app-strong-border)] bg-[var(--app-control)] px-3 py-2 text-base text-[var(--app-ink)] outline-none transition-colors placeholder:text-[var(--app-subtle)] focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--app-accent)_24%,transparent)]";
 
@@ -16,6 +15,7 @@ export function ContactForm() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const supportEmail = "zns.stuioss@gmail.com";
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     const email = String(form.get("email") || "").trim();

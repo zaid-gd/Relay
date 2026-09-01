@@ -1,11 +1,11 @@
-# Frame Desk Design-System, Application, and Convex Seams
+# Relay Design-System, Application, and Convex Seams
 
 Status: Accepted for the MUI-to-shadcn migration  
 Date: 2026-07-26
 
 ## Decision
 
-Frame Desk will use a capability-oriented architecture with three explicit seams:
+Relay will use a capability-oriented architecture with three explicit seams:
 
 1. The **design-system seam** exposes visual primitives and reusable visual patterns.
 2. The **application seam** exposes screen models and semantic actions for one product capability.
@@ -17,7 +17,7 @@ The current `useData()` interface and direct Convex hooks inside screen code are
 
 ## Context
 
-Frame Desk is a production workspace for projects, clients, deliverables, project files and versions, reviews, revisions, teams, settings, resources, salary batches, public profiles, and client portals.
+Relay is a production workspace for projects, clients, deliverables, project files and versions, reviews, revisions, teams, settings, resources, salary batches, public profiles, and client portals.
 
 The current implementation has several forms of coupling:
 
@@ -90,18 +90,18 @@ Any accepted design must satisfy these invariants:
 
 ```ts
 type Workspace = {
-  state: WorkspaceState
-  execute(command: WorkspaceCommand): Promise<WorkspaceResult>
-}
+  state: WorkspaceState;
+  execute(command: WorkspaceCommand): Promise<WorkspaceResult>;
+};
 
-function useWorkspace(): Workspace
+function useWorkspace(): Workspace;
 ```
 
 #### Caller
 
 ```ts
-const workspace = useWorkspace()
-workspace.execute({ type: "project.create", input })
+const workspace = useWorkspace();
+workspace.execute({ type: "project.create", input });
 ```
 
 #### Hidden implementation
@@ -122,22 +122,15 @@ Decision: rejected.
 
 ```ts
 type CapabilityKey =
-  | "projects"
-  | "settings"
-  | "resources"
-  | "team"
-  | "files"
-  | "clientPortal"
+  "projects" | "settings" | "resources" | "team" | "files" | "clientPortal";
 
-function useCapability<K extends CapabilityKey>(
-  key: K
-): CapabilityMap[K]
+function useCapability<K extends CapabilityKey>(key: K): CapabilityMap[K];
 ```
 
 #### Caller
 
 ```ts
-const projects = useCapability("projects")
+const projects = useCapability("projects");
 ```
 
 #### Hidden implementation
@@ -156,18 +149,18 @@ Decision: rejected as the external interface. A composition root may internally 
 
 ```ts
 type ProjectsScreenController = {
-  model: ProjectsScreenModel
-  actions: ProjectsScreenActions
-}
+  model: ProjectsScreenModel;
+  actions: ProjectsScreenActions;
+};
 
-function useProjectsScreen(): ProjectsScreenController
+function useProjectsScreen(): ProjectsScreenController;
 ```
 
 #### Caller
 
 ```tsx
-const projects = useProjectsScreen()
-return <ProjectsScreen {...projects} />
+const projects = useProjectsScreen();
+return <ProjectsScreen {...projects} />;
 ```
 
 #### Hidden implementation
@@ -188,19 +181,17 @@ Decision: accepted only at the outer application seam, backed by reusable capabi
 type Loadable<T> =
   | { status: "loading" }
   | { status: "ready"; value: T }
-  | { status: "error"; error: AppFailure }
+  | { status: "error"; error: AppFailure };
 
 interface ProjectsPort {
-  projects: Loadable<readonly Project[]>
-  save(command: SaveProject): Promise<Result<ProjectId, ProjectFailure>>
-  remove(command: RemoveProject): Promise<Result<void, ProjectFailure>>
-  setStatus(command: SetProjectStatus): Promise<Result<void, ProjectFailure>>
+  projects: Loadable<readonly Project[]>;
+  save(command: SaveProject): Promise<Result<ProjectId, ProjectFailure>>;
+  remove(command: RemoveProject): Promise<Result<void, ProjectFailure>>;
+  setStatus(command: SetProjectStatus): Promise<Result<void, ProjectFailure>>;
   setChecklistItem(
     command: SetChecklistItem
-  ): Promise<Result<void, ProjectFailure>>
-  setPayment(
-    command: SetProjectPayment
-  ): Promise<Result<void, ProjectFailure>>
+  ): Promise<Result<void, ProjectFailure>>;
+  setPayment(command: SetProjectPayment): Promise<Result<void, ProjectFailure>>;
 }
 ```
 
@@ -209,8 +200,8 @@ interface ProjectsPort {
 Application modules consume the port. Screens do not.
 
 ```ts
-const projectsPort = useProjectsPort()
-return createProjectsController(projectsPort, localViewState)
+const projectsPort = useProjectsPort();
+return createProjectsController(projectsPort, localViewState);
 ```
 
 #### Hidden implementation
@@ -323,31 +314,26 @@ Reusable visual patterns:
 
 ```ts
 type SemanticTone =
-  | "neutral"
-  | "accent"
-  | "success"
-  | "warning"
-  | "danger"
-  | "info"
+  "neutral" | "accent" | "success" | "warning" | "danger" | "info";
 
 type StatusBadgeProps = {
-  label: string
-  tone: SemanticTone
-}
+  label: string;
+  tone: SemanticTone;
+};
 
 type FieldProps = {
-  label: string
-  description?: string
-  error?: string
-  required?: boolean
-  children: React.ReactNode
-}
+  label: string;
+  description?: string;
+  error?: string;
+  required?: boolean;
+  children: React.ReactNode;
+};
 
 type EmptyStateProps = {
-  title: string
-  description: string
-  action?: React.ReactNode
-}
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+};
 ```
 
 Application modules may depend on design-system interface types such as `SemanticTone`. The design system must not depend on application types.
@@ -358,32 +344,32 @@ Each route-facing feature exposes one controller interface.
 
 ```ts
 type ProjectsWorkspace = {
-  model: ProjectsScreenModel
-  actions: ProjectsScreenActions
-}
+  model: ProjectsScreenModel;
+  actions: ProjectsScreenActions;
+};
 
 type ProjectsScreenModel = {
-  state: "loading" | "ready" | "empty" | "error"
-  query: string
-  filters: ProjectFiltersModel
-  personalProjects: readonly ProjectRowModel[]
-  teamProjects: readonly ProjectRowModel[]
-  selectedProject: ProjectDetailModel | null
-  permissions: ProjectPermissionModel
-  message?: string
-}
+  state: "loading" | "ready" | "empty" | "error";
+  query: string;
+  filters: ProjectFiltersModel;
+  personalProjects: readonly ProjectRowModel[];
+  teamProjects: readonly ProjectRowModel[];
+  selectedProject: ProjectDetailModel | null;
+  permissions: ProjectPermissionModel;
+  message?: string;
+};
 
 type ProjectsScreenActions = {
-  setQuery(value: string): void
-  setFilters(value: ProjectFiltersInput): void
-  createProject(input: ProjectInput): Promise<ActionResult>
-  updateProject(id: ProjectId, input: ProjectInput): Promise<ActionResult>
-  deleteProject(id: ProjectId): Promise<ActionResult>
-  selectProject(id: ProjectId | null): void
-  updateStatus(id: ProjectId, status: ProjectStatus): Promise<ActionResult>
-}
+  setQuery(value: string): void;
+  setFilters(value: ProjectFiltersInput): void;
+  createProject(input: ProjectInput): Promise<ActionResult>;
+  updateProject(id: ProjectId, input: ProjectInput): Promise<ActionResult>;
+  deleteProject(id: ProjectId): Promise<ActionResult>;
+  selectProject(id: ProjectId | null): void;
+  updateStatus(id: ProjectId, status: ProjectStatus): Promise<ActionResult>;
+};
 
-function useProjectsWorkspace(): ProjectsWorkspace
+function useProjectsWorkspace(): ProjectsWorkspace;
 ```
 
 The controller interface includes:
@@ -409,9 +395,7 @@ It excludes:
 Ports are capability-specific and use product operations.
 
 ```ts
-type Result<T, E> =
-  | { ok: true; value: T }
-  | { ok: false; error: E }
+type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 type AppFailure =
   | { kind: "validation"; message: string; field?: string }
@@ -420,7 +404,7 @@ type AppFailure =
   | { kind: "not-found"; message: string }
   | { kind: "conflict"; message: string }
   | { kind: "unavailable"; message: string; retryable: boolean }
-  | { kind: "unexpected"; message: string; reference?: string }
+  | { kind: "unexpected"; message: string; reference?: string };
 ```
 
 Project operations must describe complete product use cases. Do not expose:
@@ -529,14 +513,9 @@ This is a responsibility map, not a requirement to create every file immediately
 
 ```tsx
 export function ProjectsFeature() {
-  const workspace = useProjectsWorkspace()
+  const workspace = useProjectsWorkspace();
 
-  return (
-    <ProjectsScreen
-      model={workspace.model}
-      actions={workspace.actions}
-    />
-  )
+  return <ProjectsScreen model={workspace.model} actions={workspace.actions} />;
 }
 ```
 
@@ -548,20 +527,20 @@ Project files and client portals need separate capability ports because their fa
 
 ```ts
 interface ProjectFilesPort {
-  files(projectId: ProjectId): Loadable<ProjectFilesSnapshot>
+  files(projectId: ProjectId): Loadable<ProjectFilesSnapshot>;
   addExternalVersion(
     command: AddExternalVersion
-  ): Promise<Result<ProjectFileId, ProjectFileFailure>>
+  ): Promise<Result<ProjectFileId, ProjectFileFailure>>;
   prepareUpload(
     command: PrepareUpload
-  ): Promise<Result<UploadTarget, ProjectFileFailure>>
+  ): Promise<Result<UploadTarget, ProjectFileFailure>>;
   finalizeUpload(
     command: FinalizeUpload
-  ): Promise<Result<ProjectFileId, ProjectFileFailure>>
+  ): Promise<Result<ProjectFileId, ProjectFileFailure>>;
   updateMetadata(
     command: UpdateProjectFile
-  ): Promise<Result<void, ProjectFileFailure>>
-  remove(command: RemoveProjectFile): Promise<Result<void, ProjectFileFailure>>
+  ): Promise<Result<void, ProjectFileFailure>>;
+  remove(command: RemoveProjectFile): Promise<Result<void, ProjectFileFailure>>;
 }
 ```
 

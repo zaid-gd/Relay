@@ -80,7 +80,7 @@ export function Providers({
       <TooltipProvider delayDuration={250}>
         {children}
         <Toaster
-          className="cutlab-sonner"
+          className="relay-sonner"
           position="bottom-right"
           toastOptions={{
             style: {

@@ -1,4 +1,4 @@
-export const cutlab = {
+export const relay = {
   color: {
     charcoal: "#000000",
     graphite: "#121212",
@@ -17,14 +17,14 @@ export const cutlab = {
     success: "#22C55E",
     warning: "#FBBF24",
     error: "#EF4444",
-    info: "#3B82F6"
+    info: "#3B82F6",
   },
   radius: {
     xs: 4,
     control: 6,
     panel: 6,
     overlay: 8,
-    pill: 9999
+    pill: 9999,
   },
   space: {
     1: 4,
@@ -36,17 +36,17 @@ export const cutlab = {
     7: 40,
     8: 48,
     9: 64,
-    10: 80
+    10: 80,
   },
   shadow: {
     0: "none",
     1: "0 10px 30px rgba(0, 7, 10, 0.12)",
     2: "0 18px 48px rgba(0, 7, 10, 0.2)",
-    3: "0 28px 80px rgba(0, 7, 10, 0.3)"
+    3: "0 28px 80px rgba(0, 7, 10, 0.3)",
   },
   font: {
     heading: "var(--font-geist-sans), Geist, sans-serif",
-    body: "var(--font-geist-sans), Geist, sans-serif"
+    body: "var(--font-geist-sans), Geist, sans-serif",
   },
   typography: {
     display: "clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem)",
@@ -54,17 +54,17 @@ export const cutlab = {
     body: "0.875rem",
     label: "0.75rem",
     lineBody: 1.5,
-    lineTight: 1.2
+    lineTight: 1.2,
   },
   motion: {
     fast: "120ms",
     base: "180ms",
     slow: "280ms",
     easeStandard: "cubic-bezier(0.2, 0, 0, 1)",
-    easeOut: "cubic-bezier(0.16, 1, 0.3, 1)"
+    easeOut: "cubic-bezier(0.16, 1, 0.3, 1)",
   },
   density: {
     compact: { controlHeight: 32, rowHeight: 34, sectionGap: 16 },
-    balanced: { controlHeight: 36, rowHeight: 40, sectionGap: 20 }
-  }
+    balanced: { controlHeight: 36, rowHeight: 40, sectionGap: 20 },
+  },
 } as const;

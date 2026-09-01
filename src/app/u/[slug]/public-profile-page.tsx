@@ -13,23 +13,34 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { RelayBrand } from "@/app/relay-brand";
 
 import { api } from "../../../../convex/_generated/api";
 import { emptyStateAssets } from "../../brand-assets";
 
-const panelClass = "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]";
+const panelClass =
+  "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)]";
 
 export function PublicProfilePage() {
   const params = useParams<{ slug: string }>();
   const slug = typeof params.slug === "string" ? params.slug : "";
-  const profile = useQuery(api.publicProfiles.getBySlug, slug ? { slug } : "skip");
+  const profile = useQuery(
+    api.publicProfiles.getBySlug,
+    slug ? { slug } : "skip"
+  );
 
   if (profile === undefined) {
     return (
       <PublicShell>
         <div className="grid min-h-[70dvh] place-items-center">
-          <div role="status" className="flex flex-col items-center gap-3 text-[var(--app-muted)]">
-            <LoaderCircle aria-hidden="true" className="size-[30px] text-[var(--app-accent)]" />
+          <div
+            role="status"
+            className="flex flex-col items-center gap-3 text-[var(--app-muted)]"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-[30px] text-[var(--app-accent)]"
+            />
             <p className="text-[13px]">Loading public profile...</p>
           </div>
         </div>
@@ -45,20 +56,27 @@ export function PublicProfilePage() {
             Profile not found
           </h1>
           <p className="mt-2 text-sm text-[var(--app-muted)]">
-            This public Relay profile has not been published or the link is incorrect.
+            This public Relay profile has not been published or the link is
+            incorrect.
           </p>
         </section>
       </PublicShell>
     );
   }
 
-  const turnaroundDays = Math.max(1, Math.floor(profile.avgTurnaroundDays || 3));
+  const turnaroundDays = Math.max(
+    1,
+    Math.floor(profile.avgTurnaroundDays || 3)
+  );
 
   return (
     <PublicShell>
       <article className={cn(panelClass, "mt-5")}>
         <header className="grid items-center gap-8 p-5 md:grid-cols-[148px_minmax(0,1fr)] md:p-8">
-          <PublicAvatar name={profile.profileName} imageUrl={profile.profileImageUrl} />
+          <PublicAvatar
+            name={profile.profileName}
+            imageUrl={profile.profileImageUrl}
+          />
           <div>
             <h1 className="text-[34px] font-bold leading-tight">
               {profile.profileName || "Relay Editor"}
@@ -68,7 +86,9 @@ export function PublicProfilePage() {
                 @{profile.profileUsername}
               </p>
             ) : null}
-            <p className="mt-2 text-[15px]">{profile.profileTitle || "Video Editor"}</p>
+            <p className="mt-2 text-[15px]">
+              {profile.profileTitle || "Video Editor"}
+            </p>
             <p className="mt-4 max-w-[420px] text-sm text-[var(--app-muted)]">
               {profile.profileBio || "Portfolio profile published from Relay."}
             </p>
@@ -76,17 +96,27 @@ export function PublicProfilePage() {
               {profile.profileLocation ? (
                 <InfoPill icon={<MapPin />} text={profile.profileLocation} />
               ) : null}
-              {profile.timeZone ? <InfoPill icon={<Globe2 />} text={profile.timeZone} /> : null}
+              {profile.timeZone ? (
+                <InfoPill icon={<Globe2 />} text={profile.timeZone} />
+              ) : null}
             </div>
           </div>
           <dl className="grid grid-cols-1 gap-3 md:col-span-2 sm:grid-cols-3">
-            <ProfileMetric icon={<Play />} label="Active Projects" value={String(profile.activeProjects)} />
+            <ProfileMetric
+              icon={<Play />}
+              label="Active Projects"
+              value={String(profile.activeProjects)}
+            />
             <ProfileMetric
               icon={<CheckCircle2 />}
               label="Delivered Edits"
               value={String(profile.deliveredEdits)}
             />
-            <ProfileMetric icon={<Clock3 />} label="Turnaround" value={`${turnaroundDays} Days`} />
+            <ProfileMetric
+              icon={<Clock3 />}
+              label="Turnaround"
+              value={`${turnaroundDays} Days`}
+            />
           </dl>
         </header>
 
@@ -94,7 +124,9 @@ export function PublicProfilePage() {
 
         <section className="grid items-start gap-6 p-4 md:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <div>
-            <h2 className="text-[28px] font-bold leading-tight">Portfolio timeline</h2>
+            <h2 className="text-[28px] font-bold leading-tight">
+              Portfolio timeline
+            </h2>
             <p className="mt-2 max-w-[260px] text-[13px] text-[var(--app-muted)]">
               Recent public delivery context shared from Relay.
             </p>
@@ -114,7 +146,9 @@ export function PublicProfilePage() {
                   >
                     <div className="min-w-0">
                       <p className="text-[15px] font-bold">{project.title}</p>
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">{project.workType}</p>
+                      <p className="mt-1 text-xs text-[var(--app-muted)]">
+                        {project.workType}
+                      </p>
                     </div>
                     <time className="text-xs text-[var(--app-muted)]">
                       {formatPublicDate(project.dueDate)}
@@ -126,7 +160,10 @@ export function PublicProfilePage() {
                         </Badge>
                         <span className="text-xs font-bold">{progress}%</span>
                       </div>
-                      <ProgressBar value={progress} label={`${project.title} progress`} />
+                      <ProgressBar
+                        value={progress}
+                        label={`${project.title} progress`}
+                      />
                     </div>
                   </li>
                 );
@@ -142,7 +179,8 @@ export function PublicProfilePage() {
               />
               <p className="text-sm font-bold">No public projects shared yet</p>
               <p className="mt-1 text-xs text-[var(--app-muted)]">
-                The editor can publish updated public work from their Relay profile.
+                The editor can publish updated public work from their Relay
+                profile.
               </p>
             </div>
           )}
@@ -156,10 +194,7 @@ function PublicShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-dvh bg-[var(--app-canvas)] px-4 py-6 text-[var(--app-ink)] md:px-8 md:py-10">
       <div className="mx-auto w-full max-w-4xl">
-        <a href="/" aria-label="Relay home" className="inline-flex items-center gap-2 text-[var(--app-ink)] no-underline">
-          <span className="grid size-8 place-items-center rounded-[6px] bg-[var(--app-ink)] text-sm font-bold text-[var(--app-canvas)]">R</span>
-          <span className="text-lg font-bold tracking-tight">Relay</span>
-        </a>
+        <RelayBrand compact />
         {children}
       </div>
     </main>
@@ -190,7 +225,9 @@ function ProfileMetric({
   return (
     <div className="flex flex-col rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-3">
       <span className="text-[var(--app-accent)] [&_svg]:size-5">{icon}</span>
-      <dt className="order-3 mt-1 text-[11px] text-[var(--app-muted)]">{label}</dt>
+      <dt className="order-3 mt-1 text-[11px] text-[var(--app-muted)]">
+        {label}
+      </dt>
       <dd className="order-2 mt-2 text-xl font-bold">{value}</dd>
     </div>
   );
@@ -199,7 +236,9 @@ function ProfileMetric({
 function InfoPill({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-[var(--app-muted)]">
-      <span className="text-[var(--app-accent)] [&_svg]:size-[17px]">{icon}</span>
+      <span className="text-[var(--app-accent)] [&_svg]:size-[17px]">
+        {icon}
+      </span>
       {text}
     </span>
   );
@@ -239,7 +278,11 @@ function projectProgress(status: string) {
     return 100;
   }
   if (normalizedStatus.includes("review")) return 72;
-  if (normalizedStatus.includes("progress") || normalizedStatus.includes("edit")) return 48;
+  if (
+    normalizedStatus.includes("progress") ||
+    normalizedStatus.includes("edit")
+  )
+    return 48;
   return 18;
 }
 

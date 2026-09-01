@@ -23,8 +23,8 @@ export default async function globalSetup() {
   try {
     await clerkClient.users.createUser({
       emailAddress: [email],
-      username: "cutlab_e2e",
-      firstName: "CutLab",
+      username: "relay_e2e",
+      firstName: "Relay",
       lastName: "E2E",
       skipPasswordRequirement: true,
       skipLegalChecks: true,

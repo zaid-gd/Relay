@@ -29,6 +29,7 @@ import type { MediaVersionComment } from "@/features/media-version-comments/medi
 import { parseMediaVersionComments } from "@/features/media-version-comments/media-version-comments-data";
 import { trackOptionalEvent } from "@/lib/telemetry";
 import { cn } from "@/lib/utils";
+import { RelayBrand } from "@/app/relay-brand";
 
 type PublicSource = { provider: "YouTube" | "Vimeo" | "Link"; url: string };
 type PublicVersion = {
@@ -91,7 +92,14 @@ const publicFilesRef = makeFunctionReference<
 >("projectFiles:listForPortal");
 const addPublicCommentRef = makeFunctionReference<
   "mutation",
-  { token: string; pin?: string; outputId: string; mediaVersionId: string; authorName: string; body: string },
+  {
+    token: string;
+    pin?: string;
+    outputId: string;
+    mediaVersionId: string;
+    authorName: string;
+    body: string;
+  },
   unknown
 >("mediaVersionComments:addPublicComment");
 const reopenPublicCommentRef = makeFunctionReference<
@@ -141,22 +149,29 @@ function readPublicFiles(value: unknown): PublicFile[] {
     const fileName = text(item.fileName);
     const url = safeUrl(item.url);
     if (!title || !fileName || !url) return [];
-    return [{
-      id: text(item.id) ?? fileName,
-      title,
-      description: text(item.description),
-      url,
-      downloadable: item.downloadable === true,
-      fileName,
-      mimeType: text(item.mimeType) ?? "application/octet-stream",
-      updatedAt: text(item.updatedAt),
-    }];
+    return [
+      {
+        id: text(item.id) ?? fileName,
+        title,
+        description: text(item.description),
+        url,
+        downloadable: item.downloadable === true,
+        fileName,
+        mimeType: text(item.mimeType) ?? "application/octet-stream",
+        updatedAt: text(item.updatedAt),
+      },
+    ];
   });
 }
 
 function fileKind(mimeType: string) {
   const mime = mimeType.toLowerCase();
-  if (mime === "text/plain" || mime === "text/markdown" || mime === "text/x-markdown") return "Text";
+  if (
+    mime === "text/plain" ||
+    mime === "text/markdown" ||
+    mime === "text/x-markdown"
+  )
+    return "Text";
   if (mime === "application/pdf") return "PDF";
   if (mime.startsWith("image/")) return "Image";
   return "File";
@@ -169,10 +184,7 @@ export function readPublicPortalAccess(value: unknown): PublicAccess {
   if (access === "closed" || access === "unavailable" || access === "denied")
     return { kind: "closed" };
   if (access === "expired") return { kind: "expired" };
-  if (
-    access === "invalid_pin"
-  )
-    return { kind: "pin-required", wrongPin: true };
+  if (access === "invalid_pin") return { kind: "pin-required", wrongPin: true };
   if (
     access === "locked" ||
     access === "pin_required" ||
@@ -183,7 +195,7 @@ export function readPublicPortalAccess(value: unknown): PublicAccess {
   const project = isRecord(source.project) ? source.project : source;
   const title = text(project.title) ?? text(project.name);
   const stage = normalizePublicStage(
-    text(project.stage) ?? text(project.publicStage) ?? text(project.status),
+    text(project.stage) ?? text(project.publicStage) ?? text(project.status)
   );
   if (!title) return { kind: "invalid" };
   return {
@@ -198,7 +210,7 @@ export function readPublicPortalAccess(value: unknown): PublicAccess {
       stage,
       progress: Math.max(
         0,
-        Math.min(100, number(project.progress) ?? progressForStage(stage)),
+        Math.min(100, number(project.progress) ?? progressForStage(stage))
       ),
       outputs: readOutputs(project.outputs ?? source.outputs),
     },
@@ -224,7 +236,7 @@ function readOutputs(value: unknown): PublicOutput[] {
         id: text(item.id) ?? `output-${index + 1}`,
         title,
         reviewState: safeReviewState(
-          text(item.reviewState) ?? text(item.status),
+          text(item.reviewState) ?? text(item.status)
         ),
         dueDate: text(item.dueDate),
         ...(current ? { currentVersion: current } : {}),
@@ -235,7 +247,7 @@ function readOutputs(value: unknown): PublicOutput[] {
 
 function readVersion(
   value: Record<string, unknown>,
-  fallbackId: string,
+  fallbackId: string
 ): PublicVersion | undefined {
   const source = isRecord(value.source) ? value.source : value;
   const url = safeUrl(source.url);
@@ -284,7 +296,7 @@ function normalizePublicStage(value: string | undefined) {
 
 function progressForStage(stage: string) {
   const index = PUBLIC_STAGES.findIndex(
-    (item) => item.toLowerCase() === stage.toLowerCase(),
+    (item) => item.toLowerCase() === stage.toLowerCase()
   );
   return index < 0 ? 0 : Math.round((index / (PUBLIC_STAGES.length - 1)) * 100);
 }
@@ -313,7 +325,7 @@ export function ClientPortalView({ token }: { token: string }) {
   const [pinBusy, setPinBusy] = useState(false);
   const publicResult = useQuery(
     publicPortalRef,
-    token ? { token, ...(pin ? { pin } : {}) } : "skip",
+    token ? { token, ...(pin ? { pin } : {}) } : "skip"
   );
 
   useEffect(() => {
@@ -339,19 +351,15 @@ export function ClientPortalView({ token }: { token: string }) {
       publicResult === undefined
         ? { kind: "loading" }
         : readPublicPortalAccess(publicResult),
-    [publicResult],
+    [publicResult]
   );
   const publicCommentsResult = useQuery(
     publicCommentsRef,
-    access.kind === "active"
-      ? { token, ...(pin ? { pin } : {}) }
-      : "skip",
+    access.kind === "active" ? { token, ...(pin ? { pin } : {}) } : "skip"
   );
   const publicFilesResult = useQuery(
     publicFilesRef,
-    access.kind === "active"
-      ? { token, ...(pin ? { pin } : {}) }
-      : "skip",
+    access.kind === "active" ? { token, ...(pin ? { pin } : {}) } : "skip"
   );
   const addPublicComment = useMutation(addPublicCommentRef);
   const reopenPublicComment = useMutation(reopenPublicCommentRef);
@@ -409,7 +417,11 @@ export function ClientPortalView({ token }: { token: string }) {
     changeDisplayName("");
   }
 
-  async function addComment(outputId: string, mediaVersionId: string, body: string) {
+  async function addComment(
+    outputId: string,
+    mediaVersionId: string,
+    body: string
+  ) {
     setCommentBusyOutputId(outputId);
     try {
       await addPublicComment({
@@ -476,7 +488,11 @@ export function ClientPortalView({ token }: { token: string }) {
     return (
       <AccessState
         title="This portal is protected"
-        body={access.wrongPin ? "That PIN did not unlock this portal. Try again." : "Enter the PIN shared by your editor to view this project."}
+        body={
+          access.wrongPin
+            ? "That PIN did not unlock this portal. Try again."
+            : "Enter the PIN shared by your editor to view this project."
+        }
       >
         <form
           onSubmit={(event) => void unlock(event)}
@@ -504,7 +520,7 @@ export function ClientPortalView({ token }: { token: string }) {
           <p
             className={cn(
               "text-xs text-muted-foreground",
-              (pinError || access.wrongPin) && "text-destructive",
+              (pinError || access.wrongPin) && "text-destructive"
             )}
             role={pinError || access.wrongPin ? "alert" : undefined}
           >
@@ -540,21 +556,6 @@ export function ClientPortalView({ token }: { token: string }) {
   );
 }
 
-function RelayMark() {
-  return (
-    <a
-      href="/"
-      aria-label="Relay home"
-      className="inline-flex items-center gap-2 text-foreground no-underline"
-    >
-      <span className="grid size-8 place-items-center rounded-md bg-foreground text-sm font-bold text-background">
-        R
-      </span>
-      <span className="text-lg font-bold tracking-tight">Relay</span>
-    </a>
-  );
-}
-
 function AccessState({
   title,
   body,
@@ -567,7 +568,7 @@ function AccessState({
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-5 py-10 text-foreground">
       <section className="w-full max-w-lg border border-border bg-card p-6 text-card-foreground sm:p-10">
-        <RelayMark />
+        <RelayBrand compact />
         <div className="mt-14 flex flex-col items-center text-center">
           <span
             className="grid size-14 place-items-center border border-border text-muted-foreground"
@@ -617,7 +618,11 @@ function ActivePortal({
   displayName: string;
   onDisplayNameChange: (value: string) => void;
   onClearDisplayName: () => void;
-  onAddComment: (outputId: string, mediaVersionId: string, body: string) => Promise<void>;
+  onAddComment: (
+    outputId: string,
+    mediaVersionId: string,
+    body: string
+  ) => Promise<void>;
   onReopenComment: (commentId: string) => Promise<void>;
   busyOutputId: string;
   busyCommentId: string;
@@ -628,7 +633,7 @@ function ActivePortal({
     <main className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
         <header className="flex items-center justify-between gap-4 border-b border-border pb-5">
-          <RelayMark />
+          <RelayBrand compact />
           <span className="text-xs font-medium text-muted-foreground">
             Client portal
           </span>
@@ -651,7 +656,15 @@ function ActivePortal({
             </p>
           ) : null}
           <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm">
-            {portal.startDate ? <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />Started {formatDate(portal.startDate)}</span> : null}
+            {portal.startDate ? (
+              <span className="inline-flex items-center gap-2">
+                <CalendarDays
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                Started {formatDate(portal.startDate)}
+              </span>
+            ) : null}
             <span className="inline-flex items-center gap-2">
               <CalendarDays
                 className="size-4 text-muted-foreground"
@@ -713,7 +726,7 @@ function ActivePortal({
                       "grid size-6 shrink-0 place-items-center border text-xs",
                       complete || current
                         ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted-foreground",
+                        : "border-border text-muted-foreground"
                     )}
                   >
                     {complete ? (
@@ -724,7 +737,7 @@ function ActivePortal({
                   </span>
                   <span
                     className={cn(
-                      current ? "font-semibold" : "text-muted-foreground",
+                      current ? "font-semibold" : "text-muted-foreground"
                     )}
                   >
                     {stage}
@@ -749,19 +762,19 @@ function ActivePortal({
           {portal.outputs.length ? (
             <div className="mt-6 divide-y divide-border border-y border-border">
               {portal.outputs.map((output) => (
-              <PublicOutputRow
-                key={output.id}
-                output={output}
-                comments={comments}
-                commentsLoading={commentsLoading}
-                displayName={displayName}
-                onDisplayNameChange={onDisplayNameChange}
-                onClearDisplayName={onClearDisplayName}
-                onAddComment={onAddComment}
-                onReopenComment={onReopenComment}
-                busy={busyOutputId === output.id}
-                busyCommentId={busyCommentId}
-              />
+                <PublicOutputRow
+                  key={output.id}
+                  output={output}
+                  comments={comments}
+                  commentsLoading={commentsLoading}
+                  displayName={displayName}
+                  onDisplayNameChange={onDisplayNameChange}
+                  onClearDisplayName={onClearDisplayName}
+                  onAddComment={onAddComment}
+                  onReopenComment={onReopenComment}
+                  busy={busyOutputId === output.id}
+                  busyCommentId={busyCommentId}
+                />
               ))}
             </div>
           ) : (
@@ -800,10 +813,15 @@ function PublicFilesSection({
   loading: boolean;
 }) {
   return (
-    <section aria-labelledby="files-title" className="border-t border-border py-10">
+    <section
+      aria-labelledby="files-title"
+      className="border-t border-border py-10"
+    >
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 id="files-title" className="text-lg font-semibold">Files</h2>
+          <h2 id="files-title" className="text-lg font-semibold">
+            Files
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Files your editor has chosen to share.
           </p>
@@ -811,20 +829,30 @@ function PublicFilesSection({
         <Badge variant="outline">{loading ? "…" : files.length}</Badge>
       </div>
       {loading ? (
-        <p className="mt-6 text-sm text-muted-foreground">Loading shared files…</p>
+        <p className="mt-6 text-sm text-muted-foreground">
+          Loading shared files…
+        </p>
       ) : files.length ? (
         <div className="mt-6 divide-y divide-border border-y border-border">
           {files.map((file) => (
-            <article key={file.id} className="grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <article
+              key={file.id}
+              className="grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            >
               <div className="flex min-w-0 gap-3">
-                <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <FileText
+                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <div className="min-w-0">
                   <h3 className="truncate font-semibold">{file.title}</h3>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {fileKind(file.mimeType)} · {file.fileName}
                   </p>
                   {file.description ? (
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{file.description}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                      {file.description}
+                    </p>
                   ) : null}
                 </div>
               </div>
@@ -877,7 +905,11 @@ function PublicOutputRow({
   displayName: string;
   onDisplayNameChange: (value: string) => void;
   onClearDisplayName: () => void;
-  onAddComment: (outputId: string, mediaVersionId: string, body: string) => Promise<void>;
+  onAddComment: (
+    outputId: string,
+    mediaVersionId: string,
+    body: string
+  ) => Promise<void>;
   onReopenComment: (commentId: string) => Promise<void>;
   busy: boolean;
   busyCommentId: string;
@@ -925,7 +957,9 @@ function PublicOutputRow({
             displayName={displayName}
             onDisplayNameChange={onDisplayNameChange}
             onClearDisplayName={onClearDisplayName}
-            onSubmit={(body) => onAddComment(output.id, currentVersion.id, body)}
+            onSubmit={(body) =>
+              onAddComment(output.id, currentVersion.id, body)
+            }
             onReopen={onReopenComment}
             busyCommentId={busyCommentId}
             busy={busy}

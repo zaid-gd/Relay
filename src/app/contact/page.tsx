@@ -21,7 +21,7 @@ export default function ContactRoute() {
     mainEntity: {
       "@type": "Organization",
       name: "Relay",
-      email: "zns.studios@gmail.com",
+      email: "zns.stuioss@gmail.com",
       url: siteUrl,
     },
   };
@@ -44,7 +44,7 @@ export default function ContactRoute() {
             body: (
               <p>
                 Email us directly at{" "}
-                <a href="mailto:zns.studios@gmail.com">zns.studios@gmail.com</a>
+                <a href="mailto:zns.stuioss@gmail.com">zns.stuioss@gmail.com</a>
                 .
               </p>
             ),
