@@ -46,12 +46,15 @@ const entitlementValidator = v.object({
 
 const CLERK_PLAN_ID_TO_RELAY_PLAN = {
   free: "free",
+  free_org: "free",
   creator: "creator",
   team: "team",
 } as const;
 
 function relayPlanForClerkId(clerkPlanId: string) {
-  if (clerkPlanId === "free") return CLERK_PLAN_ID_TO_RELAY_PLAN.free;
+  if (clerkPlanId === "free" || clerkPlanId === "free_org") {
+    return CLERK_PLAN_ID_TO_RELAY_PLAN[clerkPlanId];
+  }
   if (clerkPlanId === "creator") return CLERK_PLAN_ID_TO_RELAY_PLAN.creator;
   if (clerkPlanId === "team") return CLERK_PLAN_ID_TO_RELAY_PLAN.team;
   throw new Error("Unknown Clerk plan identifier");

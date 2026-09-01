@@ -113,6 +113,28 @@ describe("Workspace subscription authority", () => {
     });
   });
 
+  test("Clerk's Organization Free slug resolves to Relay Free", async () => {
+    const t = convexTest(schema, modules);
+    const workspaceId = await createWorkspace(t, "owner", "Free Workspace");
+
+    await t.mutation(internal.workspaceSubscriptions.confirm, {
+      workspaceId,
+      clerkOrganizationId: "org_free",
+      clerkPlanId: "free_org",
+      billingPeriod: null,
+      subscriptionStatus: "free",
+      confirmedEditorQuantity: 1,
+      includedEditorSeatQuantity: 1,
+      purchasedExtraEditorSeatQuantity: 0,
+      storageAddonQuantity: 0,
+      clerkEventAt: "2026-09-01T00:00:00.000Z",
+    });
+
+    await expect(
+      asUser(t, "owner").query(api.workspaceSubscriptions.getCurrent, {})
+    ).resolves.toMatchObject({ plan: "free" });
+  });
+
   test("users in several Workspaces must select an active Clerk Organization", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
