@@ -431,7 +431,7 @@ export const createWorkspace = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
-    const workspaceName = (args.name.trim() || "CutLab Studio Team").slice(
+    const workspaceName = (args.name.trim() || "Relay Team").slice(
       0,
       TEAM_WORKSPACE_NAME_LIMIT
     );

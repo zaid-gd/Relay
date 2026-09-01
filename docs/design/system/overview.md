@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Give every Frame Desk surface one clear visual and interaction contract while keeping the current features and fonts. The product should feel calm, dense, and direct for video-work production.
+Give every Relay surface one clear visual and interaction contract while keeping the current features and fonts. The product should feel calm, dense, and direct for video-work production.
 
 ## Anatomy
 

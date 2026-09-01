@@ -64,8 +64,16 @@ async function setupTeam() {
   return {
     t,
     teamId,
-    owner: t.withIdentity({ tokenIdentifier: "owner", name: "Owner User" }),
-    reviewer: t.withIdentity({ tokenIdentifier: "reviewer", name: "Review User" }),
+    owner: t.withIdentity({
+      tokenIdentifier: "test|owner",
+      subject: "owner",
+      name: "Owner User",
+    }),
+    reviewer: t.withIdentity({
+      tokenIdentifier: "test|reviewer",
+      subject: "reviewer",
+      name: "Review User",
+    }),
   };
 }
 
@@ -141,7 +149,9 @@ describe("team workspace permissions and synchronization", () => {
         allowAllTeamProjects: false,
       })
     ).rejects.toThrow("Workspace Owner");
-    await expect(owner.query(api.team.getMyWorkspace, {})).resolves.toMatchObject({
+    await expect(
+      owner.query(api.team.getMyWorkspace, {})
+    ).resolves.toMatchObject({
       workspace: {
         name: "Updated Workspace",
         currencyCode: "AED",
@@ -164,11 +174,19 @@ describe("team workspace permissions and synchronization", () => {
       return member._id;
     });
 
-    await owner.mutation(api.team.removeMember, { teamId, memberId: reviewerId });
+    await owner.mutation(api.team.removeMember, {
+      teamId,
+      memberId: reviewerId,
+    });
 
-    await expect(reviewer.query(api.team.getMyWorkspace, {})).resolves.toBeNull();
     await expect(
-      reviewer.mutation(api.team.sendChatMessage, { teamId, body: "Still here" })
+      reviewer.query(api.team.getMyWorkspace, {})
+    ).resolves.toBeNull();
+    await expect(
+      reviewer.mutation(api.team.sendChatMessage, {
+        teamId,
+        body: "Still here",
+      })
     ).rejects.toThrow("Team access required");
   });
 

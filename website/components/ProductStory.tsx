@@ -843,7 +843,7 @@ export default function ProductStory() {
               >
                 X
               </a>
-              <a href="mailto:zns.studios@gmail.com">Email</a>
+              <a href="mailto:zns.stuioss@gmail.com">Email</a>
             </nav>
           </div>
         </div>

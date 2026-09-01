@@ -62,7 +62,7 @@ export async function recordProjectActivity(
     ownerUserId: args.project.ownerUserId,
     teamId: args.project.teamId,
     actorUserId: args.actorUserId,
-    actorName: args.actorName.trim().slice(0, 120) || "CutLab user",
+    actorName: args.actorName.trim().slice(0, 120) || "Relay user",
     kind: args.kind,
     message: args.message.trim().slice(0, 500),
     detail: args.detail?.trim().slice(0, 1000),

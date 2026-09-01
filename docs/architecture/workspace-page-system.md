@@ -1,4 +1,4 @@
-# Frame Desk Workspace Page System
+# Relay Workspace Page System
 
 **Status:** Implemented architecture  
 **Date:** 2026-07-29  
@@ -6,7 +6,7 @@
 
 ## Decision
 
-Frame Desk will introduce an app-owned `workspace-page` Module at the design-system seam.
+Relay will introduce an app-owned `workspace-page` Module at the design-system seam.
 
 The Module owns:
 
@@ -35,17 +35,17 @@ This decision extends [design-system-application-convex-seams.md](./design-syste
 
 The current pages repeat the same outer concerns with different values:
 
-| Screen | Current maximum width | Current large layout |
-| --- | ---: | --- |
-| Dashboard | 1540px | ledger + 320px inspector |
-| Projects | 1580px | library + 320px inspector |
-| Media | 1580px | 230px navigation + content + 300px inspector |
-| Calendar | 1580px | calendar + 360px agenda |
-| Timeline | 1400px | date rail + milestone list |
-| Clients | 1500px | 320px master + detail |
-| Feedback | 1400px | queue/list |
-| Reports | 1500px | 1.6fr chart + 0.8fr chart |
-| Tracker `PageFrame` screens | 1580px | page-specific children |
+| Screen                      | Current maximum width | Current large layout                         |
+| --------------------------- | --------------------: | -------------------------------------------- |
+| Dashboard                   |                1540px | ledger + 320px inspector                     |
+| Projects                    |                1580px | library + 320px inspector                    |
+| Media                       |                1580px | 230px navigation + content + 300px inspector |
+| Calendar                    |                1580px | calendar + 360px agenda                      |
+| Timeline                    |                1400px | date rail + milestone list                   |
+| Clients                     |                1500px | 320px master + detail                        |
+| Feedback                    |                1400px | queue/list                                   |
+| Reports                     |                1500px | 1.6fr chart + 0.8fr chart                    |
+| Tracker `PageFrame` screens |                1580px | page-specific children                       |
 
 This creates visible drift in title position, usable width, action placement, density, and empty space. The existing `PageFrame` is a shallow Module: it standardizes one wrapper and header but also reaches into tracker settings, page context, reduced motion, and notifications. Precision screens bypass it, so the Interface does not provide enough Leverage to control the workspace.
 
@@ -77,7 +77,7 @@ Deleting this Module would force every screen to reimplement width, gutters, hea
 
 ## Public Interface
 
-The preferred Interface is compositional. Frame Desk should not introduce a page-schema renderer or a large configuration object.
+The preferred Interface is compositional. Relay should not introduce a page-schema renderer or a large configuration object.
 
 ```tsx
 <WorkspacePage family="master-detail">
@@ -95,10 +95,7 @@ The preferred Interface is compositional. Frame Desk should not introduce a page
       <MetricItem label="Delivered" value={deliveredCount} />
     </MetricStrip>
 
-    <MasterDetail
-      master={<ClientList />}
-      detail={<ClientDetails />}
-    />
+    <MasterDetail master={<ClientList />} detail={<ClientDetails />} />
   </PageContent>
 </WorkspacePage>
 ```
@@ -138,7 +135,13 @@ Interface:
 ```ts
 type WorkspacePageProps = {
   children: React.ReactNode;
-  family: "data-index" | "master-detail" | "canvas" | "library" | "administration" | "conversation";
+  family:
+    | "data-index"
+    | "master-detail"
+    | "canvas"
+    | "library"
+    | "administration"
+    | "conversation";
   mode?: "document" | "fill";
 };
 ```
@@ -334,24 +337,24 @@ This is a CSS Grid with `auto minmax(0, 1fr) auto`. It must not read `window.inn
 
 The following values are workspace invariants:
 
-| Concern | Contract |
-| --- | --- |
-| Content area | Full available workspace width up to one shared 1920px maximum |
-| Mobile gutter | 16px |
-| Tablet gutter | 20px |
-| Desktop gutter | 24px |
-| Page top spacing | 16px mobile, 20px desktop |
-| Page bottom spacing | 32px mobile, 48px desktop |
-| Major section gap | 16px |
-| Header bottom padding | 16px |
-| Header title | 24px, compact line height |
-| Header description | 13px, maximum readable width |
-| Toolbar minimum height | 44px |
-| Section header | 48px minimum |
-| Panel radius | 8px |
-| Dense list row | 52–60px |
-| Inspector width | 320px |
-| Master-list width | 320px |
+| Concern                | Contract                                                       |
+| ---------------------- | -------------------------------------------------------------- |
+| Content area           | Full available workspace width up to one shared 1920px maximum |
+| Mobile gutter          | 16px                                                           |
+| Tablet gutter          | 20px                                                           |
+| Desktop gutter         | 24px                                                           |
+| Page top spacing       | 16px mobile, 20px desktop                                      |
+| Page bottom spacing    | 32px mobile, 48px desktop                                      |
+| Major section gap      | 16px                                                           |
+| Header bottom padding  | 16px                                                           |
+| Header title           | 24px, compact line height                                      |
+| Header description     | 13px, maximum readable width                                   |
+| Toolbar minimum height | 44px                                                           |
+| Section header         | 48px minimum                                                   |
+| Panel radius           | 8px                                                            |
+| Dense list row         | 52–60px                                                        |
+| Inspector width        | 320px                                                          |
+| Master-list width      | 320px                                                          |
 
 The shared content rail replaces the current 1400px, 1500px, 1540px, and
 1580px page roots. It remains fluid across ordinary desktop viewports and caps
@@ -378,12 +381,12 @@ This prevents nested desktop scroll traps while preserving app-like bounded work
 
 All responsive behavior is CSS-first:
 
-| Range | Behavior |
-| --- | --- |
-| Below 640px | Header actions stack full-width; toolbars become two rows; metrics use one column; secondary panes stack or open in a shadcn `Sheet`. |
-| 640–1023px | Metrics use two columns; search remains full-width; section actions may wrap; all detail layouts remain one column. |
-| 1024–1279px | Master-detail and balanced splits may activate when content remains readable. |
-| 1280px and above | Inspector splits, three-pane Media, and dense page-family layouts activate. |
+| Range            | Behavior                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Below 640px      | Header actions stack full-width; toolbars become two rows; metrics use one column; secondary panes stack or open in a shadcn `Sheet`. |
+| 640–1023px       | Metrics use two columns; search remains full-width; section actions may wrap; all detail layouts remain one column.                   |
+| 1024–1279px      | Master-detail and balanced splits may activate when content remains readable.                                                         |
+| 1280px and above | Inspector splits, three-pane Media, and dense page-family layouts activate.                                                           |
 
 No component reads viewport width to choose markup. CSS Grid, responsive utilities, container-safe `minmax(0, 1fr)`, and shadcn `Sheet` handle adaptation.
 
@@ -421,7 +424,7 @@ Implementation rules:
 - Do not accept page-specific configuration objects that reproduce JSX indirectly.
 - Do not import Convex, Clerk, tracker contexts, repository interfaces, or feature hooks.
 
-This follows the shadcn ownership model: Frame Desk owns and can refine the source, while the public Interface remains app-specific.
+This follows the shadcn ownership model: Relay owns and can refine the source, while the public Interface remains app-specific.
 
 ## Suggested page families
 
@@ -538,14 +541,14 @@ Only the message history scrolls inside the fill region. The composer remains vi
 
 ## Ownership boundaries
 
-| Concern | Owner |
-| --- | --- |
-| Top bar, sidebar, primary viewport, notification bell | `WorkspaceShell` |
-| Page width, gutters, header, toolbar, layout grids, page/panel scroll rules | `workspace-page` |
-| Project rows, calendar cells, charts, client records, messages, forms | Feature components |
-| Search/filter/selection state and event handlers | Application layer |
-| Data fetching, optimistic state, mutations, identity | Convex/application adapters |
-| Dialog, Sheet, Tabs, Button, Input, Select behavior | Owned shadcn/ui components |
+| Concern                                                                     | Owner                       |
+| --------------------------------------------------------------------------- | --------------------------- |
+| Top bar, sidebar, primary viewport, notification bell                       | `WorkspaceShell`            |
+| Page width, gutters, header, toolbar, layout grids, page/panel scroll rules | `workspace-page`            |
+| Project rows, calendar cells, charts, client records, messages, forms       | Feature components          |
+| Search/filter/selection state and event handlers                            | Application layer           |
+| Data fetching, optimistic state, mutations, identity                        | Convex/application adapters |
+| Dialog, Sheet, Tabs, Button, Input, Select behavior                         | Owned shadcn/ui components  |
 
 The current tracker-local `PageFrame` should be deleted after its callers migrate. Its notification and settings dependencies must not move into the new Module.
 

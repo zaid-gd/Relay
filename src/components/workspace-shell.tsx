@@ -45,6 +45,7 @@ import type { SettingsState } from "@/lib/types";
 import type { SearchRecord } from "@/features/workspace-discovery/workspace-discovery";
 import { useHydratedReducedMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { RelayBrand } from "@/app/relay-brand";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -385,11 +386,7 @@ export function WorkspaceShell({
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
-            <div className="flex items-center gap-2 lg:hidden">
-              <span className="font-display text-lg font-bold tracking-[-0.045em]">
-                Relay
-              </span>
-            </div>
+            <RelayBrand compact className="lg:hidden" />
             <p className="truncate text-sm font-semibold lg:hidden">{title}</p>
             <p
               className="hidden items-center gap-1.5 text-xs lg:flex"
@@ -428,18 +425,7 @@ export function WorkspaceShell({
             >
               <Search className="size-[18px]" />
             </Button>
-            <motion.div
-              whileHover={
-                canCreateProject && !reduceMotion ? { y: -1 } : undefined
-              }
-              whileTap={
-                canCreateProject && !reduceMotion
-                  ? { scale: 0.98, y: 0 }
-                  : undefined
-              }
-              transition={{ duration: 0.12 }}
-              className="hidden sm:block"
-            >
+            <div className="hidden h-9 items-center sm:flex">
               <Button
                 aria-label="Quick create project"
                 className="h-9 bg-[var(--app-accent)] px-3 text-xs text-[var(--app-accent-foreground)] shadow-none hover:bg-[var(--app-highlight)]"
@@ -449,7 +435,7 @@ export function WorkspaceShell({
                 <Plus className="size-3.5" />
                 Quick create
               </Button>
-            </motion.div>
+            </div>
             {notificationSlot ?? (
               <motion.div
                 whileTap={reduceMotion ? undefined : { scale: 0.92 }}
@@ -560,41 +546,21 @@ function DesktopSidebar({
           "grid h-12 grid-cols-1 items-center justify-items-center bg-[var(--app-sidebar)] px-1.5"
         )}
       >
-        <Link
-          href="/"
-          aria-label="Go to dashboard"
+        <div
           className={cn(
-            "min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-sidebar)]",
-            "flex h-full items-center overflow-hidden",
-            collapsed ? "w-12 justify-center" : "w-full justify-start px-2"
+            "flex h-full w-full items-center",
+            collapsed ? "justify-center" : "px-2"
           )}
         >
           <motion.div
             initial={false}
             animate={{ opacity: collapsed ? 0.88 : 1 }}
             transition={reduceMotion ? { duration: 0 } : shellTransition}
-            className={cn(
-              "relative size-[26px] shrink-0 overflow-hidden",
-              collapsed ? "mx-auto" : "mr-auto"
-            )}
+            className={cn("shrink-0", collapsed ? "mx-auto" : "mr-auto")}
           >
-            <img
-              src="/brand/favicon.png"
-              alt="Relay"
-              width={160}
-              height={160}
-              className="brand-logo-light h-full w-full object-contain"
-            />
-            <img
-              src="/brand/app-icon-dark.svg"
-              alt=""
-              aria-hidden="true"
-              width={160}
-              height={160}
-              className="brand-logo-dark h-full w-full object-contain"
-            />
+            <RelayBrand variant={collapsed ? "mark" : "lockup"} compact />
           </motion.div>
-        </Link>
+        </div>
       </div>
 
       <nav
@@ -735,15 +701,6 @@ function SidebarRoute({
           : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]"
       )}
     >
-      {active ? (
-        <motion.span
-          layoutId="sidebar-active-indicator"
-          data-slot="sidebar-active-indicator"
-          aria-hidden="true"
-          transition={reduceMotion ? { duration: 0 } : shellTransition}
-          className="pointer-events-none absolute inset-y-1 left-0 w-0.5 rounded-full bg-[var(--app-accent)]"
-        />
-      ) : null}
       <span
         className={cn(
           "relative z-10 flex shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0",

@@ -1,6 +1,6 @@
-# Frame Desk design system
+# Relay design system
 
-This index defines the unified UI contract for the Frame Desk workspace. It keeps the current Next.js, Tailwind, shadcn/ui, Radix, Lucide, Motion, TanStack Table, Recharts, and existing fonts. The implementation must preserve current routes, data flows, local/cloud modes, permissions, and feature actions.
+This index defines the unified UI contract for the Relay workspace. It keeps the current Next.js, Tailwind, shadcn/ui, Radix, Lucide, Motion, TanStack Table, Recharts, and existing fonts. The implementation must preserve current routes, data flows, local/cloud modes, permissions, and feature actions.
 
 ## System sections
 
@@ -64,7 +64,7 @@ The implementation source is [`src/app/design-system.ts`](../../src/app/design-s
 - Keep layouts structured, information-dense, and calm.
 - Prefer flat bordered surfaces over nested elevated cards.
 - Use outline-first, geometric icons with consistent visual weight.
-- Use the CutLab workflow mark for product identity, not a generic video icon.
+- Use the Relay mark for product identity, not a generic video icon.
 - Empty states use the shared workflow-line illustration and concise guidance.
 
 ## Navigation
@@ -83,7 +83,7 @@ Related destinations remain addressable routes but appear as contextual navigati
 
 ## Shared Components
 
-- `CutLabLockup` provides the product identity.
+- `RelayBrand` provides the product identity.
 - The `workspace-page` module provides headers, toolbars, sections, metrics, tables, pane layouts, and empty states.
 - Owned shadcn/Radix components under `src/components/ui/` provide controls, menus, dialogs, sheets, tooltips, and feedback.
 - Feature modules compose these shared parts without route-local color or spacing systems.

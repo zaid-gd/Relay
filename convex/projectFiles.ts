@@ -93,7 +93,7 @@ function requireFileUploadPlan(
 }
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
-  return identity.name || identity.nickname || identity.email || "CutLab user";
+  return identity.name || identity.nickname || identity.email || "Relay user";
 }
 
 function cleanText(value: string, maxLength: number) {

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Make every Frame Desk task work with keyboard, touch, zoom, and assistive technology.
+Make every Relay task work with keyboard, touch, zoom, and assistive technology.
 
 ## Anatomy
 

@@ -6,7 +6,7 @@ Use one semantic palette across light, dark, accent, status, and selection state
 
 ## Anatomy
 
-Define canvas, surface, foreground, muted, border, input, primary, secondary, accent, destructive, success, warning, info, focus, and selection tokens. Keep the CutLab dark-first base: graphite canvas/surfaces, teal action, cyan highlight, green success, amber warning, red error.
+Define canvas, surface, foreground, muted, border, input, primary, secondary, accent, destructive, success, warning, info, focus, and selection tokens. Keep Relay's dark-first base: graphite canvas/surfaces, teal action, cyan highlight, green success, amber warning, red error.
 
 ## Behavior
 

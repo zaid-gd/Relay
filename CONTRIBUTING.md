@@ -1,6 +1,6 @@
-# Contributing To CutLab Studio
+# Contributing To Relay
 
-Thank you for helping improve CutLab Studio. Keep changes focused, preserve the distinction between shipped and planned features, and include validation appropriate to the affected area.
+Thank you for helping improve Relay. Keep changes focused, preserve the distinction between shipped and planned features, and include validation appropriate to the affected area.
 
 ## Requirements
 
@@ -12,8 +12,8 @@ Thank you for helping improve CutLab Studio. Keep changes focused, preserve the 
 ## Setup
 
 ```bash
-git clone https://github.com/zaid-gd/Cutlab-Studio.git
-cd Cutlab-Studio
+git clone https://github.com/zaid-gd/Relay.git
+cd Relay
 pnpm install --frozen-lockfile
 cp .env.example .env.local
 pnpm dev

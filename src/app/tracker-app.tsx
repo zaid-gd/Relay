@@ -89,8 +89,8 @@ import {
   isValidIntegrationUrl,
   normalizeIntegrationLink,
 } from "@/lib/integrations";
-import { cutlab } from "./design-system";
-import { CutLabLockup } from "./cutlab-brand";
+import { relay } from "./design-system";
+import { RelayBrand } from "./relay-brand";
 import { emptyStateAssetFor, emptyStateAssets } from "./brand-assets";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
@@ -217,6 +217,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge as OwnedBadge } from "@/components/ui/badge";
 import { Button as OwnedButton } from "@/components/ui/button";
+import { Card as OwnedCard } from "@/components/ui/card";
 import {
   Command as OwnedCommand,
   CommandEmpty as OwnedCommandEmpty,
@@ -309,18 +310,18 @@ const TEAM_MEMBER_PERMISSION_LABELS = [
 ] as const;
 const MIN_PUBLIC_SLUG_LENGTH = 2;
 const LOCAL_PROJECT_ACTIVITY_STORAGE_KEY = "cutlab-studio:project-activity:v1";
-const headingFont = cutlab.font.heading;
-const defaultAccent = cutlab.color.teal;
-const accent = `var(--app-accent, ${cutlab.color.teal})`;
-const ink = `var(--app-ink, ${cutlab.color.softWhite})`;
+const headingFont = relay.font.heading;
+const defaultAccent = relay.color.teal;
+const accent = `var(--app-accent, ${relay.color.teal})`;
+const ink = `var(--app-ink, ${relay.color.softWhite})`;
 const muted = "var(--app-muted)";
 const border = "var(--app-border)";
-const panel = `var(--app-panel, ${cutlab.color.graphite})`;
-const canvas = `var(--app-canvas, ${cutlab.color.charcoal})`;
+const panel = `var(--app-panel, ${relay.color.graphite})`;
+const canvas = `var(--app-canvas, ${relay.color.charcoal})`;
 const activeBg = "var(--app-active, rgba(45,140,151,0.18))";
-const avatarSurface = `var(--app-avatar-surface, ${cutlab.color.slate})`;
-const successColor = `var(--app-success, ${cutlab.color.success})`;
-const warningColor = `var(--app-warning, ${cutlab.color.warning})`;
+const avatarSurface = `var(--app-avatar-surface, ${relay.color.slate})`;
+const successColor = `var(--app-success, ${relay.color.success})`;
+const warningColor = `var(--app-warning, ${relay.color.warning})`;
 
 type PageKey =
   | "dashboard"
@@ -954,8 +955,9 @@ export function TrackerApp({
     const settledProjectIds = new Set(
       salaryBatches.flatMap((batch) => batch.projectIds ?? [])
     );
-    const unsettledSalaryProjects = deliveredSalaryProjects
-      .filter((project) => !settledProjectIds.has(project.id));
+    const unsettledSalaryProjects = deliveredSalaryProjects.filter(
+      (project) => !settledProjectIds.has(project.id)
+    );
     const salaryEdits = deliveredSalaryProjects.length;
     const delivered = personalProjects.filter((item) =>
       isDoneStatus(item.status)
@@ -2052,7 +2054,7 @@ function AppLoadingStatus() {
   return (
     <div
       role="progressbar"
-      aria-label="Loading application"
+      aria-label="Loading Relay"
       aria-live="polite"
       className="fixed top-[86px] right-0 left-0 z-[1450] h-0.5 overflow-hidden bg-transparent lg:top-0 lg:left-[76px]"
     >
@@ -2091,6 +2093,7 @@ function WelcomeChoiceDialog({
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
+        <RelayBrand compact />
         <OwnedDialogHeader>
           <OwnedDialogTitle className="text-2xl leading-tight sm:text-[28px]">
             Choose how to use Relay
@@ -4335,7 +4338,7 @@ function TeamChatPage() {
           }
         >
           {!isUserLoaded ? (
-            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="p-6 shadow-[var(--app-shadow-1)]">
               <div
                 role="status"
                 className="flex items-center gap-3 text-sm text-muted-foreground"
@@ -4346,9 +4349,9 @@ function TeamChatPage() {
                 />
                 Checking account status...
               </div>
-            </section>
+            </OwnedCard>
           ) : !isSignedIn ? (
-            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="p-6 shadow-[var(--app-shadow-1)]">
               <h2 className="text-xl font-semibold">
                 Sign in to open Team Chat
               </h2>
@@ -4363,9 +4366,9 @@ function TeamChatPage() {
               >
                 Sign In
               </OwnedButton>
-            </section>
+            </OwnedCard>
           ) : isConvexAuthLoading ? (
-            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="p-6 shadow-[var(--app-shadow-1)]">
               <div
                 role="status"
                 className="flex items-center gap-3 text-sm text-muted-foreground"
@@ -4376,11 +4379,11 @@ function TeamChatPage() {
                 />
                 Connecting Team Chat...
               </div>
-            </section>
+            </OwnedCard>
           ) : !isConvexAuthenticated ? (
-            <section
+            <OwnedCard
               role="alert"
-              className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-destructive shadow-sm"
+              className="border-destructive/40 bg-destructive/10 p-6 text-destructive shadow-sm"
             >
               <h2 className="text-lg font-semibold">
                 Team Chat is not connected
@@ -4389,9 +4392,9 @@ function TeamChatPage() {
                 Convex has not received your Clerk session. Sign out and back
                 in, then retry.
               </p>
-            </section>
+            </OwnedCard>
           ) : teamData === undefined ? (
-            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="p-6 shadow-[var(--app-shadow-1)]">
               <div
                 role="status"
                 className="flex items-center gap-3 text-sm text-muted-foreground"
@@ -4402,9 +4405,9 @@ function TeamChatPage() {
                 />
                 Loading messages...
               </div>
-            </section>
+            </OwnedCard>
           ) : !teamData ? (
-            <section className="grid min-h-72 place-items-center rounded-xl border border-border bg-card p-6 text-center text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="grid min-h-72 place-items-center p-6 text-center shadow-[var(--app-shadow-1)]">
               <div className="max-w-md">
                 <Users
                   className="mx-auto size-8 text-muted-foreground"
@@ -4417,9 +4420,9 @@ function TeamChatPage() {
                   Create or join a workspace before using Team Chat.
                 </p>
               </div>
-            </section>
+            </OwnedCard>
           ) : !canUseChat ? (
-            <section className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-[var(--app-shadow-1)]">
+            <OwnedCard className="p-6 shadow-[var(--app-shadow-1)]">
               <h2 className="text-xl font-semibold">
                 Chat unavailable for your role
               </h2>
@@ -4427,7 +4430,7 @@ function TeamChatPage() {
                 Your current role can access the workspace but does not have
                 permission to view or send chat messages.
               </p>
-            </section>
+            </OwnedCard>
           ) : (
             <div
               data-slot="conversation-history"
@@ -4525,11 +4528,9 @@ function IntegrationsDesignPage({
     const query = integrationSearch.trim().toLowerCase();
     const matchesSearch =
       !query ||
-      [
-        name,
-        integrationDescriptions[name],
-        config.account,
-      ].some((value) => value.toLowerCase().includes(query));
+      [name, integrationDescriptions[name], config.account].some((value) =>
+        value.toLowerCase().includes(query)
+      );
     const matchesFilter =
       integrationFilter === "all" ||
       (integrationFilter === "connected" ? connected : !connected);
@@ -4671,11 +4672,8 @@ function IntegrationsDesignPage({
             {visibleIntegrationNames.map((name) => {
               const config =
                 settings.integrationConfigs[name] ?? emptyIntegrationConfig;
-              const connected = Boolean(
-                config.connected
-              );
-              const account =
-                config.account;
+              const connected = Boolean(config.connected);
+              const account = config.account;
               return (
                 <li
                   key={name}
@@ -5601,13 +5599,14 @@ function SettingsDesignPage({
                 </div>
                 <div className="grid flex-1 content-start gap-1 overflow-y-auto p-2 overscroll-contain">
                   {settingsNavigation.map(({ id, label, icon: Icon }) => (
-                    <button
+                    <OwnedButton
                       key={id}
                       type="button"
+                      variant="ghost"
                       aria-current={activeSection === id ? "page" : undefined}
                       onClick={() => setActiveSection(id)}
                       className={cn(
-                        "flex min-h-11 items-center gap-3 rounded-[6px] px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "min-h-11 w-full justify-start gap-3 rounded-[6px] px-3 text-left text-xs font-medium",
                         activeSection === id
                           ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
                           : "text-muted-foreground hover:bg-accent hover:text-primary"
@@ -5615,7 +5614,7 @@ function SettingsDesignPage({
                     >
                       <Icon className="size-4 shrink-0" aria-hidden="true" />
                       {label}
-                    </button>
+                    </OwnedButton>
                   ))}
                 </div>
                 <p className="border-t border-border p-4 text-[11px] leading-5 text-muted-foreground">
@@ -6156,22 +6155,24 @@ function SettingsDesignPage({
                         </p>
                         <div className="flex gap-3">
                           {[
-                            cutlab.color.teal,
-                            cutlab.color.cyan,
-                            cutlab.color.sky,
-                            cutlab.color.indigo,
-                            cutlab.color.pink,
-                            cutlab.color.deepTeal,
+                            relay.color.teal,
+                            relay.color.cyan,
+                            relay.color.sky,
+                            relay.color.indigo,
+                            relay.color.pink,
+                            relay.color.deepTeal,
                           ].map((color) => (
-                            <button
+                            <OwnedButton
                               key={color}
                               type="button"
+                              variant="ghost"
+                              size="icon"
                               aria-label={`Use accent color ${color}`}
                               aria-pressed={settings.accentColor === color}
                               onClick={() =>
                                 setSettings({ ...settings, accentColor: color })
                               }
-                              className={`size-7 cursor-pointer rounded-full border transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${settings.accentColor === color ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-card" : "border-border"}`}
+                              className={`size-7 cursor-pointer rounded-full border p-0 transition-shadow hover:opacity-90 ${settings.accentColor === color ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-card" : "border-border"}`}
                               style={{ backgroundColor: color }}
                             />
                           ))}
@@ -6526,7 +6527,7 @@ function ProfileDesignPage({
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[1480px] bg-background px-4 py-5 text-foreground md:px-8 md:py-7 xl:px-10">
       <header className="flex flex-col items-stretch justify-between gap-4 border-b border-border pb-5 sm:flex-row sm:items-center">
-        <CutLabLockup compact subtitle="Video editing tracker" />
+        <RelayBrand compact subtitle="Video editing tracker" />
         <OwnedButton
           type="button"
           variant="outline"
@@ -6732,9 +6733,9 @@ function ProfileEditPage({
       <PageContent className="space-y-5">
         <MasterDetail
           master={
-            <aside
+            <OwnedCard
               aria-label="Profile photo"
-              className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6"
+              className="p-5 shadow-[var(--app-shadow-1)] sm:p-6"
             >
               <div className="grid place-items-center">
                 <ProfileEditAvatar settings={settings} />
@@ -6772,10 +6773,10 @@ function ProfileEditPage({
                 Upload an image or paste an image URL below. The latest saved
                 photo will appear anywhere your profile is shown.
               </p>
-            </aside>
+            </OwnedCard>
           }
           detail={
-            <div className="grid gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-[var(--app-shadow-1)] sm:p-6">
+            <OwnedCard className="grid gap-4 p-5 shadow-[var(--app-shadow-1)] sm:p-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <FieldLayout label="Profile Name">
                   <OwnedInput
@@ -6969,7 +6970,7 @@ function ProfileEditPage({
                   )}
                 </div>
               </fieldset>
-            </div>
+            </OwnedCard>
           }
         />
       </PageContent>
@@ -7569,7 +7570,7 @@ function StatCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-[108px] items-center gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
+    <OwnedCard className="flex min-h-[108px] flex-row items-center gap-3 p-4 shadow-sm">
       {icon ? (
         <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary [&_svg]:size-5">
           {icon}
@@ -7584,7 +7585,7 @@ function StatCard({
         </dd>
         <p className="mt-2 truncate text-xs text-muted-foreground">{helper}</p>
       </div>
-    </div>
+    </OwnedCard>
   );
 }
 

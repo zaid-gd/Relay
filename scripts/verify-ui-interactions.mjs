@@ -11,7 +11,10 @@ const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd());
 
 const startupTimeoutMs = 30_000;
-const configuredBaseUrl = process.env.CUTLAB_UI_URL;
+const configuredBaseUrl = process.env.RELAY_UI_URL || process.env.CUTLAB_UI_URL;
+const captureFamilies =
+  (process.env.RELAY_CAPTURE_FAMILIES ||
+    process.env.CUTLAB_CAPTURE_FAMILIES) === "1";
 const workspaceRoutes = [
   ["/", "Good to see you, Jordan.", "data-index"],
   ["/projects", "Projects", "data-index"],
@@ -251,9 +254,9 @@ async function assertWorkspaceGeometry(page, route, expectedFamily) {
 async function assertApprovedFamilyDesigns(page) {
   const captureDirectory = join(
     tmpdir(),
-    `frame-desk-workspace-family-designs-${process.pid}`
+    `relay-workspace-family-designs-${process.pid}`
   );
-  if (process.env.CUTLAB_CAPTURE_FAMILIES === "1") {
+  if (captureFamilies) {
     await mkdir(captureDirectory, { recursive: true });
   }
 
@@ -276,7 +279,7 @@ async function assertApprovedFamilyDesigns(page) {
       `/projects is missing the approved video-thumbnail project rows (${projectRows} project rows rendered).`
     );
   }
-  if (process.env.CUTLAB_CAPTURE_FAMILIES === "1") {
+  if (captureFamilies) {
     await page
       .getByRole("heading", { level: 2, name: "Project library" })
       .waitFor();
@@ -297,7 +300,7 @@ async function assertApprovedFamilyDesigns(page) {
       "/calendar is missing the approved month controls and view toolbar."
     );
   }
-  if (process.env.CUTLAB_CAPTURE_FAMILIES === "1") {
+  if (captureFamilies) {
     await page.waitForTimeout(500);
     await page.screenshot({
       path: join(captureDirectory, "calendar-restored.png"),
@@ -338,7 +341,7 @@ async function assertApprovedFamilyDesigns(page) {
   await page
     .getByRole("heading", { level: 2, name: "Workspace profile" })
     .waitFor();
-  if (process.env.CUTLAB_CAPTURE_FAMILIES === "1") {
+  if (captureFamilies) {
     await page.waitForTimeout(500);
     await page.screenshot({
       path: join(captureDirectory, "settings-restored.png"),
