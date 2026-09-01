@@ -20,11 +20,15 @@ function useLocalConvexAuth() {
   return {
     isLoading: false,
     isAuthenticated: false,
-    fetchAccessToken: async () => null
+    fetchAccessToken: async () => null,
   };
 }
 
 const clerkAppearance = {
+  options: {
+    logoImageUrl: "/brand/relay/lockup-accent.svg",
+    logoLinkUrl: "/",
+  },
   variables: {
     borderRadius: "6px",
   },
@@ -51,7 +55,11 @@ const clerkLocalization = {
   },
 };
 
-export function Providers({ children, clerkPublishableKey, convexUrl }: ProvidersProps) {
+export function Providers({
+  children,
+  clerkPublishableKey,
+  convexUrl,
+}: ProvidersProps) {
   const hasConvexConfig = Boolean(convexUrl);
   const hasClerkConfig = Boolean(clerkPublishableKey);
   const hasCloudConfig = hasConvexConfig && hasClerkConfig;
@@ -59,12 +67,16 @@ export function Providers({ children, clerkPublishableKey, convexUrl }: Provider
   // server layout passes the public settings as props so hydration uses the
   // same values as the Worker render.
   const convex = useMemo(
-    () => new ConvexReactClient(convexUrl || "https://placeholder.convex.cloud"),
-    [convexUrl],
+    () =>
+      new ConvexReactClient(convexUrl || "https://placeholder.convex.cloud"),
+    [convexUrl]
   );
 
   const app = (
-    <DataProvider mode={hasCloudConfig ? "cloud" : "local"} authEnabled={hasCloudConfig}>
+    <DataProvider
+      mode={hasCloudConfig ? "cloud" : "local"}
+      authEnabled={hasCloudConfig}
+    >
       <TooltipProvider delayDuration={250}>
         {children}
         <Toaster

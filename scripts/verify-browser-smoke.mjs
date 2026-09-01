@@ -7,7 +7,11 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const routes = [
   { path: "/", label: "dashboard", expectedText: ["Dashboard"] },
-  { path: "/projects", label: "projects", expectedText: ["Projects", "My Projects", "Team Projects"] },
+  {
+    path: "/projects",
+    label: "projects",
+    expectedText: ["Projects", "My Projects", "Team Projects"],
+  },
   { path: "/calendar", label: "calendar", expectedText: ["Calendar"] },
   { path: "/timeline", label: "timeline", expectedText: ["Delivery timeline"] },
   { path: "/clients", label: "clients", expectedText: ["Clients"] },
@@ -19,24 +23,54 @@ const routes = [
     expectedText: ["Resources", "Resource Library", "New Resource"],
   },
   { path: "/templates", label: "templates", expectedText: ["Templates"] },
-  { path: "/integrations", label: "integrations", expectedText: ["Integrations"] },
+  {
+    path: "/integrations",
+    label: "integrations",
+    expectedText: ["Integrations"],
+  },
   {
     path: "/team",
     label: "team",
     expectedText: ["Team", "Active members"],
   },
-  { path: "/team-chat", label: "team-chat", expectedText: ["Team Chat", "Manage Team"] },
+  {
+    path: "/team-chat",
+    label: "team-chat",
+    expectedText: ["Team Chat", "Manage Team"],
+  },
   {
     path: "/reports",
     label: "reports",
-    expectedText: ["Reports", "Invoice drafts", "Salary Batch Ledger", "Editor Summary", "Delivered Projects"],
+    expectedText: [
+      "Reports",
+      "Invoice drafts",
+      "Salary Batch Ledger",
+      "Editor Summary",
+      "Delivered Projects",
+    ],
   },
   { path: "/settings", label: "settings", expectedText: ["Settings"] },
   { path: "/account", label: "account", expectedText: ["Account Settings"] },
-  { path: "/organization", label: "organization", expectedText: ["Organization Profile"] },
-  { path: "/profile/edit", label: "profile-edit", expectedText: ["Edit Profile"] },
-  { path: "/sample-studio", label: "sample-studio", expectedText: ["Good to see you"] },
-  { path: "/profile", label: "profile", expectedText: ["Frame Desk", "Share Profile"] },
+  {
+    path: "/organization",
+    label: "organization",
+    expectedText: ["Organization Profile"],
+  },
+  {
+    path: "/profile/edit",
+    label: "profile-edit",
+    expectedText: ["Edit Profile"],
+  },
+  {
+    path: "/sample-studio",
+    label: "sample-studio",
+    expectedText: ["Good to see you"],
+  },
+  {
+    path: "/profile",
+    label: "profile",
+    expectedText: ["Relay", "Share Profile"],
+  },
   {
     path: "/client-portal",
     label: "client-portal",
@@ -63,11 +97,20 @@ let server;
 try {
   const port = await getOpenPort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  server = spawn(process.execPath, [join("node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], {
-    env: { ...process.env, PORT: String(port) },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true
-  });
+  server = spawn(
+    process.execPath,
+    [
+      join("node_modules", "next", "dist", "bin", "next"),
+      "start",
+      "-p",
+      String(port),
+    ],
+    {
+      env: { ...process.env, PORT: String(port) },
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    }
+  );
 
   let output = "";
   server.stdout.on("data", (chunk) => {
@@ -80,19 +123,27 @@ try {
   await waitForServer(baseUrl, () => output);
 
   for (const route of routes) {
-    const pageResponse = await fetch(`${baseUrl}${route.path}`, { signal: AbortSignal.timeout(5_000) });
+    const pageResponse = await fetch(`${baseUrl}${route.path}`, {
+      signal: AbortSignal.timeout(5_000),
+    });
     const expectedStatus = route.expectedStatus ?? 200;
     if (pageResponse.status !== expectedStatus) {
-      throw new Error(`Browser smoke route ${route.path} returned ${pageResponse.status}; expected ${expectedStatus}.`);
+      throw new Error(
+        `Browser smoke route ${route.path} returned ${pageResponse.status}; expected ${expectedStatus}.`
+      );
     }
     const pageHtml = await pageResponse.text();
     for (const text of route.expectedText) {
       if (!pageHtml.includes(text)) {
-        throw new Error(`Browser smoke route ${route.path} is missing expected text: ${text}`);
+        throw new Error(
+          `Browser smoke route ${route.path} is missing expected text: ${text}`
+        );
       }
     }
   }
-  console.log(`Browser smoke verified route HTML for ${routes.length} routes against ${baseUrl}.`);
+  console.log(
+    `Browser smoke verified route HTML for ${routes.length} routes against ${baseUrl}.`
+  );
 
   const firefoxPath = findFirefox();
   if (!firefoxPath) {
@@ -100,33 +151,48 @@ try {
   }
 
   if (!canCaptureScreenshot(firefoxPath)) {
-    skipUnavailableScreenshots("Firefox headless screenshots are unavailable in this environment.");
+    skipUnavailableScreenshots(
+      "Firefox headless screenshots are unavailable in this environment."
+    );
   }
 
   for (const route of routes) {
-
     const screenshotPath = join(outputDirectory, `${route.label}.png`);
     const result = spawnSync(
       firefoxPath,
-      ["--headless", "--window-size=1440,1000", "--screenshot", screenshotPath, `${baseUrl}${route.path}`],
+      [
+        "--headless",
+        "--window-size=1440,1000",
+        "--screenshot",
+        screenshotPath,
+        `${baseUrl}${route.path}`,
+      ],
       { encoding: "utf8", timeout: 30_000, windowsHide: true }
     );
 
     const dimensions = await waitForPng(screenshotPath);
     if (!dimensions) {
-      skipUnavailableScreenshots(`Firefox did not create a valid PNG for ${route.path}.\n${result.stderr || result.stdout}`);
+      skipUnavailableScreenshots(
+        `Firefox did not create a valid PNG for ${route.path}.\n${result.stderr || result.stdout}`
+      );
     }
     if (dimensions.width < 1200 || dimensions.height < 800) {
-      throw new Error(`Browser screenshot for ${route.path} is unexpectedly small: ${dimensions.width}x${dimensions.height}.`);
+      throw new Error(
+        `Browser screenshot for ${route.path} is unexpectedly small: ${dimensions.width}x${dimensions.height}.`
+      );
     }
 
     const bytes = readFileSync(screenshotPath);
     if (bytes.byteLength < 50_000) {
-      throw new Error(`Browser screenshot for ${route.path} looks too small to be a real rendered page: ${bytes.byteLength} bytes.`);
+      throw new Error(
+        `Browser screenshot for ${route.path} looks too small to be a real rendered page: ${bytes.byteLength} bytes.`
+      );
     }
   }
 
-  console.log(`Browser smoke verified ${routes.length} routes with Firefox headless against ${baseUrl}.`);
+  console.log(
+    `Browser smoke verified ${routes.length} routes with Firefox headless against ${baseUrl}.`
+  );
 } catch (error) {
   if (error instanceof BrowserSmokeSkipped) {
     console.log(`${error.message.trim()} Skipping browser smoke verification.`);
@@ -139,17 +205,21 @@ try {
 }
 
 function findFirefox() {
-  const candidates = process.platform === "win32"
-    ? [
-        "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-        "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe"
-      ]
-    : ["firefox"];
+  const candidates =
+    process.platform === "win32"
+      ? [
+          "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+        ]
+      : ["firefox"];
 
   for (const candidate of candidates) {
     if (candidate.includes("\\") && existsSync(candidate)) return candidate;
     if (!candidate.includes("\\")) {
-      const result = spawnSync(candidate, ["--version"], { encoding: "utf8", timeout: 5_000 });
+      const result = spawnSync(candidate, ["--version"], {
+        encoding: "utf8",
+        timeout: 5_000,
+      });
       if (result.status === 0) return candidate;
     }
   }
@@ -163,7 +233,13 @@ function canCaptureScreenshot(browserPath) {
   try {
     spawnSync(
       browserPath,
-      ["--headless", "--window-size=400,300", "--screenshot", screenshotPath, "about:blank"],
+      [
+        "--headless",
+        "--window-size=400,300",
+        "--screenshot",
+        screenshotPath,
+        "about:blank",
+      ],
       { encoding: "utf8", timeout: 15_000, windowsHide: true }
     );
     return Boolean(readPngDimensions(screenshotPath));
@@ -183,7 +259,9 @@ async function getOpenPort() {
     socket.listen(0, () => {
       const address = socket.address();
       if (!address || typeof address === "string") {
-        socket.close(() => reject(new Error("Could not allocate a local port.")));
+        socket.close(() =>
+          reject(new Error("Could not allocate a local port."))
+        );
         return;
       }
       const selectedPort = address.port;
@@ -202,11 +280,15 @@ async function waitForServer(url, getOutput) {
       // Keep waiting until the server starts or the timeout expires.
     }
     if (server?.exitCode !== null) {
-      throw new Error(`Production server exited before browser verification.\n${getOutput()}`);
+      throw new Error(
+        `Production server exited before browser verification.\n${getOutput()}`
+      );
     }
     await delay(300);
   }
-  throw new Error(`Production server did not start within ${startupTimeoutMs / 1000}s.\n${getOutput()}`);
+  throw new Error(
+    `Production server did not start within ${startupTimeoutMs / 1000}s.\n${getOutput()}`
+  );
 }
 
 async function stopServer(child) {
@@ -217,7 +299,10 @@ async function stopServer(child) {
   child.kill("SIGTERM");
   await Promise.race([exited, delay(2_000)]);
   if (child.exitCode === null && process.platform === "win32") {
-    spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore", timeout: 5_000 });
+    spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+      stdio: "ignore",
+      timeout: 5_000,
+    });
   }
 }
 
@@ -225,10 +310,14 @@ function readPngDimensions(path) {
   if (!existsSync(path)) return null;
   const bytes = readFileSync(path);
   const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 24 || !signature.every((byte, index) => bytes[index] === byte)) return null;
+  if (
+    bytes.length < 24 ||
+    !signature.every((byte, index) => bytes[index] === byte)
+  )
+    return null;
   return {
     width: bytes.readUInt32BE(16),
-    height: bytes.readUInt32BE(20)
+    height: bytes.readUInt32BE(20),
   };
 }
 

@@ -38,6 +38,7 @@ import { projectStatusTone } from "@/lib/project-status-style";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -61,7 +62,15 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ContentSection,
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   DataTableFrame,
   MetricStrip,
   PageContent,
@@ -156,6 +165,8 @@ const easing = [0.16, 1, 0.3, 1] as const;
 
 const surface =
   "rounded-[6px] border border-[var(--app-border)] bg-[var(--app-panel)] transition-colors duration-150";
+
+const MotionCard = motion.create(Card);
 
 function AnimatedNumber({
   value,
@@ -856,7 +867,7 @@ export function PrecisionDashboard(props: DashboardProps) {
           </AnimatePresence>
 
           <motion.div
-            className="order-2"
+            className="order-1"
             initial={entry.initial}
             animate={entry.animate}
             transition={{
@@ -865,130 +876,132 @@ export function PrecisionDashboard(props: DashboardProps) {
               ease: easing,
             }}
           >
-            <MetricStrip
-              columns={showSalaryBatch ? 5 : 4}
-              aria-label="Operational pulse"
-              className="gap-0 bg-transparent"
-            >
-              <div className="bg-[var(--app-panel)] px-4 py-3">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                  In motion
-                </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-highlight)]">
-                    <AnimatedNumber value={props.stats.active} />
+            <Card className="overflow-hidden shadow-none">
+              <MetricStrip
+                columns={showSalaryBatch ? 5 : 4}
+                aria-label="Operational pulse"
+                className="gap-0 bg-transparent [&>div:not(:last-child)]:border-b [&>div:not(:last-child)]:border-[var(--app-border)] sm:[&>div]:border-b-0 sm:[&>div:not(:last-child)]:border-r"
+              >
+                <div className="bg-[var(--app-panel)] px-4 py-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                    In motion
                   </p>
-                  <span className="text-[10px] text-[var(--app-muted)]">
-                    of {props.stats.total} projects
-                  </span>
-                </div>
-              </div>
-              <div className="bg-[var(--app-panel)] px-4 py-3">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                  Due this week
-                </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
-                    <AnimatedNumber value={dueThisWeek.length} />
-                  </p>
-                  <span className="text-[10px] text-[var(--app-muted)]">
-                    upcoming handoffs
-                  </span>
-                </div>
-              </div>
-              <div className="bg-[var(--app-panel)] px-4 py-3">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                  Waiting reviews
-                </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p
-                    className={cn(
-                      "text-xl font-semibold tracking-[-0.04em] tabular-nums",
-                      waitingReviews.length
-                        ? "text-[var(--app-warning)]"
-                        : "text-[var(--app-ink)]"
-                    )}
-                  >
-                    <AnimatedNumber value={waitingReviews.length} />
-                  </p>
-                  <span className="text-[10px] text-[var(--app-muted)]">
-                    awaiting client action
-                  </span>
-                </div>
-              </div>
-              <div className="bg-[var(--app-panel)] px-4 py-3">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                  Collected
-                </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="truncate text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
-                    <AnimatedNumber
-                      value={props.stats.collected}
-                      format={(value) =>
-                        formatMoney(value, props.settings.currencyCode)
-                      }
-                    />
-                  </p>
-                  <span className="shrink-0 text-[10px] text-[var(--app-muted)]">
-                    {formatMoney(
-                      props.stats.outstanding,
-                      props.settings.currencyCode
-                    )}{" "}
-                    due
-                  </span>
-                </div>
-              </div>
-              {showSalaryBatch ? (
-                <div className="bg-[var(--app-panel)] px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                      Salary batch
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-highlight)]">
+                      <AnimatedNumber value={props.stats.active} />
                     </p>
-                    <span className="font-mono text-[9px] tabular-nums text-[var(--app-muted)]">
-                      <AnimatedNumber value={salaryPercent} />%
+                    <span className="text-[10px] text-[var(--app-muted)]">
+                      of {props.stats.total} projects
                     </span>
                   </div>
-                  <div className="mt-1 flex items-end justify-between gap-3">
-                    <div
-                      data-testid="salary-batch-progress"
-                      className="flex items-baseline gap-1"
-                    >
-                      <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
-                        <AnimatedNumber value={salaryProgress} />
-                      </p>
-                      <span className="text-[10px] text-[var(--app-muted)]">
-                        / {salarySize} edits
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-6 shrink-0 px-2 text-[9px] shadow-none"
-                      disabled={!pendingSalaryBatch}
-                      aria-label={
-                        pendingSalaryBatch
-                          ? `Mark payment for salary batch ${pendingSalaryBatch.number}`
-                          : "Mark payment"
-                      }
-                      onClick={() => {
-                        if (pendingSalaryBatch)
-                          props.onMarkSalaryPayment(pendingSalaryBatch.id);
-                      }}
-                    >
-                      Mark payment
-                    </Button>
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-sm bg-[var(--app-progress-track)]">
-                    <AnimatedProgress value={salaryPercent} />
+                </div>
+                <div className="bg-[var(--app-panel)] px-4 py-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                    Due this week
+                  </p>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
+                      <AnimatedNumber value={dueThisWeek.length} />
+                    </p>
+                    <span className="text-[10px] text-[var(--app-muted)]">
+                      upcoming handoffs
+                    </span>
                   </div>
                 </div>
-              ) : null}
-            </MetricStrip>
+                <div className="bg-[var(--app-panel)] px-4 py-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                    Waiting reviews
+                  </p>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <p
+                      className={cn(
+                        "text-xl font-semibold tracking-[-0.04em] tabular-nums",
+                        waitingReviews.length
+                          ? "text-[var(--app-warning)]"
+                          : "text-[var(--app-ink)]"
+                      )}
+                    >
+                      <AnimatedNumber value={waitingReviews.length} />
+                    </p>
+                    <span className="text-[10px] text-[var(--app-muted)]">
+                      awaiting client action
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-[var(--app-panel)] px-4 py-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                    Collected
+                  </p>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <p className="truncate text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
+                      <AnimatedNumber
+                        value={props.stats.collected}
+                        format={(value) =>
+                          formatMoney(value, props.settings.currencyCode)
+                        }
+                      />
+                    </p>
+                    <span className="shrink-0 text-[10px] text-[var(--app-muted)]">
+                      {formatMoney(
+                        props.stats.outstanding,
+                        props.settings.currencyCode
+                      )}{" "}
+                      due
+                    </span>
+                  </div>
+                </div>
+                {showSalaryBatch ? (
+                  <div className="bg-[var(--app-panel)] px-4 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                        Salary batch
+                      </p>
+                      <span className="font-mono text-[9px] tabular-nums text-[var(--app-muted)]">
+                        <AnimatedNumber value={salaryPercent} />%
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-end justify-between gap-3">
+                      <div
+                        data-testid="salary-batch-progress"
+                        className="flex items-baseline gap-1"
+                      >
+                        <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
+                          <AnimatedNumber value={salaryProgress} />
+                        </p>
+                        <span className="text-[10px] text-[var(--app-muted)]">
+                          / {salarySize} edits
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-[9px] shadow-none"
+                        disabled={!pendingSalaryBatch}
+                        aria-label={
+                          pendingSalaryBatch
+                            ? `Mark payment for salary batch ${pendingSalaryBatch.number}`
+                            : "Mark payment"
+                        }
+                        onClick={() => {
+                          if (pendingSalaryBatch)
+                            props.onMarkSalaryPayment(pendingSalaryBatch.id);
+                        }}
+                      >
+                        Mark payment
+                      </Button>
+                    </div>
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-sm bg-[var(--app-progress-track)]">
+                      <AnimatedProgress value={salaryPercent} />
+                    </div>
+                  </div>
+                ) : null}
+              </MetricStrip>
+            </Card>
           </motion.div>
 
           <motion.div
-            className="order-3"
+            className="order-2"
             initial={entry.initial}
             animate={entry.animate}
             transition={{
@@ -1006,7 +1019,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                     title="Project ledger"
                     count={props.visibleProjects.length}
                     icon={FolderKanban}
-                    className="h-full"
+                    className="h-full rounded-none"
                     action={
                       <Button
                         asChild
@@ -1091,22 +1104,22 @@ export function PrecisionDashboard(props: DashboardProps) {
                               })}
                           </div>
                           <div className="hidden overflow-x-auto sm:block">
-                            <table
+                            <Table
                               className="w-full min-w-[700px] border-collapse"
                               aria-label="Project ledger"
                             >
-                              <caption className="sr-only">
+                              <TableCaption className="sr-only">
                                 Recent projects with type, due date, status,
                                 progress, value, and actions.
-                              </caption>
-                              <thead>
+                              </TableCaption>
+                              <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
-                                  <tr
+                                  <TableRow
                                     key={headerGroup.id}
                                     className="border-y border-[var(--app-border)] bg-[var(--app-soft-panel)]/60"
                                   >
                                     {headerGroup.headers.map((header) => (
-                                      <th
+                                      <TableHead
                                         key={header.id}
                                         aria-sort={
                                           header.column.getIsSorted() === "asc"
@@ -1142,11 +1155,11 @@ export function PrecisionDashboard(props: DashboardProps) {
                                             header.getContext()
                                           )
                                         )}
-                                      </th>
+                                      </TableHead>
                                     ))}
-                                  </tr>
+                                  </TableRow>
                                 ))}
-                              </thead>
+                              </TableHeader>
                               <motion.tbody
                                 key={`${props.query}-${props.statusFilter}-${props.kindFilter}-${props.clientFilter}-${props.dueFilter}-${props.billingFilter}-${props.sortKey}`}
                                 className="divide-y divide-[var(--app-border)]"
@@ -1174,7 +1187,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                                       className={cn(
                                         "h-[var(--workspace-row-height,58px)] cursor-pointer outline-none transition-colors hover:bg-[var(--app-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--app-accent)]",
                                         selected?.id === row.original.id &&
-                                          "bg-[var(--app-active)] shadow-[inset_3px_0_0_var(--app-accent)]"
+                                          "bg-[var(--app-active)]"
                                       )}
                                       initial={
                                         reduceMotion
@@ -1216,7 +1229,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                                       }
                                     >
                                       {row.getVisibleCells().map((cell) => (
-                                        <td
+                                        <TableCell
                                           key={cell.id}
                                           className={cn(
                                             "px-3 py-2 text-xs text-[var(--app-ink)]",
@@ -1228,12 +1241,12 @@ export function PrecisionDashboard(props: DashboardProps) {
                                             cell.column.columnDef.cell,
                                             cell.getContext()
                                           )}
-                                        </td>
+                                        </TableCell>
                                       ))}
                                     </motion.tr>
                                   ))}
                               </motion.tbody>
-                            </table>
+                            </Table>
                           </div>
                         </>
                       ) : (
@@ -1303,7 +1316,7 @@ export function PrecisionDashboard(props: DashboardProps) {
           </motion.div>
 
           <motion.section
-            className="order-1"
+            className="order-3"
             initial={entry.initial}
             animate={entry.animate}
             transition={{
@@ -1393,17 +1406,38 @@ export function PrecisionDashboard(props: DashboardProps) {
                   action={
                     <Tabs
                       value={activityMode}
-                      onValueChange={(value) => changeActivityMode(value === "team" ? "team" : "recent")}
+                      onValueChange={(value) =>
+                        changeActivityMode(value === "team" ? "team" : "recent")
+                      }
                       className="block"
                     >
-                      <TabsList aria-label="Activity view" className="h-8 rounded-md border border-[var(--app-border)] bg-[var(--app-soft-panel)] p-0.5">
-                        <TabsTrigger id="activity-recent-tab" aria-controls="activity-panel" value="recent" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Recent</TabsTrigger>
-                        <TabsTrigger id="activity-team-tab" aria-controls="activity-panel" value="team" className="h-7 px-2 text-[9px] font-semibold uppercase tracking-[0.05em]">Team</TabsTrigger>
+                      <TabsList aria-label="Activity view">
+                        <TabsTrigger
+                          id="activity-recent-tab"
+                          aria-controls="activity-panel"
+                          value="recent"
+                          className="text-[9px] uppercase tracking-[0.05em]"
+                        >
+                          Recent
+                        </TabsTrigger>
+                        <TabsTrigger
+                          id="activity-team-tab"
+                          aria-controls="activity-panel"
+                          value="team"
+                          className="text-[9px] uppercase tracking-[0.05em]"
+                        >
+                          Team
+                        </TabsTrigger>
                       </TabsList>
                     </Tabs>
                   }
                 >
-                  <div id="activity-panel" role="tabpanel" aria-labelledby={`activity-${activityMode}-tab`} className="min-h-[224px]">
+                  <div
+                    id="activity-panel"
+                    role="tabpanel"
+                    aria-labelledby={`activity-${activityMode}-tab`}
+                    className="min-h-[224px]"
+                  >
                     {props.teamLoading && activityMode === "team" ? (
                       <ActivitySkeleton />
                     ) : activity.length ? (
@@ -1514,11 +1548,13 @@ function WorkspaceSection({
   children: React.ReactNode;
 }) {
   return (
-    <ContentSection
+    <Card
       aria-label={title}
-      title={title}
-      metadata={
-        <>
+      className={cn("h-full min-w-0 overflow-hidden shadow-none", className)}
+    >
+      <CardHeader>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           <Icon
             className="size-3.5 text-[var(--app-muted)]"
             strokeWidth={1.75}
@@ -1528,14 +1564,13 @@ function WorkspaceSection({
               {count}
             </span>
           ) : null}
-        </>
-      }
-      actions={action}
-      bodyMode="flush"
-      className={cn(surface, className)}
-    >
-      {children}
-    </ContentSection>
+        </div>
+        {action ? (
+          <div className="flex shrink-0 items-center gap-2">{action}</div>
+        ) : null}
+      </CardHeader>
+      <CardContent className="p-0">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -1613,7 +1648,7 @@ function ProjectInspector({
 
   if (!project) {
     return (
-      <motion.aside
+      <MotionCard
         className={cn(
           surface,
           "min-h-[420px]",
@@ -1638,7 +1673,7 @@ function ProjectInspector({
             Project context will stay visible here.
           </p>
         </div>
-      </motion.aside>
+      </MotionCard>
     );
   }
 
@@ -1646,10 +1681,10 @@ function ProjectInspector({
 
   return (
     <AnimatePresence mode="wait">
-      <motion.aside
+      <MotionCard
         key={project.id}
         className={cn(
-          "border border-[var(--app-border)] bg-[var(--app-panel)]",
+          "bg-[var(--app-panel)] shadow-none",
           mobile
             ? "min-h-dvh overflow-y-auto rounded-none border-0"
             : "hidden h-full overflow-hidden rounded-[10px] xl:block"
@@ -1756,24 +1791,9 @@ function ProjectInspector({
           </div>
 
           {project.notes ? (
-            <div
-              className={cn(
-                "border-t border-[var(--app-border)]",
-                mobile ? "pt-4" : "pt-3"
-              )}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--app-muted)]">
-                Project note
-              </p>
-              <p
-                className={cn(
-                  "mt-2 text-xs leading-5 text-[var(--app-ink)]/80",
-                  !mobile && "line-clamp-2"
-                )}
-              >
-                {project.notes}
-              </p>
-            </div>
+            <p className="border-t border-[var(--app-border)] pt-3 text-xs text-[var(--app-muted)]">
+              This project has notes
+            </p>
           ) : null}
 
           <div
@@ -1801,7 +1821,7 @@ function ProjectInspector({
             </Button>
           </div>
         </div>
-      </motion.aside>
+      </MotionCard>
     </AnimatePresence>
   );
 }

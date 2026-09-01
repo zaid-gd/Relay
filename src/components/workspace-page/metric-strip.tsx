@@ -1,5 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const columnClasses = {
@@ -23,11 +24,14 @@ export function MetricStrip({
   return (
     <dl
       data-slot="metric-strip"
-      role={role ?? (props["aria-label"] || props["aria-labelledby"] ? "region" : undefined)}
+      role={
+        role ??
+        (props["aria-label"] || props["aria-labelledby"] ? "region" : undefined)
+      }
       className={cn(
         "grid min-w-0 gap-2 text-card-foreground",
         columnClasses[columns],
-        className,
+        className
       )}
       {...props}
     >
@@ -54,11 +58,11 @@ export function MetricItem({
   ...props
 }: MetricItemProps) {
   return (
-    <div
+    <Card
       data-slot="metric-item"
       className={cn(
-        "min-w-0 rounded-[6px] bg-card p-4 transition-colors hover:bg-muted/30",
-        className,
+        "min-w-0 p-4 shadow-none transition-colors hover:bg-muted/30",
+        className
       )}
       {...props}
     >
@@ -75,8 +79,10 @@ export function MetricItem({
         {action}
       </div>
       {supporting ? (
-        <div className="mt-2 text-xs leading-4 text-muted-foreground">{supporting}</div>
+        <div className="mt-2 text-xs leading-4 text-muted-foreground">
+          {supporting}
+        </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
