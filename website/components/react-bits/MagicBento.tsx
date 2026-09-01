@@ -423,7 +423,7 @@ const GlobalSpotlight: React.FC<{
     document.body.appendChild(spotlight);
     spotlightRef.current = spotlight;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const processMouseMove = (e: MouseEvent) => {
       if (!spotlightRef.current || !gridRef.current) return;
 
       const section = gridRef.current.closest(".bento-section");
@@ -518,12 +518,32 @@ const GlobalSpotlight: React.FC<{
       }
     };
 
+    const section = gridRef.current.closest(".bento-section");
+    let isSectionVisible = true;
+    const observer = new IntersectionObserver(([entry]) => {
+      isSectionVisible = entry?.isIntersecting ?? false;
+    });
+    if (section) observer.observe(section);
+    let latestPointer: MouseEvent | null = null;
+    let pointerFrame = 0;
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isSectionVisible) return;
+      latestPointer = event;
+      if (pointerFrame) return;
+      pointerFrame = requestAnimationFrame(() => {
+        pointerFrame = 0;
+        if (latestPointer) processMouseMove(latestPointer);
+      });
+    };
+
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseleave", handleMouseLeave);
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseleave", handleMouseLeave);
+      observer.disconnect();
+      if (pointerFrame) cancelAnimationFrame(pointerFrame);
       spotlightRef.current?.parentNode?.removeChild(spotlightRef.current);
     };
   }, [gridRef, disableAnimations, enabled, spotlightRadius, glowColor]);
@@ -929,6 +949,11 @@ const MagicBento: React.FC<BentoProps> = ({
                   el.addEventListener("mousemove", handleMouseMove);
                   el.addEventListener("mouseleave", handleMouseLeave);
                   el.addEventListener("click", handleClick);
+                  return () => {
+                    el.removeEventListener("mousemove", handleMouseMove);
+                    el.removeEventListener("mouseleave", handleMouseLeave);
+                    el.removeEventListener("click", handleClick);
+                  };
                 }}
               >
                 <div className="card__header flex justify-between gap-3 relative text-white">

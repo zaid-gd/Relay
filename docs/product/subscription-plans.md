@@ -58,7 +58,7 @@ Team is for a small editing team working in one shared Workspace.
 
 Includes everything in Creator, plus:
 
-- 3 included paid Editor seats
+- 3 included paid Editor seats, including the Workspace owner
 - 15 GB shared Storage Quota
 - Team Workspace access
 - Team roles
@@ -71,9 +71,9 @@ Each extra paid Editor costs $5/month or $50/year and adds 2 GB to the shared St
 
 Examples:
 
-- 3 included Editors: 15 GB shared
-- 4 Editors: 17 GB shared
-- 5 Editors: 19 GB shared
+- 3 included paid Editors, including the owner: 15 GB shared
+- 4 paid Editors, including the owner: 17 GB shared
+- 5 paid Editors, including the owner: 19 GB shared
 
 ## Storage add-ons
 
@@ -118,8 +118,7 @@ Removing an Editor does not immediately remove storage from the Workspace. If th
 
 These items are not included in the current launch promise:
 
-- Invoices
-- Payment collection
+- Relay-generated invoices and client payment collection
 - Priority support tiers
 - Unlimited storage
 - Automatic storage overage billing

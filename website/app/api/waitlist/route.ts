@@ -64,14 +64,23 @@ export async function POST(request: Request) {
   }
 
   const siteUrl = getConvexSiteUrl();
-  if (!siteUrl) {
+  let siteUrlObject: URL;
+  try {
+    siteUrlObject = new URL(siteUrl ?? "");
+  } catch {
+    return NextResponse.json({ kind: "unavailable" }, { status: 503 });
+  }
+  if (siteUrlObject.protocol !== "https:") {
     return NextResponse.json({ kind: "unavailable" }, { status: 503 });
   }
 
   try {
-    const response = await fetch(new URL("/api/waitlist", siteUrl), {
+    const response = await fetch(new URL("/api/waitlist", siteUrlObject), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-relay-proxy-signature": process.env.WAITLIST_PROXY_SECRET ?? "",
+      },
       body: JSON.stringify({
         name: input.name,
         email: input.email,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Color, Mesh, Program, Renderer, Triangle } from "ogl";
 
 interface SpecularButtonBaseProps {
@@ -106,6 +107,7 @@ void main() {
 }`;
 
 export default function SpecularButton(props: SpecularButtonProps) {
+  const router = useRouter();
   const {
     children,
     className = "",
@@ -167,6 +169,12 @@ export default function SpecularButton(props: SpecularButtonProps) {
       dpr,
     });
     const gl = renderer.gl;
+    let contextLost = false;
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      contextLost = true;
+    };
+    gl.canvas.addEventListener("webglcontextlost", handleContextLost, false);
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -195,8 +203,9 @@ export default function SpecularButton(props: SpecularButtonProps) {
     effect.appendChild(gl.canvas);
 
     const size = { width: 1, height: 1 };
+    let rect = button.getBoundingClientRect();
     const resize = () => {
-      const rect = button.getBoundingClientRect();
+      rect = button.getBoundingClientRect();
       size.width = rect.width;
       size.height = rect.height;
       renderer.setSize(rect.width + PAD * 2, rect.height + PAD * 2);
@@ -216,7 +225,6 @@ export default function SpecularButton(props: SpecularButtonProps) {
     let pointerAngle: number | null = null;
     let proximityAmount = 0;
     const handlePointerMove = (event: PointerEvent) => {
-      const rect = button.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const deltaX = Math.max(
@@ -248,8 +256,10 @@ export default function SpecularButton(props: SpecularButtonProps) {
         1 - distance / Math.max(shaderProps.current.proximity, 1)
       );
       proximityAmount = amount * amount * (3 - 2 * amount);
+      if (frame === null) frame = requestAnimationFrame(update);
     };
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("scroll", resize, { passive: true });
 
     const lineColorValue = new Color();
     const baseColorValue = new Color();
@@ -257,10 +267,11 @@ export default function SpecularButton(props: SpecularButtonProps) {
     let idleAngle = 2.4;
     let brightness = 0;
     let previousTime = performance.now();
-    let frame = 0;
+    let frame: number | null = null;
 
     const update = (now: number) => {
-      frame = requestAnimationFrame(update);
+      frame = null;
+      if (contextLost) return;
       const delta = Math.min((now - previousTime) / 1000, 0.05);
       previousTime = now;
       const current = shaderProps.current;
@@ -298,13 +309,23 @@ export default function SpecularButton(props: SpecularButtonProps) {
       program.uniforms.uShineFade.value = (current.shineFade * Math.PI) / 180;
       program.uniforms.uThickness.value = current.thickness * dpr;
       renderer.render({ scene: mesh });
+
+      if (
+        current.autoAnimate ||
+        brightness > 0.001 ||
+        Math.abs(difference) > 0.001
+      ) {
+        frame = requestAnimationFrame(update);
+      }
     };
     frame = requestAnimationFrame(update);
 
     return () => {
-      cancelAnimationFrame(frame);
+      if (frame !== null) cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("scroll", resize);
+      gl.canvas.removeEventListener("webglcontextlost", handleContextLost);
       if (gl.canvas.parentNode === effect) effect.removeChild(gl.canvas);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
@@ -336,6 +357,12 @@ export default function SpecularButton(props: SpecularButtonProps) {
           buttonRef.current = element;
         }}
         href={props.href}
+        onClick={(event) => {
+          if (props.href?.startsWith("/")) {
+            event.preventDefault();
+            router.push(props.href);
+          }
+        }}
         className={elementClassName}
         style={style}
       >

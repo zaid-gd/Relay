@@ -7,10 +7,14 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 test("waitlist endpoint validates and deduplicates email addresses", async () => {
+  process.env.WAITLIST_PROXY_SECRET = "test-secret";
   const t = convexTest(schema, modules);
   const request = {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-relay-proxy-signature": "test-secret",
+    },
     body: JSON.stringify({
       name: "Maya Chen",
       email: " Maya@Aperture.co ",
@@ -22,7 +26,10 @@ test("waitlist endpoint validates and deduplicates email addresses", async () =>
   const duplicate = await t.fetch("/api/waitlist", request);
   const invalid = await t.fetch("/api/waitlist", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-relay-proxy-signature": "test-secret",
+    },
     body: JSON.stringify({
       name: "M",
       email: "not-an-email",
@@ -48,4 +55,30 @@ test("waitlist endpoint validates and deduplicates email addresses", async () =>
     audience: "freelancer",
     status: "pending",
   });
+});
+
+test("waitlist endpoint rejects unsigned direct posts", async () => {
+  process.env.WAITLIST_PROXY_SECRET = "test-secret";
+  const t = convexTest(schema, modules);
+  const response = await t.fetch("/api/waitlist", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      name: "Unsigned User",
+      email: "unsigned@example.com",
+      audience: "team",
+    }),
+  });
+
+  const rows = await t.run(async (ctx) =>
+    ctx.db
+      .query("waitlistSignups")
+      .withIndex("by_email", (query) =>
+        query.eq("email", "unsigned@example.com")
+      )
+      .take(1)
+  );
+
+  expect(response.status).toBe(401);
+  expect(rows).toHaveLength(0);
 });

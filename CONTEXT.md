@@ -65,7 +65,7 @@ The Subscription Plan for a solo editor who works in a personal Workspace and ma
 The Subscription Plan for a Workspace with multiple internal Editors and Viewers.
 
 **Editor Seat**:
-Paid capacity for one internal Editor in a Team Workspace. An Editor Seat also increases the Workspace's shared Storage Quota.
+Paid capacity for one internal Editor in a Team Workspace. Only additional Editor Seats beyond the three included Team seats increase the Workspace's shared Storage Quota, by 2 GB each. Included seats do not add quota.
 
 **Storage Quota**:
 The maximum amount of Relay-hosted media a Workspace may store. Reaching the quota blocks new uploads but keeps existing files available.

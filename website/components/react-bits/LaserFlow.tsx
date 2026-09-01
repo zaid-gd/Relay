@@ -547,7 +547,10 @@ export const LaserFlow: React.FC<Props> = ({
       if (!reduceMotion) {
         raf = requestAnimationFrame(animate);
       }
-      if (pausedRef.current || !inViewRef.current) return;
+      if (pausedRef.current || !inViewRef.current) {
+        prevTime = clock.getElapsedTime();
+        return;
+      }
 
       const t = clock.getElapsedTime();
       const dt = Math.max(0, t - prevTime);

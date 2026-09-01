@@ -274,7 +274,7 @@ const GradualBlur: React.FC<GradualBlurProps> = (props) => {
       transition: config.animated
         ? `opacity ${config.duration} ${config.easing}`
         : undefined,
-      zIndex: isPageTarget ? config.zIndex + 100 : config.zIndex,
+      zIndex: config.zIndex,
       ...config.style,
     };
 

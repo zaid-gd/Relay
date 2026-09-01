@@ -1,3 +1,5 @@
+"use client";
+
 import React, {
   useState,
   Children,
@@ -5,6 +7,7 @@ import React, {
   useLayoutEffect,
   type HTMLAttributes,
   type ReactNode,
+  useCallback,
 } from "react";
 import { motion, AnimatePresence, type Variants } from "motion/react";
 
@@ -17,6 +20,7 @@ interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   stepContainerClassName?: string;
   contentClassName?: string;
   footerClassName?: string;
+  showFooter?: boolean;
   backButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
   nextButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
   backButtonText?: string;
@@ -38,6 +42,7 @@ export default function Stepper({
   stepContainerClassName = "",
   contentClassName = "",
   footerClassName = "",
+  showFooter = true,
   backButtonProps = {},
   nextButtonProps = {},
   backButtonText = "Back",
@@ -135,7 +140,7 @@ export default function Stepper({
           {stepsArray[currentStep - 1]}
         </StepContentWrapper>
 
-        {!isCompleted && (
+        {showFooter && !isCompleted && (
           <div className={`px-8 pb-8 ${footerClassName}`}>
             <div
               className={`mt-10 flex ${currentStep !== 1 ? "justify-between" : "justify-end"}`}
@@ -155,7 +160,7 @@ export default function Stepper({
               )}
               <button
                 onClick={isLastStep ? handleComplete : handleNext}
-                className="duration-350 flex items-center justify-center rounded-full bg-green-500 py-1.5 px-3.5 font-medium tracking-tight text-white transition hover:bg-green-600 active:bg-green-700"
+                className="duration-350 flex items-center justify-center rounded-full bg-[#c6ff00] py-1.5 px-3.5 font-medium tracking-tight text-black transition hover:bg-[#d4ff4d] active:bg-[#b8ed00]"
                 {...nextButtonProps}
               >
                 {isLastStep ? "Complete" : nextButtonText}
@@ -184,6 +189,9 @@ function StepContentWrapper({
   className = "",
 }: StepContentWrapperProps) {
   const [parentHeight, setParentHeight] = useState<number>(0);
+  const onHeightReady = useCallback((height: number) => {
+    setParentHeight(height);
+  }, []);
 
   return (
     <motion.div
@@ -197,7 +205,7 @@ function StepContentWrapper({
           <SlideTransition
             key={currentStep}
             direction={direction}
-            onHeightReady={(h) => setParentHeight(h)}
+            onHeightReady={onHeightReady}
           >
             {children}
           </SlideTransition>
@@ -292,9 +300,12 @@ function StepIndicator({
   };
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      aria-label={`Go to step ${step}`}
       onClick={handleClick}
-      className={`relative outline-none focus:outline-none ${disableStepIndicators ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+      disabled={disableStepIndicators}
+      className={`relative ${disableStepIndicators ? "opacity-50" : "cursor-pointer"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6ff00]`}
       animate={status}
       initial={false}
     >
@@ -315,7 +326,7 @@ function StepIndicator({
           <span className="text-sm">{step}</span>
         )}
       </motion.div>
-    </motion.div>
+    </motion.button>
   );
 }
 

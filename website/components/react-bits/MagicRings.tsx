@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
@@ -340,6 +342,7 @@ export default function MagicRings({
       mount.removeChild(renderer.domElement);
       renderer.dispose();
       material.dispose();
+      quad.geometry.dispose();
     };
   }, []);
 

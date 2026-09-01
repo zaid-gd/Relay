@@ -59,6 +59,7 @@ export default function DecryptedText({
   const containerRef = useRef<HTMLSpanElement>(null);
   const orderRef = useRef<number[]>([]);
   const pointerRef = useRef<number>(0);
+  const revealedRef = useRef<Set<number>>(new Set());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const availableChars = useMemo<string[]>(() => {
@@ -167,6 +168,10 @@ export default function DecryptedText({
   }, [sequential, computeOrder, fillAllIndices, shuffleText, text]);
 
   useEffect(() => {
+    revealedRef.current = revealedIndices;
+  }, [revealedIndices]);
+
+  useEffect(() => {
     if (!isAnimating) return;
 
     let currentIteration = 0;
@@ -202,83 +207,83 @@ export default function DecryptedText({
     };
 
     intervalRef.current = setInterval(() => {
-      setRevealedIndices((prevRevealed) => {
-        if (sequential) {
-          // Forward
-          if (direction === "forward") {
-            if (prevRevealed.size < text.length) {
-              const nextIndex = getNextIndex(prevRevealed);
-              const newRevealed = new Set(prevRevealed);
-              newRevealed.add(nextIndex);
-              setDisplayText(shuffleText(text, newRevealed));
-              return newRevealed;
-            } else {
-              clearInterval(intervalRef.current ?? undefined);
-              setIsAnimating(false);
-              setIsDecrypted(true);
-              return prevRevealed;
-            }
-          }
-          // Reverse
-          if (direction === "reverse") {
-            if (pointerRef.current < orderRef.current.length) {
-              const idxToRemove = orderRef.current[pointerRef.current++];
-              const newRevealed = new Set(prevRevealed);
-              newRevealed.delete(idxToRemove);
-              setDisplayText(shuffleText(text, newRevealed));
-              if (newRevealed.size === 0) {
-                clearInterval(intervalRef.current ?? undefined);
-                setIsAnimating(false);
-                setIsDecrypted(false);
-              }
-              return newRevealed;
-            } else {
-              clearInterval(intervalRef.current ?? undefined);
-              setIsAnimating(false);
-              setIsDecrypted(false);
-              return prevRevealed;
-            }
-          }
-        } else {
-          // Non-Sequential
-          if (direction === "forward") {
-            setDisplayText(shuffleText(text, prevRevealed));
-            currentIteration++;
-            if (currentIteration >= maxIterations) {
-              clearInterval(intervalRef.current ?? undefined);
-              setIsAnimating(false);
-              setDisplayText(text);
-              setIsDecrypted(true);
-            }
-            return prevRevealed;
-          }
+      const prevRevealed = revealedRef.current;
+      let nextRevealed = prevRevealed;
+      let nextDisplay: string | undefined;
+      let nextDecrypted: boolean | undefined;
+      let complete = false;
 
-          // Non-Sequential Reverse
-          if (direction === "reverse") {
-            let currentSet = prevRevealed;
-            if (currentSet.size === 0) {
-              currentSet = fillAllIndices();
-            }
-            const removeCount = Math.max(
-              1,
-              Math.ceil(text.length / Math.max(1, maxIterations))
-            );
-            const nextSet = removeRandomIndices(currentSet, removeCount);
-            setDisplayText(shuffleText(text, nextSet));
-            currentIteration++;
-            if (nextSet.size === 0 || currentIteration >= maxIterations) {
-              clearInterval(intervalRef.current ?? undefined);
-              setIsAnimating(false);
-              setIsDecrypted(false);
-              // ensure final scrambled state
-              setDisplayText(shuffleText(text, new Set()));
-              return new Set();
-            }
-            return nextSet;
+      if (sequential) {
+        // Forward
+        if (direction === "forward") {
+          if (prevRevealed.size < text.length) {
+            const nextIndex = getNextIndex(prevRevealed);
+            nextRevealed = new Set(prevRevealed);
+            nextRevealed.add(nextIndex);
+            nextDisplay = shuffleText(text, nextRevealed);
+          } else {
+            complete = true;
+            nextDecrypted = true;
           }
         }
-        return prevRevealed;
-      });
+        // Reverse
+        if (direction === "reverse") {
+          if (pointerRef.current < orderRef.current.length) {
+            const idxToRemove = orderRef.current[pointerRef.current];
+            pointerRef.current += 1;
+            nextRevealed = new Set(prevRevealed);
+            nextRevealed.delete(idxToRemove);
+            nextDisplay = shuffleText(text, nextRevealed);
+            complete = nextRevealed.size === 0;
+            nextDecrypted = false;
+          } else {
+            complete = true;
+            nextDecrypted = false;
+          }
+        }
+      } else {
+        // Non-Sequential
+        if (direction === "forward") {
+          currentIteration++;
+          nextDisplay = shuffleText(text, prevRevealed);
+          if (currentIteration >= maxIterations) {
+            complete = true;
+            nextDisplay = text;
+            nextDecrypted = true;
+          }
+        }
+
+        // Non-Sequential Reverse
+        if (direction === "reverse") {
+          let currentSet = prevRevealed;
+          if (currentSet.size === 0) {
+            currentSet = fillAllIndices();
+          }
+          const removeCount = Math.max(
+            1,
+            Math.ceil(text.length / Math.max(1, maxIterations))
+          );
+          const nextSet = removeRandomIndices(currentSet, removeCount);
+          nextDisplay = shuffleText(text, nextSet);
+          currentIteration++;
+          if (nextSet.size === 0 || currentIteration >= maxIterations) {
+            complete = true;
+            nextDecrypted = false;
+            nextRevealed = new Set();
+            nextDisplay = shuffleText(text, nextRevealed);
+          } else {
+            nextRevealed = nextSet;
+          }
+        }
+      }
+      revealedRef.current = nextRevealed;
+      setRevealedIndices(nextRevealed);
+      if (nextDisplay !== undefined) setDisplayText(nextDisplay);
+      if (complete) {
+        clearInterval(intervalRef.current ?? undefined);
+        setIsAnimating(false);
+        if (nextDecrypted !== undefined) setIsDecrypted(nextDecrypted);
+      }
     }, speed);
     return () => clearInterval(intervalRef.current ?? undefined);
   }, [

@@ -84,14 +84,25 @@ function animateValue({
   onEnd,
 }: AnimateOpts) {
   const t0 = performance.now() + delay;
+  let frameId = 0;
+  let timeoutId = 0;
+  let cancelled = false;
   function tick() {
+    if (cancelled) return;
     const elapsed = performance.now() - t0;
     const t = Math.min(elapsed / duration, 1);
     onUpdate(start + (end - start) * ease(t));
-    if (t < 1) requestAnimationFrame(tick);
+    if (t < 1) frameId = requestAnimationFrame(tick);
     else if (onEnd) onEnd();
   }
-  setTimeout(() => requestAnimationFrame(tick), delay);
+  timeoutId = window.setTimeout(() => {
+    if (!cancelled) frameId = requestAnimationFrame(tick);
+  }, delay);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timeoutId);
+    cancelAnimationFrame(frameId);
+  };
 }
 
 const GRADIENT_POSITIONS = [
@@ -152,6 +163,16 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
   const [cursorAngle, setCursorAngle] = useState(45);
   const [edgeProximity, setEdgeProximity] = useState(0);
   const [sweepActive, setSweepActive] = useState(false);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (pointerFrameRef.current !== null)
+        cancelAnimationFrame(pointerFrameRef.current);
+    },
+    []
+  );
 
   const getCenterOfElement = useCallback((el: HTMLElement) => {
     const { width, height } = el.getBoundingClientRect();
@@ -190,11 +211,18 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
     (e: React.PointerEvent<HTMLDivElement>) => {
       const card = cardRef.current;
       if (!card) return;
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setEdgeProximity(getEdgeProximity(card, x, y));
-      setCursorAngle(getCursorAngle(card, x, y));
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+      if (pointerFrameRef.current !== null) return;
+      pointerFrameRef.current = requestAnimationFrame(() => {
+        pointerFrameRef.current = null;
+        const latest = pointerRef.current;
+        if (!latest || !cardRef.current) return;
+        const rect = cardRef.current.getBoundingClientRect();
+        const x = latest.x - rect.left;
+        const y = latest.y - rect.top;
+        setEdgeProximity(getEdgeProximity(cardRef.current, x, y));
+        setCursorAngle(getCursorAngle(cardRef.current, x, y));
+      });
     },
     [getEdgeProximity, getCursorAngle]
   );
@@ -206,34 +234,44 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
     setSweepActive(true);
     setCursorAngle(angleStart);
 
-    animateValue({ duration: 500, onUpdate: (v) => setEdgeProximity(v / 100) });
-    animateValue({
-      ease: easeInCubic,
-      duration: 1500,
-      end: 50,
-      onUpdate: (v) => {
-        setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
-      },
-    });
-    animateValue({
-      ease: easeOutCubic,
-      delay: 1500,
-      duration: 2250,
-      start: 50,
-      end: 100,
-      onUpdate: (v) => {
-        setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
-      },
-    });
-    animateValue({
-      ease: easeInCubic,
-      delay: 2500,
-      duration: 1500,
-      start: 100,
-      end: 0,
-      onUpdate: (v) => setEdgeProximity(v / 100),
-      onEnd: () => setSweepActive(false),
-    });
+    const cancellations = [
+      animateValue({
+        duration: 500,
+        onUpdate: (v) => setEdgeProximity(v / 100),
+      }),
+      animateValue({
+        ease: easeInCubic,
+        duration: 1500,
+        end: 50,
+        onUpdate: (v) => {
+          setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
+        },
+      }),
+      animateValue({
+        ease: easeOutCubic,
+        delay: 1500,
+        duration: 2250,
+        start: 50,
+        end: 100,
+        onUpdate: (v) => {
+          setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
+        },
+      }),
+      animateValue({
+        ease: easeInCubic,
+        delay: 2500,
+        duration: 1500,
+        start: 100,
+        end: 0,
+        onUpdate: (v) => setEdgeProximity(v / 100),
+        onEnd: () => setSweepActive(false),
+      }),
+    ];
+    return () => {
+      cancellations.forEach((cancel) => cancel());
+      if (pointerFrameRef.current !== null)
+        cancelAnimationFrame(pointerFrameRef.current);
+    };
   }, [animated]);
 
   const colorSensitivity = edgeSensitivity + 20;
