@@ -335,12 +335,12 @@ export function SalaryPlansPanel({
       <div className="grid gap-5">
         <div className="grid gap-3 rounded-md border border-border/70 p-3">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-            <FieldLayout label="Client">
+            <FieldLayout label="Client" controlId="salary-plan-client">
               <Select
                 value={draft.clientId || undefined}
                 onValueChange={(clientId) => setDraft({ ...draft, clientId })}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="salary-plan-client" className="w-full">
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>

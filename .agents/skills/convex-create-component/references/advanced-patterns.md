@@ -54,7 +54,7 @@ const vNotification = schema.doc("notifications").omit("userId").extend({
 export const getNotification = internalQuery({
   args: { id: schema.id("notifications") },
   returns: v.nullable(vNotification),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const notification = await ctx.db.get("notifications", args.id);
     if (!notification) return null;
     const { userId, ...rest } = notification;

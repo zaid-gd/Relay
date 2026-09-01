@@ -455,7 +455,7 @@ export function ProjectOutputsPanel({
                 autoFocus
               />
             </FieldLayout>
-            <FieldLayout label="Category">
+            <FieldLayout label="Category" controlId="project-output-category">
               <Select
                 value={outputForm.category}
                 onValueChange={(value) => {
@@ -465,7 +465,7 @@ export function ProjectOutputsPanel({
                   if (category) setOutputForm({ ...outputForm, category });
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="project-output-category" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

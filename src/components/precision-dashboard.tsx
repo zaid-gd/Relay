@@ -1549,6 +1549,7 @@ function WorkspaceSection({
 }) {
   return (
     <Card
+      role="region"
       aria-label={title}
       className={cn("h-full min-w-0 overflow-hidden shadow-none", className)}
     >
@@ -1792,7 +1793,7 @@ function ProjectInspector({
 
           {project.notes ? (
             <p className="border-t border-[var(--app-border)] pt-3 text-xs text-[var(--app-muted)]">
-              This project has notes
+              {project.notes}
             </p>
           ) : null}
 
