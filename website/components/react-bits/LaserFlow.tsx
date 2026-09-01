@@ -321,6 +321,7 @@ export const LaserFlow: React.FC<Props> = ({
 
   useEffect(() => {
     const mount = mountRef.current!;
+    lastSizeRef.current = { width: 0, height: 0, dpr: 0 };
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
       alpha: true,

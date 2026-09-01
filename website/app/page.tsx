@@ -70,11 +70,7 @@ export default function Home() {
 
       <motion.header
         className="site-header"
-        style={
-          reduceMotion
-            ? { width: "90vw", height: 68 }
-            : { width: headerWidth, height: headerHeight }
-        }
+        style={{ width: headerWidth, height: headerHeight }}
       >
         <div ref={headerRef} className="nav-glass" aria-hidden="true">
           {headerInView && (
