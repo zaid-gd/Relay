@@ -72,6 +72,40 @@ const GradientBlinds: React.FC<GradientBlindsProps> = ({
   const mouseTargetRef = useRef<[number, number]>([0, 0]);
   const lastTimeRef = useRef<number>(0);
   const firstResizeRef = useRef<boolean>(true);
+  const containerWidthRef = useRef(0);
+  const startLoopRef = useRef<(() => void) | null>(null);
+  const propsRef = useRef({
+    paused,
+    gradientColors,
+    angle,
+    noise,
+    blindCount,
+    blindMinWidth,
+    mouseDampening,
+    mirrorGradient,
+    spotlightRadius,
+    spotlightSoftness,
+    spotlightOpacity,
+    distortAmount,
+    shineDirection,
+    lightMode,
+  });
+  propsRef.current = {
+    paused,
+    gradientColors,
+    angle,
+    noise,
+    blindCount,
+    blindMinWidth,
+    mouseDampening,
+    mirrorGradient,
+    spotlightRadius,
+    spotlightSoftness,
+    spotlightOpacity,
+    distortAmount,
+    shineDirection,
+    lightMode,
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -304,7 +338,9 @@ void main() {
     meshRef.current = mesh;
 
     const resize = () => {
+      const current = propsRef.current;
       const rect = container.getBoundingClientRect();
+      containerWidthRef.current = rect.width;
       renderer.setSize(rect.width, rect.height);
       uniforms.iResolution.value = [
         gl.drawingBufferWidth,
@@ -312,18 +348,18 @@ void main() {
         1,
       ];
 
-      if (blindMinWidth && blindMinWidth > 0) {
+      if (current.blindMinWidth && current.blindMinWidth > 0) {
         const maxByMinWidth = Math.max(
           1,
-          Math.floor(rect.width / blindMinWidth)
+          Math.floor(rect.width / current.blindMinWidth)
         );
 
-        const effective = blindCount
-          ? Math.min(blindCount, maxByMinWidth)
+        const effective = current.blindCount
+          ? Math.min(current.blindCount, maxByMinWidth)
           : maxByMinWidth;
         uniforms.uBlindCount.value = Math.max(1, effective);
       } else {
-        uniforms.uBlindCount.value = Math.max(1, blindCount);
+        uniforms.uBlindCount.value = Math.max(1, current.blindCount);
       }
 
       if (firstResizeRef.current) {
@@ -345,20 +381,68 @@ void main() {
       const x = (e.clientX - rect.left) * scale;
       const y = (rect.height - (e.clientY - rect.top)) * scale;
       mouseTargetRef.current = [x, y];
-      if (mouseDampening <= 0) {
+      if (propsRef.current.mouseDampening <= 0) {
         uniforms.iMouse.value = [x, y];
       }
     };
     canvas.addEventListener("pointermove", onPointerMove);
 
-    const loop = (t: number) => {
-      rafRef.current = requestAnimationFrame(loop);
+    let isVisible = true;
+    let loop: (t: number) => void;
+    const startLoop = () => {
+      if (
+        isVisible &&
+        !document.hidden &&
+        !propsRef.current.paused &&
+        !rafRef.current
+      ) {
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    };
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
+      isVisible = entry?.isIntersecting ?? false;
+      startLoop();
+    });
+    intersectionObserver.observe(container);
+
+    loop = (t: number) => {
+      if (!propsRef.current.paused && !document.hidden && isVisible) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        rafRef.current = null;
+        return;
+      }
+      const current = propsRef.current;
+      const { arr, count } = prepStops(current.gradientColors);
+      const maxByMinWidth = current.blindMinWidth
+        ? Math.max(
+            1,
+            Math.floor(containerWidthRef.current / current.blindMinWidth)
+          )
+        : Infinity;
+      const effectiveBlindCount = current.blindMinWidth
+        ? Math.min(current.blindCount || maxByMinWidth, maxByMinWidth)
+        : current.blindCount;
+      uniforms.uAngle.value = (current.angle * Math.PI) / 180;
+      uniforms.uNoise.value = current.noise;
+      uniforms.uBlindCount.value = Math.max(1, effectiveBlindCount);
+      uniforms.uSpotlightRadius.value = current.spotlightRadius;
+      uniforms.uSpotlightSoftness.value = current.spotlightSoftness;
+      uniforms.uSpotlightOpacity.value = current.spotlightOpacity;
+      uniforms.uMirror.value = current.mirrorGradient ? 1 : 0;
+      uniforms.uDistort.value = current.distortAmount;
+      uniforms.uShineFlip.value = current.shineDirection === "right" ? 1 : 0;
+      uniforms.uColorCount.value = count;
+      for (let index = 0; index < arr.length; index += 1) {
+        uniforms[`uColor${index}` as keyof typeof uniforms].value = arr[index];
+      }
+      uniforms.uLightMode.value = current.lightMode ? 1 : 0;
       uniforms.iTime.value = t * 0.001;
-      if (mouseDampening > 0) {
+      if (current.mouseDampening > 0) {
         if (!lastTimeRef.current) lastTimeRef.current = t;
         const dt = (t - lastTimeRef.current) / 1000;
         lastTimeRef.current = t;
-        const tau = Math.max(1e-4, mouseDampening);
+        const tau = Math.max(1e-4, current.mouseDampening);
         let factor = 1 - Math.exp(-dt / tau);
         if (factor > 1) factor = 1;
         const target = mouseTargetRef.current;
@@ -368,7 +452,7 @@ void main() {
       } else {
         lastTimeRef.current = t;
       }
-      if (!paused && programRef.current && meshRef.current) {
+      if (!propsRef.current.paused && programRef.current && meshRef.current) {
         try {
           renderer.render({ scene: meshRef.current });
         } catch (e) {
@@ -376,10 +460,18 @@ void main() {
         }
       }
     };
-    rafRef.current = requestAnimationFrame(loop);
+    startLoopRef.current = startLoop;
+    const onVisibilityChange = () => {
+      startLoop();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    startLoop();
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      startLoopRef.current = null;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      intersectionObserver.disconnect();
       canvas.removeEventListener("pointermove", onPointerMove);
       ro.disconnect();
       if (canvas.parentElement === container) {
@@ -405,28 +497,16 @@ void main() {
       meshRef.current = null;
       rendererRef.current = null;
     };
-  }, [
-    dpr,
-    paused,
-    gradientColors,
-    angle,
-    noise,
-    blindCount,
-    blindMinWidth,
-    mouseDampening,
-    mirrorGradient,
-    spotlightRadius,
-    spotlightSoftness,
-    spotlightOpacity,
-    distortAmount,
-    shineDirection,
-    lightMode,
-  ]);
+  }, [dpr]);
+
+  useEffect(() => {
+    if (!paused) startLoopRef.current?.();
+  }, [paused]);
 
   return (
     <div
       ref={containerRef}
-      className={`gradient-blinds-container ${className}`}
+      className={`gradient-blinds-container ${className ?? ""}`}
       style={{
         ...(!lightMode &&
           mixBlendMode && {

@@ -26,6 +26,13 @@ import Stepper, { Step } from "./react-bits/Stepper";
 
 const workflowStages = ["Plan", "Edit", "Client review", "Deliver"] as const;
 
+const formatTime = (seconds: number) =>
+  `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0")}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0")}`;
+
 const comments = [
   {
     id: 1,
@@ -265,7 +272,7 @@ export default function ProductStory() {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(43);
+  const [duration, setDuration] = useState(0);
   const [deliveryStep, setDeliveryStep] = useState(3);
   const [proofFilter, setProofFilter] = useState("All events");
   const [proofWeek, setProofWeek] = useState(1);
@@ -312,6 +319,7 @@ export default function ProductStory() {
           stepContainerClassName="workflow-stepper-nav"
           contentClassName="workflow-stepper-content"
           footerClassName="workflow-stepper-footer"
+          showFooter={false}
           renderStepIndicator={({ step, currentStep, onStepClick }) => (
             <button
               type="button"
@@ -438,9 +446,10 @@ export default function ProductStory() {
                 onTimeUpdate={(event) =>
                   setCurrentTime(event.currentTarget.currentTime)
                 }
-                onLoadedMetadata={(event) =>
-                  setDuration(event.currentTarget.duration)
-                }
+                onLoadedMetadata={(event) => {
+                  const nextDuration = event.currentTarget.duration;
+                  if (Number.isFinite(nextDuration)) setDuration(nextDuration);
+                }}
               />
               <div className="frame-note">
                 <span>
@@ -463,15 +472,7 @@ export default function ProductStory() {
                 >
                   {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </button>
-                <span>
-                  {Math.floor(currentTime / 60)
-                    .toString()
-                    .padStart(2, "0")}
-                  :
-                  {Math.floor(currentTime % 60)
-                    .toString()
-                    .padStart(2, "0")}
-                </span>
+                <span>{formatTime(currentTime)}</span>
                 <input
                   type="range"
                   min={0}
@@ -486,7 +487,7 @@ export default function ProductStory() {
                       videoRef.current.currentTime = nextTime;
                   }}
                 />
-                <span>00:43</span>
+                <span>{formatTime(duration)}</span>
               </div>
             </div>
             <aside

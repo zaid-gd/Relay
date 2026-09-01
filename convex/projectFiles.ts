@@ -87,7 +87,7 @@ function requireFileUploadPlan(
 ) {
   if (!planIncludesFileUploads(identity.pla)) {
     throw new Error(
-      "File uploads require a Creator or Studio plan. External links remain available on Free."
+      "File uploads require a Creator or Team plan. External links remain available on Free."
     );
   }
 }

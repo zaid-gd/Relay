@@ -7,7 +7,7 @@ import {
   useScroll,
   useTransform,
 } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import InteractiveDashboard from "../components/InteractiveDashboard";
 import ProductStory from "../components/ProductStory";
 import BorderGlow from "../components/react-bits/BorderGlow";
@@ -19,12 +19,33 @@ import MagicRings from "../components/react-bits/MagicRings";
 import SpecularButton from "../components/react-bits/SpecularButton";
 import Threads from "../components/react-bits/Threads";
 
+function useViewportEntry() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsInView(entry?.isIntersecting ?? false);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, isInView] as const;
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const reduceMotion = useReducedMotion();
   const { scrollY } = useScroll();
   const headerWidth = useTransform(scrollY, [0, 260], ["90vw", "60vw"]);
   const headerHeight = useTransform(scrollY, [0, 260], [68, 56]);
+  const [headerRef, headerInView] = useViewportEntry();
+  const [threadsRef, threadsInView] = useViewportEntry();
+  const [ringsRef, ringsInView] = useViewportEntry();
+  const [laserRef, laserInView] = useViewportEntry();
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -55,19 +76,21 @@ export default function Home() {
             : { width: headerWidth, height: headerHeight }
         }
       >
-        <div className="nav-glass" aria-hidden="true">
-          <FluidGlass
-            mode="bar"
-            backgroundColor="#050505"
-            showContent={false}
-            barProps={{
-              navItems: [],
-              scale: 0.14,
-              ior: 1.12,
-              thickness: 7,
-              chromaticAberration: 0.035,
-            }}
-          />
+        <div ref={headerRef} className="nav-glass" aria-hidden="true">
+          {headerInView && (
+            <FluidGlass
+              mode="bar"
+              backgroundColor="#050505"
+              showContent={false}
+              barProps={{
+                navItems: [],
+                scale: 0.14,
+                ior: 1.12,
+                thickness: 7,
+                chromaticAberration: 0.035,
+              }}
+            />
+          )}
         </div>
         <a className="brand" href="#top" aria-label="Relay home">
           <Image
@@ -89,12 +112,14 @@ export default function Home() {
 
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-backdrop" aria-hidden="true">
-            <Threads
-              color={[0.82, 0.82, 0.85]}
-              amplitude={0.55}
-              distance={0.12}
-            />
+          <div ref={threadsRef} className="hero-backdrop" aria-hidden="true">
+            {!reduceMotion && threadsInView && (
+              <Threads
+                color={[0.82, 0.82, 0.85]}
+                amplitude={0.55}
+                distance={0.12}
+              />
+            )}
           </div>
 
           <div className="hero-message">
@@ -119,49 +144,53 @@ export default function Home() {
           </div>
 
           <div className="product-reveal" id="product">
-            <div className="magic-rings" aria-hidden="true">
-              <MagicRings
-                color="#c6ff00"
-                colorTwo="#f4f4f5"
-                ringCount={7}
-                speed={0.58}
-                attenuation={8}
-                lineThickness={2.2}
-                baseRadius={0.28}
-                radiusStep={0.12}
-                scaleRate={0.1}
-                opacity={0.92}
-                noiseAmount={0.025}
-                rotation={-8}
-                ringGap={1.28}
-                fadeIn={0.6}
-                fadeOut={0.7}
-                followMouse
-                mouseInfluence={0.08}
-                hoverScale={1.04}
-                parallax={0.025}
-              />
+            <div ref={ringsRef} className="magic-rings" aria-hidden="true">
+              {!reduceMotion && ringsInView && (
+                <MagicRings
+                  color="#c6ff00"
+                  colorTwo="#f4f4f5"
+                  ringCount={7}
+                  speed={0.58}
+                  attenuation={8}
+                  lineThickness={2.2}
+                  baseRadius={0.28}
+                  radiusStep={0.12}
+                  scaleRate={0.1}
+                  opacity={0.92}
+                  noiseAmount={0.025}
+                  rotation={-8}
+                  ringGap={1.28}
+                  fadeIn={0.6}
+                  fadeOut={0.7}
+                  followMouse
+                  mouseInfluence={0.08}
+                  hoverScale={1.04}
+                  parallax={0.025}
+                />
+              )}
             </div>
 
-            <div className="laser-flow" aria-hidden="true">
-              <LaserFlow
-                color="#c6ff00"
-                backgroundColor="transparent"
-                horizontalBeamOffset={0}
-                verticalBeamOffset={-0.113}
-                horizontalSizing={0.49}
-                verticalSizing={5}
-                wispDensity={5}
-                wispSpeed={25.5}
-                wispIntensity={5.4}
-                flowSpeed={0.25}
-                flowStrength={0.16}
-                fogIntensity={1}
-                fogScale={0.3}
-                fogFallSpeed={0.6}
-                decay={2.18}
-                falloffStart={1.5}
-              />
+            <div ref={laserRef} className="laser-flow" aria-hidden="true">
+              {!reduceMotion && laserInView && (
+                <LaserFlow
+                  color="#c6ff00"
+                  backgroundColor="transparent"
+                  horizontalBeamOffset={0}
+                  verticalBeamOffset={-0.113}
+                  horizontalSizing={0.49}
+                  verticalSizing={5}
+                  wispDensity={5}
+                  wispSpeed={25.5}
+                  wispIntensity={5.4}
+                  flowSpeed={0.25}
+                  flowStrength={0.16}
+                  fogIntensity={1}
+                  fogScale={0.3}
+                  fogFallSpeed={0.6}
+                  decay={2.18}
+                  falloffStart={1.5}
+                />
+              )}
             </div>
 
             <BorderGlow
@@ -216,9 +245,8 @@ export default function Home() {
         className={`loading-screen ${loading ? "is-visible" : "is-leaving"}`}
         role="status"
         aria-label="Loading Relay"
-        aria-hidden={!loading}
       >
-        <div className="loading-copy" aria-hidden="true">
+        <div className="loading-copy">
           <small>Starting production workspace</small>
           <DecryptedText
             text="LOADING RELAY"

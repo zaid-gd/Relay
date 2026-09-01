@@ -51,6 +51,14 @@ http.route({
   path: "/api/waitlist",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const proxySignature = request.headers.get("x-relay-proxy-signature");
+    if (
+      !process.env.WAITLIST_PROXY_SECRET ||
+      proxySignature !== process.env.WAITLIST_PROXY_SECRET
+    ) {
+      return json({ kind: "unauthorized" }, 401);
+    }
+
     let body: unknown;
     try {
       body = await request.json();

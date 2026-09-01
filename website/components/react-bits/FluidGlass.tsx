@@ -74,7 +74,7 @@ export default function FluidGlass({
     <Canvas
       camera={{ position: [0, 0, 20], fov: 15 }}
       gl={{ alpha: true, toneMapping: THREE.NoToneMapping }}
-      frameloop={showContent ? "always" : "demand"}
+      frameloop="always"
       style={{ backgroundColor }}
     >
       {showContent ? (
@@ -143,8 +143,10 @@ const ModeWrapper = memo(function ModeWrapper({
 
   useEffect(() => {
     const geo = (nodes[geometryKey] as THREE.Mesh)?.geometry;
+    if (!geo) return;
     geo.computeBoundingBox();
-    geoWidthRef.current = geo.boundingBox!.max.x - geo.boundingBox!.min.x || 1;
+    if (!geo.boundingBox) return;
+    geoWidthRef.current = geo.boundingBox.max.x - geo.boundingBox.min.x || 1;
   }, [nodes, geometryKey]);
 
   useFrame((state, delta) => {

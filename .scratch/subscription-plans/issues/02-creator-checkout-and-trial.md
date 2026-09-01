@@ -8,7 +8,7 @@
 
 - [ ] Clerk has Free, Creator, and Team Organization plans with stable Relay slugs and approved monthly and annual prices.
 - [ ] Creator has a seven-day trial and Team has no trial.
-- [ ] The Workspace pricing page targets the active Clerk Organization rather than the signed-in user.
+- [ ] `subscription-plans.tsx` uses Clerk Organization plans and pricing, targeting the active Clerk Organization rather than the signed-in user, and an organization-scoped checkout test covers the flow.
 - [ ] Only the Workspace Owner can start checkout or manage the subscription.
 - [ ] Successful checkout returns to Relay and shows pending until Convex confirms or reconciles the plan.
 - [ ] Cancellation, incomplete checkout, and failed payment produce clear states without granting paid access.

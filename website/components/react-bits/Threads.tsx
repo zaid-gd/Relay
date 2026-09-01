@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useRef } from "react";
 import { Renderer, Program, Mesh, Triangle, Color } from "ogl";
 
@@ -237,7 +239,7 @@ const Threads: React.FC<ThreadsProps> = ({
       animationFrameId.current = reduceMotion
         ? 0
         : requestAnimationFrame(update);
-      if (!isVisible || document.hidden) return;
+      if ((!isVisible || document.hidden) && !reduceMotion) return;
 
       const { color, amplitude, distance, enableMouseInteraction } =
         propsRef.current;

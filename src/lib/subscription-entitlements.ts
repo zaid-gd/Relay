@@ -1,4 +1,4 @@
-const FILE_UPLOAD_PLANS = new Set(["creator", "studio"]);
+const FILE_UPLOAD_PLANS = new Set(["creator", "team"]);
 
 export function planIncludesFileUploads(planClaim: unknown) {
   if (typeof planClaim !== "string") return false;

@@ -1,6 +1,6 @@
 # 10: Remove old plans and certify the launch model
 
-**What to build:** Remove Studio, old prices, and user-level billing assumptions from active Relay surfaces. Make marketing, onboarding, subscription management, upgrade prompts, and backend enforcement agree on Free, Creator, and Team, then verify each plan as a real user would use it.
+**What to build:** Remove Studio, old prices, and user-level billing assumptions from active Relay surfaces. First migrate existing subscriptions, then reconcile billing projections and entitlements, then verify no active UI, tests, entitlements, or Clerk configuration references the old Creator/Studio identifiers before final removal or slug renaming. Resolve file-upload entitlements to the Team Clerk slug, update denial copy, and prove a Team upload succeeds. Make marketing, onboarding, subscription management, upgrade prompts, and backend enforcement agree on Free, Creator, and Team, then verify each plan as a real user would use it.
 
 **Blocked by:** 02: Launch Creator checkout and trial. 03: Enforce Creator feature access. 04: Enforce accurate Workspace storage quotas. 05: Deliver the Creator client experience. 06: Launch Team with correct seat rules. 07: Sell extra Editor Seats. 08: Sell 50 GB Storage Add-ons. 09: Handle billing changes without data loss.
 
