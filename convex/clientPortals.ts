@@ -60,7 +60,7 @@ async function requireProjectAccess(
   if (!project) throw new Error("Project not found");
 
   if (!project.teamId) {
-    if (project.ownerUserId !== identity.subject)
+    if (project.ownerUserId !== identity.tokenIdentifier)
       throw new Error("Project access required");
     return { identity, project };
   }
@@ -68,7 +68,9 @@ async function requireProjectAccess(
   const member = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", project.teamId as string).eq("userId", identity.subject)
+      q
+        .eq("teamId", project.teamId as string)
+        .eq("userId", identity.tokenIdentifier)
     )
     .unique();
   if (
@@ -579,7 +581,7 @@ export const publish = mutation({
       }
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.subject,
+        actorUserId: identity.tokenIdentifier,
         actorName: identity.name || identity.email || "Relay user",
         kind: statusChanged ? "client_stage_changed" : "client_portal_updated",
         message: statusChanged
@@ -591,7 +593,7 @@ export const publish = mutation({
 
     const token = crypto.randomUUID().replaceAll("-", "");
     const portalId = await ctx.db.insert("clientPortals", {
-      ownerUserId: identity.subject,
+      ownerUserId: identity.tokenIdentifier,
       projectId: args.projectId,
       token,
       ...snapshot,
@@ -628,7 +630,7 @@ export const publish = mutation({
     );
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_published",
       message: "The client portal was published.",
@@ -651,7 +653,7 @@ export const setPublished = mutation({
     });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "Relay user",
       kind: args.published
         ? "client_portal_published"
@@ -685,7 +687,7 @@ export const setAccessControls = mutation({
     if (wasEnabled !== args.enabled) {
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.subject,
+        actorUserId: identity.tokenIdentifier,
         actorName: identity.name || identity.email || "Relay user",
         kind: args.enabled ? "client_portal_enabled" : "client_portal_disabled",
         message: `Client portal access was ${args.enabled ? "enabled" : "disabled"}.`,
@@ -694,7 +696,7 @@ export const setAccessControls = mutation({
     } else if (portal.expiresAt !== expiresAt) {
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.subject,
+        actorUserId: identity.tokenIdentifier,
         actorName: identity.name || identity.email || "Relay user",
         kind: "client_portal_updated",
         message: expiresAt
@@ -719,7 +721,7 @@ export const regenerateToken = mutation({
     await ctx.db.patch(args.portalId, { token, updatedAt: now });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_token_regenerated",
       message:
@@ -750,7 +752,7 @@ export const setPasswordProtection = mutation({
       });
       await recordProjectActivity(ctx, {
         project,
-        actorUserId: identity.subject,
+        actorUserId: identity.tokenIdentifier,
         actorName: identity.name || identity.email || "Relay user",
         kind: "client_portal_updated",
         message: "Client portal password protection was removed.",
@@ -764,7 +766,7 @@ export const setPasswordProtection = mutation({
     await ctx.db.patch(args.portalId, { ...passwordFields, updatedAt: now });
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "Relay user",
       kind: "client_portal_updated",
       message: `Client portal password protection was ${wasProtected ? "updated" : "enabled"}.`,
@@ -836,7 +838,7 @@ export const addDeliverable = mutation({
       status,
       clientVisible: true,
       downloadable: args.downloadable,
-      createdByUserId: identity.subject,
+      createdByUserId: identity.tokenIdentifier,
       createdByName: actor,
       createdAt: now,
       updatedAt: now,
@@ -851,7 +853,7 @@ export const addDeliverable = mutation({
       fileName: title,
       mimeType: "text/uri-list",
       size: 0,
-      uploadedByUserId: identity.subject,
+      uploadedByUserId: identity.tokenIdentifier,
       uploadedByName: actor,
       uploadedAt: now,
       notes: detail,
@@ -865,7 +867,7 @@ export const addDeliverable = mutation({
     );
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: actor,
       kind: "project_file_added",
       message: `${title} was added to deliverable files.`,
@@ -978,7 +980,7 @@ export const updateRevisionStatus = mutation({
     }
     await recordProjectActivity(ctx, {
       project,
-      actorUserId: identity.subject,
+      actorUserId: identity.tokenIdentifier,
       actorName: identity.name || identity.email || "Relay user",
       kind: "revision_status_changed",
       message: `A revision request changed from ${revision.status} to ${status}.`,
