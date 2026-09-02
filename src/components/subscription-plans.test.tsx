@@ -60,6 +60,8 @@ describe("User subscription pricing", () => {
     expect(html).toContain('data-for="user"');
     expect(html).toContain('data-highlighted-plan="creator_plan"');
     expect(html).toContain('data-redirect="/subscription?checkout=return"');
+    expect(html).toContain("New subscriptions are paused");
+    expect(html).toContain('aria-disabled="true"');
   });
 
   test("shows User pricing without an Organization or Workspace", () => {

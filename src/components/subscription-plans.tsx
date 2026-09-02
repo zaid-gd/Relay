@@ -45,6 +45,9 @@ const pricingAppearance = {
   },
 };
 
+const billingPurchasesEnabled =
+  process.env.NEXT_PUBLIC_BILLING_PURCHASES_ENABLED === "true";
+
 type BillingStatusContent = {
   title: string;
   body: string;
@@ -140,9 +143,15 @@ export function SubscriptionPricingView({
             Choose your Relay plan
           </span>
         )}
-        <Button asChild variant="outline" size="sm">
-          <Link href="/account#billing">Manage billing in Clerk</Link>
-        </Button>
+        {billingPurchasesEnabled ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/account#billing">Manage billing in Clerk</Link>
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" disabled>
+            Purchases paused
+          </Button>
+        )}
       </div>
       {subscription ? (
         <BillingStatus
@@ -150,15 +159,25 @@ export function SubscriptionPricingView({
           subscription={subscription}
         />
       ) : null}
-      <PricingTable
-        for="user"
-        highlightedPlan="creator_plan"
-        collapseFeatures={false}
-        ctaPosition="bottom"
-        newSubscriptionRedirectUrl="/subscription?checkout=return"
-        appearance={pricingAppearance}
-        checkoutProps={{ appearance: pricingAppearance }}
-      />
+      {!billingPurchasesEnabled ? (
+        <p role="status" className="mb-4 text-sm text-muted-foreground">
+          Plans are shown for reference. New subscriptions are paused.
+        </p>
+      ) : null}
+      <div
+        inert={!billingPurchasesEnabled}
+        aria-disabled={!billingPurchasesEnabled}
+      >
+        <PricingTable
+          for="user"
+          highlightedPlan="creator_plan"
+          collapseFeatures={false}
+          ctaPosition="bottom"
+          newSubscriptionRedirectUrl="/subscription?checkout=return"
+          appearance={pricingAppearance}
+          checkoutProps={{ appearance: pricingAppearance }}
+        />
+      </div>
     </div>
   );
 }
