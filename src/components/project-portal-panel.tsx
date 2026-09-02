@@ -71,7 +71,7 @@ export function ProjectPortalPanel({
     if (!hubSettings) return;
     setBrandName(hubSettings.brandName);
     setAccentColor(hubSettings.accentColor);
-  }, [hubSettings]);
+  }, [hubSettings?.accentColor, hubSettings?.brandName]);
 
   const selectedOutputs = useMemo(
     () => new Set(draft.selectedOutputIds),
@@ -165,6 +165,32 @@ export function ProjectPortalPanel({
     }
   }
 
+  async function changeHubPublished(published: boolean) {
+    setFormError("");
+    try {
+      await setHubPublished({ projectId: project.id, published });
+    } catch (caught) {
+      setFormError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not update Client Hub access."
+      );
+    }
+  }
+
+  async function saveHubBranding() {
+    setFormError("");
+    try {
+      await saveBranding({ brandName, accentColor });
+    } catch (caught) {
+      setFormError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save portal branding."
+      );
+    }
+  }
+
   const portalUrl =
     data.portal?.token && typeof window !== "undefined"
       ? `${window.location.origin}/client-portal/${data.portal.token}`
@@ -249,10 +275,7 @@ export function ProjectPortalPanel({
               <Checkbox
                 checked={hubSettings.published}
                 onCheckedChange={(checked) =>
-                  void setHubPublished({
-                    projectId: project.id,
-                    published: checked === true,
-                  })
+                  void changeHubPublished(checked === true)
                 }
               />
               Publish to Client Hub
@@ -272,7 +295,7 @@ export function ProjectPortalPanel({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void saveBranding({ brandName, accentColor })}
+                onClick={() => void saveHubBranding()}
               >
                 Save branding
               </Button>

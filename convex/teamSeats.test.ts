@@ -96,6 +96,28 @@ test("Team reserves Editor seats while Viewers stay free", async () => {
       role: "Editor",
     })
   ).resolves.toBeNull();
+
+  await t.run(async (ctx) => {
+    for (let index = 0; index < 495; index += 1) {
+      await ctx.db.insert("teamMembers", {
+        teamId,
+        userId: "",
+        email: `viewer-${index + 3}@example.com`,
+        name: `Viewer ${index + 3}`,
+        role: "Reviewer",
+        status: "invited",
+        permissions: { viewProjects: true },
+        createdAt: now,
+      });
+    }
+  });
+  await expect(
+    owner.mutation(api.team.inviteMember, {
+      teamId,
+      email: "viewer-overflow@example.com",
+      role: "Reviewer",
+    })
+  ).rejects.toThrow("Workspace member limit reached");
 });
 
 test("Viewer changes stay free and isolated to their Workspace", async () => {

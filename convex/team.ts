@@ -187,7 +187,9 @@ async function requirePermission(
   return { identity, member };
 }
 
-function consumesEditorSeat(member: Pick<Doc<"teamMembers">, "role" | "status">) {
+function consumesEditorSeat(
+  member: Pick<Doc<"teamMembers">, "role" | "status">
+) {
   return member.status === "active" || member.status === "invited"
     ? member.role === "Owner" || member.role === "Editor"
     : false;
@@ -202,8 +204,22 @@ async function requireEditorSeatAvailable(
     .query("teamMembers")
     .withIndex("by_teamId", (q) => q.eq("teamId", workspaceId))
     .take(MAX_WORKSPACE_MEMBERS);
-  if (members.filter(consumesEditorSeat).length >= entitlement.editorSeatAllowance)
+  if (
+    members.filter(consumesEditorSeat).length >= entitlement.editorSeatAllowance
+  )
     throw new Error("All confirmed Editor seats are reserved");
+}
+
+async function requireWorkspaceMemberCapacity(
+  ctx: MutationCtx,
+  workspaceId: Doc<"teamWorkspaces">["_id"]
+) {
+  const members = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_teamId", (q) => q.eq("teamId", workspaceId))
+    .take(MAX_WORKSPACE_MEMBERS);
+  if (members.length >= MAX_WORKSPACE_MEMBERS)
+    throw new Error("Workspace member limit reached");
 }
 
 async function requireTeamProject(
@@ -560,6 +576,7 @@ export const inviteMember = mutation({
     const workspaceId = ctx.db.normalizeId("teamWorkspaces", args.teamId);
     if (!workspaceId) throw new Error("Workspace not found");
     await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
+    await requireWorkspaceMemberCapacity(ctx, workspaceId);
     const email = normalizeEmail(args.email);
     if (!email.includes("@")) throw new Error("Enter a valid email address");
 

@@ -13,7 +13,7 @@
 - [x] New Workspaces receive Free access even while Clerk and Convex synchronization is pending.
 - [x] Existing development Workspaces gain a recoverable Free projection without touching production or deleting data.
 - [ ] Ownership transfer detaches the former Owner's Clerk user and requires billing repair for the new Owner.
-- [x] Tests prove Free defaults, Workspace isolation, pending state, repair state, and transfer behavior.
+- [ ] Tests prove Free defaults, Workspace isolation, pending state, repair state, and billing-owner transfer behavior.
 - [x] Type checking and relevant Convex tests pass.
 
 ## Comments

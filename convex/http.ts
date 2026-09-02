@@ -63,6 +63,32 @@ http.route({
       return json({ kind: "invalid_signature" }, 400);
     }
 
+    if (
+      event.type === "subscriptionItem.ended" ||
+      event.type === "subscriptionItem.abandoned"
+    ) {
+      const { data } = event;
+      if (!data.payer?.user_id) return json({ kind: "ignored" }, 200);
+      const webhookTimestamp = Number(request.headers.get("svix-timestamp"));
+      if (!Number.isFinite(webhookTimestamp))
+        return json({ kind: "invalid_timestamp" }, 400);
+      await ctx.runMutation(
+        internal.workspaceSubscriptions.confirmForClerkUser,
+        {
+          clerkUserId: data.payer.user_id,
+          clerkPlanId: "free_user",
+          billingPeriod: data.plan_period === "annual" ? "annual" : "monthly",
+          subscriptionStatus: "canceled",
+          confirmedEditorQuantity: 1,
+          includedEditorSeatQuantity: 1,
+          purchasedExtraEditorSeatQuantity: 0,
+          storageAddonQuantity: 0,
+          clerkEventAt: new Date(webhookTimestamp * 1000).toISOString(),
+        }
+      );
+      return json({ kind: "synced" }, 200);
+    }
+
     if (!event.type.startsWith("subscription.")) {
       return json({ kind: "ignored" }, 200);
     }

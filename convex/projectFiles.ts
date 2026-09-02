@@ -36,7 +36,7 @@ import {
 const MAX_PROJECT_FILES = 100;
 const MAX_PROJECT_VERSIONS = 500;
 const MAX_VERSIONS_PER_FILE = 20;
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_FILE_BYTES = 20_000_000;
 const UPLOAD_RESERVATION_MS = 15 * 60 * 1000;
 type FileActivityKind = ProjectActivityKind & TeamActivityKind;
 
@@ -87,7 +87,6 @@ async function requireProjectAccess(
 
 async function requireFileUploadCapability(
   ctx: QueryCtx | MutationCtx,
-  identity: Awaited<ReturnType<typeof requireIdentity>>,
   project: ProjectRecord
 ) {
   const workspaceId = await workspaceIdForProject(ctx, project);
@@ -184,25 +183,21 @@ async function validateProjectOutput(
 async function reserveWorkspaceCapacity(
   ctx: MutationCtx,
   project: ProjectRecord,
+  workspaceId: Id<"teamWorkspaces">,
   uploaderUserId: string,
-  bytes: number
+  bytes: number,
+  storageQuotaBytes: number
 ) {
   if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > MAX_FILE_BYTES)
     throw new Error("Files must be 20 MB or smaller");
-  const workspaceId = await workspaceIdForProject(ctx, project);
   const subscription = await ctx.db
     .query("workspaceSubscriptions")
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
     .unique();
   if (!subscription) throw new Error("Workspace subscription missing");
-  const entitlement = await requireWorkspaceCapability(
-    ctx,
-    workspaceId,
-    "fileUploads"
-  );
   const retainedBytes = subscription.retainedStorageBytes ?? 0;
   const reservedBytes = subscription.reservedStorageBytes ?? 0;
-  if (retainedBytes + reservedBytes + bytes > entitlement.storageQuotaBytes) {
+  if (retainedBytes + reservedBytes + bytes > storageQuotaBytes) {
     throw new Error(
       "Workspace storage limit reached. Permanently delete archived files before uploading more."
     );
@@ -616,12 +611,17 @@ export const generateUploadUrl = mutation({
       args.projectId,
       "editProjects"
     );
-    await requireFileUploadCapability(ctx, identity, project);
+    const { entitlement, workspaceId } = await requireFileUploadCapability(
+      ctx,
+      project
+    );
     const reservationId = await reserveWorkspaceCapacity(
       ctx,
       project,
+      workspaceId,
       identity.tokenIdentifier,
-      args.size
+      args.size,
+      entitlement.storageQuotaBytes
     );
     return {
       reservationId,
@@ -704,12 +704,17 @@ export const createR2UploadSession = internalMutation({
       args.projectId,
       "editProjects"
     );
-    await requireFileUploadCapability(ctx, identity, project);
+    const { entitlement, workspaceId } = await requireFileUploadCapability(
+      ctx,
+      project
+    );
     const reservationId = await reserveWorkspaceCapacity(
       ctx,
       project,
+      workspaceId,
       identity.tokenIdentifier,
-      args.size
+      args.size,
+      entitlement.storageQuotaBytes
     );
     const safeName =
       cleanText(args.fileName, 160).replace(/[^a-zA-Z0-9._-]+/g, "-") || "file";
@@ -778,7 +783,7 @@ export const finalizeR2Upload = internalMutation({
       args.projectId,
       "editProjects"
     );
-    await requireFileUploadCapability(ctx, identity, project);
+    await requireFileUploadCapability(ctx, project);
     const session = await ctx.db.get(args.sessionId);
     if (
       !session ||
@@ -851,7 +856,7 @@ export const saveStorageVersion = mutation({
       args.projectId,
       "editProjects"
     );
-    await requireFileUploadCapability(ctx, identity, project);
+    await requireFileUploadCapability(ctx, project);
     const metadata = await ctx.db.system.get(args.storageId);
     if (!metadata) throw new Error("Uploaded file not found");
     const fileId = await insertVersion(ctx, {

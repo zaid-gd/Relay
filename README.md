@@ -68,13 +68,13 @@ Local work can be imported once into a new empty cloud account. Existing cloud w
 
 ### Team
 
-- Invite up to two members on the free plan as Owners, Editors, or Viewers.
+- Team invitations require a Team plan. Viewers remain free and do not consume Editor seats.
 - Finance access for editors starts disabled. Solo salary plans remain owner-only.
 - Removed members keep their project history; open assignments become unassigned for deliberate reassignment.
 
 ### Files
 
-- Upload PDF, plain text, Markdown, JPEG, PNG, and WebP documents up to 20 MB each, 200 MB per workspace in private beta.
+- Creator and Team Workspaces can upload PDF, plain text, Markdown, JPEG, PNG, and WebP documents up to 20 MB each.
 - Files stay private behind short-lived signed links. Sharing to a portal and allowing downloads are explicit choices.
 - A workspace-wide index helps you find files; all management happens on the owning project's page.
 
@@ -136,10 +136,10 @@ Cloudflare Workers Builds must run `pnpm exec opennextjs-cloudflare build` as th
 
 Create two Workers Builds projects from this repository:
 
-| Worker            | Root directory | Build command                           | Deploy command              |
-| ----------------- | -------------- | --------------------------------------- | --------------------------- |
-| `relay`     | `/`        | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
-| `relay-web` | `/website` | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+| Worker      | Root directory | Build command                           | Deploy command              |
+| ----------- | -------------- | --------------------------------------- | --------------------------- |
+| `relay`     | `/`            | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+| `relay-web` | `/website`     | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
 
 Set these in the Worker environment:
 

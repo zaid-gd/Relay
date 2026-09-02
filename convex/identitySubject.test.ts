@@ -34,6 +34,13 @@ test("account data uses the Clerk token identifier consistently", async () => {
   );
 
   const user = t.withIdentity({ tokenIdentifier, subject });
+  const otherIssuer = t.withIdentity({
+    tokenIdentifier: "https://other-issuer.example|user_stable",
+    subject,
+  });
 
   await expect(user.query(api.projects.list, {})).resolves.toHaveLength(1);
+  await expect(otherIssuer.query(api.projects.list, {})).resolves.toHaveLength(
+    0
+  );
 });

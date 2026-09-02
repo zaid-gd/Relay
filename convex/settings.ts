@@ -175,8 +175,9 @@ export const upsert = mutation({
       .take(10);
     const [primary, ...duplicates] = existing;
     const templatesChanged =
+      args.customProjectTemplates !== undefined &&
       JSON.stringify(primary?.customProjectTemplates ?? []) !==
-      JSON.stringify(normalizedArgs.customProjectTemplates ?? []);
+        JSON.stringify(normalizedArgs.customProjectTemplates ?? []);
     if (templatesChanged) {
       await requireCurrentWorkspaceCapability(
         ctx,

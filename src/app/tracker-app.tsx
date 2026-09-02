@@ -403,7 +403,7 @@ const profile = getProfile(DEFAULT_PROFILE_ID);
 const statusOptions: ProjectStatus[] = [...PROJECT_STATUS_VALUES];
 // Upcoming capability: keep R2 disabled until the storage release is approved.
 const R2_STORAGE_ENABLED = false;
-const MAX_SAFE_PROJECT_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_SAFE_PROJECT_FILE_BYTES = 20_000_000;
 
 const teamRoleOptions = [...TEAM_ROLE_VALUES];
 const currencyOptions = ["USD", "EUR", "GBP", "INR", "AED", "SAR"];
@@ -7729,9 +7729,13 @@ function normalizeChecklistCompleted(
 function SubscriptionPage() {
   const { isAuthEnabled } = useData();
   const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
   const subscription = useQuery(
     api.workspaceSubscriptions.getCurrent,
-    isSignedIn ? {} : "skip"
+    isSignedIn && isConvexAuthenticated ? {} : "skip"
   );
   const [checkoutReturned, setCheckoutReturned] = useState(false);
 
@@ -7762,7 +7766,10 @@ function SubscriptionPage() {
           description="Plan selection, checkout, and subscription status."
           bodyMode="flush"
         >
-          {!isLoaded || (isSignedIn && subscription === undefined) ? (
+          {!isLoaded ||
+          (isSignedIn &&
+            (isConvexAuthLoading ||
+              (isConvexAuthenticated && subscription === undefined))) ? (
             <div
               role="status"
               className="grid min-h-[220px] place-items-center p-6"

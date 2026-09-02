@@ -1,7 +1,7 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { UserButton, useAuth } from "@clerk/nextjs";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 function formatDate(value: string) {
@@ -13,7 +13,13 @@ function formatDate(value: string) {
 }
 
 export default function ClientHubPage() {
-  const hub = useQuery(api.clientHub.getMine, {});
+  const { isLoaded, isSignedIn } = useAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const hub = useQuery(
+    api.clientHub.getMine,
+    isSignedIn && isAuthenticated ? {} : "skip"
+  );
+  const authLoading = !isLoaded || (isSignedIn && isLoading);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -30,14 +36,21 @@ export default function ClientHubPage() {
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
           {hub
             ? `Good to see you, ${hub.contactName}`
-            : "Loading your projects"}
+            : authLoading
+              ? "Loading your projects"
+              : isSignedIn
+                ? "Connecting your Client Hub"
+                : "Sign in to view your projects"}
         </h1>
         <p className="mt-2 text-sm text-zinc-400">
           Only projects your studio has published to you appear here.
         </p>
 
         <div className="mt-10 overflow-x-auto border-t border-white/20">
-          <table className="w-full min-w-[680px] border-collapse text-left">
+          <table
+            aria-label="Published projects"
+            className="w-full min-w-[680px] border-collapse text-left"
+          >
             <thead className="text-xs tracking-wider text-zinc-500 uppercase">
               <tr className="border-b border-white/15">
                 <th className="px-2 py-3 font-medium">Project</th>

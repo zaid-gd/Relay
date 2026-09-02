@@ -52,24 +52,21 @@ const unhealthyStates = [
 >;
 
 describe("User subscription pricing", () => {
-  test("uses Clerk User pricing", () => {
+  test("does not mount Clerk checkout while purchases are paused", () => {
     const html = renderToStaticMarkup(
       <ClerkPricingPlans subscription={freeSubscription} />
     );
 
-    expect(html).toContain('data-for="user"');
-    expect(html).toContain('data-highlighted-plan="creator_plan"');
-    expect(html).toContain('data-redirect="/subscription?checkout=return"');
-    expect(html).toContain("New subscriptions are paused");
-    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain("data-clerk-pricing-table");
+    expect(html).toContain("Plan selection and new subscriptions are paused");
   });
 
-  test("shows User pricing without an Organization or Workspace", () => {
+  test("shows the paused state without an Organization or Workspace", () => {
     const html = renderToStaticMarkup(
       <SubscriptionPricingView checkoutReturned={false} />
     );
 
-    expect(html).toContain("data-clerk-pricing-table");
+    expect(html).not.toContain("data-clerk-pricing-table");
     expect(html).toContain("Choose your Relay plan");
   });
 

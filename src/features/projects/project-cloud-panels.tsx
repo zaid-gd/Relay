@@ -71,7 +71,7 @@ import type {
 import { ProjectSelect } from "@/features/projects/project-select";
 
 const R2_STORAGE_ENABLED = false;
-const MAX_SAFE_PROJECT_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_SAFE_PROJECT_FILE_BYTES = 20_000_000;
 const TEAM_PROJECT_COMMENT_LIMIT = 1000;
 
 export function ProjectActivityFeed({

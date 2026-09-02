@@ -161,13 +161,10 @@ export function SubscriptionPricingView({
       ) : null}
       {!billingPurchasesEnabled ? (
         <p role="status" className="mb-4 text-sm text-muted-foreground">
-          Plans are shown for reference. New subscriptions are paused.
+          Plan selection and new subscriptions are paused.
         </p>
       ) : null}
-      <div
-        inert={!billingPurchasesEnabled}
-        aria-disabled={!billingPurchasesEnabled}
-      >
+      {billingPurchasesEnabled ? (
         <PricingTable
           for="user"
           highlightedPlan="creator_plan"
@@ -177,7 +174,7 @@ export function SubscriptionPricingView({
           appearance={pricingAppearance}
           checkoutProps={{ appearance: pricingAppearance }}
         />
-      </div>
+      ) : null}
     </div>
   );
 }
