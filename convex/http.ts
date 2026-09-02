@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { verifyWebhook } from "@clerk/backend/webhooks";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { relayPlanForClerkId } from "./workspaceSubscriptions";
 
 type WaitlistAudience = "freelancer" | "team";
 
@@ -85,6 +86,7 @@ http.route({
         : data.status === "past_due"
           ? "past_due"
           : "canceled";
+    const relayPlan = relayPlanForClerkId(plan.slug);
 
     await ctx.runMutation(internal.workspaceSubscriptions.confirmForClerkUser, {
       clerkUserId: data.payer.user_id,
@@ -92,8 +94,8 @@ http.route({
       clerkPlanId: plan.slug,
       billingPeriod: item.plan_period === "annual" ? "annual" : "monthly",
       subscriptionStatus,
-      confirmedEditorQuantity: 1,
-      includedEditorSeatQuantity: 1,
+      confirmedEditorQuantity: relayPlan === "team" ? 3 : 1,
+      includedEditorSeatQuantity: relayPlan === "team" ? 3 : 1,
       purchasedExtraEditorSeatQuantity: 0,
       storageAddonQuantity: 0,
       clerkEventAt: new Date(data.updated_at).toISOString(),

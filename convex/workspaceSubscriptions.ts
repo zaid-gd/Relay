@@ -55,7 +55,7 @@ const CLERK_PLAN_ID_TO_RELAY_PLAN = {
   team_plan: "team",
 } as const;
 
-function relayPlanForClerkId(clerkPlanId: string) {
+export function relayPlanForClerkId(clerkPlanId: string) {
   if (
     clerkPlanId === "free" ||
     clerkPlanId === "free_org" ||

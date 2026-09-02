@@ -3565,7 +3565,7 @@ function TeamDesignPage({
             </ContentSection>
             <ContentSection
               title="Create a workspace"
-              description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex."
+              description="Team includes three editing seats. Viewers are free and do not use an editing seat."
             >
               <FieldLayout
                 className="mt-5"
