@@ -381,6 +381,7 @@ export default defineSchema({
 
   workspaceSubscriptions: defineTable({
     workspaceId: v.id("teamWorkspaces"),
+    clerkUserId: v.optional(v.string()),
     clerkOrganizationId: v.optional(v.string()),
     clerkSubscriptionId: v.optional(v.string()),
     clerkPlanId: v.optional(v.string()),
@@ -398,6 +399,7 @@ export default defineSchema({
     updatedAt: v.string(),
   })
     .index("by_workspaceId", ["workspaceId"])
+    .index("by_clerkUserId", ["clerkUserId"])
     .index("by_clerkOrganizationId", ["clerkOrganizationId"]),
 
   teamMembers: defineTable({

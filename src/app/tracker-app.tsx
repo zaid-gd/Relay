@@ -7772,20 +7772,11 @@ function SubscriptionPage() {
                 className="size-7 animate-spin text-[var(--app-accent)]"
               />
             </div>
-          ) : isSignedIn && subscription ? (
+          ) : isSignedIn ? (
             <ClerkPricingPlans
               checkoutReturned={checkoutReturned}
               subscription={subscription}
             />
-          ) : isSignedIn ? (
-            <div className="grid max-w-[620px] gap-2 p-5 md:p-6">
-              <h2 className="text-xl font-semibold text-foreground">
-                Workspace required
-              </h2>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Create or join a Workspace before choosing a subscription.
-              </p>
-            </div>
           ) : (
             <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
               <h2 className="text-xl font-semibold text-foreground">

@@ -31,7 +31,6 @@ async function requireSalaryPlans(
   await requireCurrentWorkspaceCapability(
     ctx,
     identity.tokenIdentifier,
-    identity.org_id,
     "salaryPlans"
   );
 }

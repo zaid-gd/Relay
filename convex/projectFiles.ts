@@ -99,7 +99,6 @@ async function requireFileUploadCapability(
   return await requireCurrentWorkspaceCapability(
     ctx,
     identity.tokenIdentifier,
-    identity.org_id,
     "fileUploads"
   );
 }

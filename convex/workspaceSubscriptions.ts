@@ -7,7 +7,6 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { internal } from "./_generated/api";
 import {
   billingPeriodValidator,
   reconciliationStateValidator,
@@ -47,16 +46,27 @@ const entitlementValidator = v.object({
 const CLERK_PLAN_ID_TO_RELAY_PLAN = {
   free: "free",
   free_org: "free",
+  free_user: "free",
   creator: "creator",
+  creator_plan: "creator",
   team: "team",
+  team_plan: "team",
 } as const;
 
 function relayPlanForClerkId(clerkPlanId: string) {
-  if (clerkPlanId === "free" || clerkPlanId === "free_org") {
+  if (
+    clerkPlanId === "free" ||
+    clerkPlanId === "free_org" ||
+    clerkPlanId === "free_user"
+  ) {
     return CLERK_PLAN_ID_TO_RELAY_PLAN[clerkPlanId];
   }
-  if (clerkPlanId === "creator") return CLERK_PLAN_ID_TO_RELAY_PLAN.creator;
-  if (clerkPlanId === "team") return CLERK_PLAN_ID_TO_RELAY_PLAN.team;
+  if (clerkPlanId === "creator" || clerkPlanId === "creator_plan") {
+    return CLERK_PLAN_ID_TO_RELAY_PLAN[clerkPlanId];
+  }
+  if (clerkPlanId === "team" || clerkPlanId === "team_plan") {
+    return CLERK_PLAN_ID_TO_RELAY_PLAN[clerkPlanId];
+  }
   throw new Error("Unknown Clerk plan identifier");
 }
 
@@ -67,10 +77,12 @@ type SubscriptionProjection = Omit<
 >;
 
 export function pendingFreeProjection(
-  workspaceId: Id<"teamWorkspaces">
+  workspaceId: Id<"teamWorkspaces">,
+  clerkUserId?: string
 ): SubscriptionProjection {
   return {
     workspaceId,
+    clerkUserId,
     plan: "free",
     billingPeriod: null,
     subscriptionStatus: "free",
@@ -85,40 +97,18 @@ export function pendingFreeProjection(
 
 export async function insertPendingFreeProjection(
   ctx: MutationCtx,
-  workspaceId: Id<"teamWorkspaces">
+  workspaceId: Id<"teamWorkspaces">,
+  clerkUserId?: string
 ) {
   const existing = await projectionForWorkspace(ctx, workspaceId);
   if (existing) return existing._id;
   return await ctx.db.insert(
     "workspaceSubscriptions",
-    pendingFreeProjection(workspaceId)
+    pendingFreeProjection(workspaceId, clerkUserId)
   );
 }
 
-async function currentWorkspace(
-  ctx: QueryCtx | MutationCtx,
-  userId: string,
-  clerkOrganizationId: unknown
-) {
-  if (typeof clerkOrganizationId === "string") {
-    const projection = await ctx.db
-      .query("workspaceSubscriptions")
-      .withIndex("by_clerkOrganizationId", (q) =>
-        q.eq("clerkOrganizationId", clerkOrganizationId)
-      )
-      .unique();
-    if (projection) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_teamId_and_userId", (q) =>
-          q.eq("teamId", projection.workspaceId).eq("userId", userId)
-        )
-        .unique();
-      const workspace = await ctx.db.get(projection.workspaceId);
-      if (membership?.status === "active" && workspace)
-        return { membership, workspace };
-    }
-  }
+async function currentWorkspace(ctx: QueryCtx | MutationCtx, userId: string) {
   const memberships = await ctx.db
     .query("teamMembers")
     .withIndex("by_userId_and_status", (q) =>
@@ -234,10 +224,9 @@ export async function requireWorkspaceCapability(
 export async function requireCurrentWorkspaceCapability(
   ctx: QueryCtx | MutationCtx,
   userId: string,
-  clerkOrganizationId: unknown,
   capability: WorkspaceCapability
 ) {
-  const current = await currentWorkspace(ctx, userId, clerkOrganizationId);
+  const current = await currentWorkspace(ctx, userId);
   if (!current) throw new Error("Workspace required");
   return await requireWorkspaceCapability(
     ctx,
@@ -252,11 +241,7 @@ export const getCurrent = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const current = await currentWorkspace(
-      ctx,
-      identity.tokenIdentifier,
-      identity.org_id
-    );
+    const current = await currentWorkspace(ctx, identity.tokenIdentifier);
     if (!current) return null;
     const projection = await projectionForWorkspace(ctx, current.workspace._id);
     return {
@@ -277,26 +262,23 @@ export const repairCurrent = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const current = await currentWorkspace(
-      ctx,
-      identity.tokenIdentifier,
-      identity.org_id
-    );
+    const current = await currentWorkspace(ctx, identity.tokenIdentifier);
     if (!current || current.membership.role !== "Owner")
       throw new Error("Only the Workspace Owner can repair billing");
     const existing = await projectionForWorkspace(ctx, current.workspace._id);
     const projectionId =
       existing?._id ??
-      (await insertPendingFreeProjection(ctx, current.workspace._id));
-    await ctx.scheduler.runAfter(
-      0,
-      internal.workspaceSubscriptionProvisioning.provision,
-      {
-        workspaceId: current.workspace._id,
-        workspaceName: current.workspace.name,
+      (await insertPendingFreeProjection(
+        ctx,
+        current.workspace._id,
+        identity.subject
+      ));
+    if (existing?.clerkUserId !== identity.subject) {
+      await ctx.db.patch(projectionId, {
         clerkUserId: identity.subject,
-      }
-    );
+        updatedAt: new Date().toISOString(),
+      });
+    }
     return projectionId;
   },
 });
@@ -345,7 +327,8 @@ export const markRepairRequired = internalMutation({
 export const confirm = internalMutation({
   args: {
     workspaceId: v.id("teamWorkspaces"),
-    clerkOrganizationId: v.string(),
+    clerkUserId: v.optional(v.string()),
+    clerkOrganizationId: v.optional(v.string()),
     clerkSubscriptionId: v.optional(v.string()),
     clerkPlanId: v.string(),
     billingPeriod: billingPeriodValidator,

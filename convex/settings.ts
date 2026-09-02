@@ -181,7 +181,6 @@ export const upsert = mutation({
       await requireCurrentWorkspaceCapability(
         ctx,
         identity.tokenIdentifier,
-        identity.org_id,
         "customWorkflowTemplates"
       );
     }

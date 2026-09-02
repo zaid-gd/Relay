@@ -6,7 +6,6 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import {
   insertPendingFreeProjection,
   requireWorkspaceCapability,
@@ -469,16 +468,7 @@ export const createWorkspace = mutation({
       createdAt: now,
       joinedAt: now,
     });
-    await insertPendingFreeProjection(ctx, workspaceId);
-    await ctx.scheduler.runAfter(
-      0,
-      internal.workspaceSubscriptionProvisioning.provision,
-      {
-        workspaceId,
-        workspaceName,
-        clerkUserId: identity.subject,
-      }
-    );
+    await insertPendingFreeProjection(ctx, workspaceId, identity.subject);
     await logActivity(ctx, {
       teamId: workspaceId,
       actorUserId: identity.tokenIdentifier,

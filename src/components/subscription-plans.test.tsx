@@ -3,8 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 
 import {
   ClerkPricingPlans,
-  OrganizationBillingProfile,
   SubscriptionPricingView,
+  UserBillingProfile,
   type WorkspaceSubscriptionState,
 } from "./subscription-plans";
 
@@ -17,12 +17,7 @@ vi.mock("@clerk/nextjs", () => ({
       data-redirect={props.newSubscriptionRedirectUrl}
     />
   ),
-  OrganizationProfile: () => <div data-clerk-organization-profile />,
-  OrganizationSwitcher: () => <div data-clerk-organization-switcher />,
-  useOrganization: () => ({
-    isLoaded: true,
-    organization: { id: "org_workspace" },
-  }),
+  UserProfile: () => <div data-clerk-user-profile />,
   useUser: () => ({ isLoaded: true, isSignedIn: false, user: null }),
 }));
 
@@ -56,50 +51,30 @@ const unhealthyStates = [
   readonly [WorkspaceSubscriptionState["subscriptionStatus"], string]
 >;
 
-describe("Workspace subscription pricing", () => {
-  test("uses Clerk Organization pricing for the active Workspace", () => {
+describe("User subscription pricing", () => {
+  test("uses Clerk User pricing", () => {
     const html = renderToStaticMarkup(
       <ClerkPricingPlans subscription={freeSubscription} />
     );
 
-    expect(html).toContain('data-for="organization"');
-    expect(html).toContain('data-highlighted-plan="creator"');
+    expect(html).toContain('data-for="user"');
+    expect(html).toContain('data-highlighted-plan="creator_plan"');
     expect(html).toContain('data-redirect="/subscription?checkout=return"');
   });
 
-  test("keeps checkout and management Owner-only", () => {
+  test("shows User pricing without an Organization or Workspace", () => {
     const html = renderToStaticMarkup(
-      <SubscriptionPricingView
-        checkoutReturned={false}
-        subscription={{ ...freeSubscription, canManageBilling: false }}
-        activeOrganizationId="org_workspace"
-      />
+      <SubscriptionPricingView checkoutReturned={false} />
     );
 
-    expect(html).not.toContain("data-clerk-pricing-table");
-    expect(html).not.toContain("Manage billing in Clerk");
-    expect(html).toContain("Only the Workspace Owner can change billing");
+    expect(html).toContain("data-clerk-pricing-table");
+    expect(html).toContain("Choose your Relay plan");
   });
 
-  test("uses Clerk OrganizationProfile for Owner billing management", () => {
-    const html = renderToStaticMarkup(
-      <OrganizationBillingProfile subscription={freeSubscription} />
-    );
+  test("uses Clerk UserProfile for billing management", () => {
+    const html = renderToStaticMarkup(<UserBillingProfile />);
 
-    expect(html).toContain("data-clerk-organization-profile");
-  });
-
-  test("does not manage a different active Clerk Organization", () => {
-    const html = renderToStaticMarkup(
-      <SubscriptionPricingView
-        checkoutReturned={false}
-        subscription={freeSubscription}
-        activeOrganizationId="org_other"
-      />
-    );
-
-    expect(html).not.toContain("data-clerk-pricing-table");
-    expect(html).toContain("data-clerk-organization-switcher");
+    expect(html).toContain("data-clerk-user-profile");
   });
 
   test("shows a confirmed Creator trial without reading Clerk markup", () => {
@@ -112,7 +87,6 @@ describe("Workspace subscription pricing", () => {
           subscriptionStatus: "trialing",
           trialEndsAt: "2026-09-08T00:00:00.000Z",
         }}
-        activeOrganizationId="org_workspace"
       />
     );
 
@@ -125,7 +99,6 @@ describe("Workspace subscription pricing", () => {
       <SubscriptionPricingView
         checkoutReturned
         subscription={freeSubscription}
-        activeOrganizationId="org_workspace"
       />
     );
 
@@ -147,7 +120,6 @@ describe("Workspace subscription pricing", () => {
             subscriptionStatus,
             billingHealthy: false,
           }}
-          activeOrganizationId="org_workspace"
         />
       );
 

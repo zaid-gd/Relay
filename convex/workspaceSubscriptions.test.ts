@@ -39,29 +39,17 @@ async function createWorkspace(
 }
 
 describe("Workspace subscription authority", () => {
-  test("new Workspaces provision their Clerk Organization", async () => {
-    vi.useFakeTimers();
-    vi.stubEnv("CLERK_SECRET_KEY", "test_secret");
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response(null, { status: 404 }))
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ id: "org_created" }), { status: 200 })
-        )
-    );
+  test("new Workspaces link billing to their Clerk User", async () => {
     const t = convexTest(schema, modules);
     const owner = asUser(t, "owner");
 
     await owner.mutation(api.team.createWorkspace, { name: "Owner Workspace" });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
 
     await expect(
-      owner.query(api.workspaceSubscriptions.getCurrent, {})
+      t.run((ctx) => ctx.db.query("workspaceSubscriptions").unique())
     ).resolves.toMatchObject({
-      clerkOrganizationId: "org_created",
-      reconciliationState: "synced",
+      clerkUserId: "owner",
+      reconciliationState: "pending",
     });
   });
 
@@ -170,7 +158,36 @@ describe("Workspace subscription authority", () => {
     ).resolves.toMatchObject({ plan: "free" });
   });
 
-  test("users in several Workspaces must select an active Clerk Organization", async () => {
+  test.each([
+    ["free_user", "free"],
+    ["creator_plan", "creator"],
+    ["team_plan", "team"],
+  ] as const)(
+    "Clerk User plan %s resolves to Relay %s",
+    async (clerkPlanId, plan) => {
+      const t = convexTest(schema, modules);
+      const workspaceId = await createWorkspace(t, "owner", "User Billing");
+
+      await t.mutation(internal.workspaceSubscriptions.confirm, {
+        workspaceId,
+        clerkUserId: "owner",
+        clerkPlanId,
+        billingPeriod: plan === "free" ? null : "monthly",
+        subscriptionStatus: plan === "free" ? "free" : "active",
+        confirmedEditorQuantity: 1,
+        includedEditorSeatQuantity: plan === "team" ? 3 : 1,
+        purchasedExtraEditorSeatQuantity: 0,
+        storageAddonQuantity: 0,
+        clerkEventAt: "2026-09-01T00:00:00.000Z",
+      });
+
+      await expect(
+        asUser(t, "owner").query(api.workspaceSubscriptions.getCurrent, {})
+      ).resolves.toMatchObject({ plan });
+    }
+  );
+
+  test("users in several Workspaces must select an active Workspace", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
       for (const suffix of ["one", "two"]) {

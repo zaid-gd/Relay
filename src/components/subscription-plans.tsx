@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  OrganizationProfile,
-  OrganizationSwitcher,
-  PricingTable,
-  useOrganization,
-  useUser,
-} from "@clerk/nextjs";
+import { PricingTable, UserProfile, useUser } from "@clerk/nextjs";
 import type { FunctionReturnType } from "convex/server";
 import Link from "next/link";
 import { useState } from "react";
@@ -125,76 +119,40 @@ function BillingStatus({
 }
 
 export function SubscriptionPricingView({
-  activeOrganizationId,
   checkoutReturned,
   subscription,
 }: {
-  activeOrganizationId: string | null;
   checkoutReturned: boolean;
-  subscription: WorkspaceSubscriptionState;
+  subscription?: WorkspaceSubscriptionState | null;
 }) {
-  if (!subscription.canManageBilling) {
-    return (
-      <div className="grid gap-2 p-5 md:p-6">
-        <h2 className="text-lg font-semibold">
-          Only the Workspace Owner can change billing
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          You can view Workspace work, but checkout and subscription settings
-          stay with the Owner.
-        </p>
-      </div>
-    );
-  }
-
-  if (!subscription.clerkOrganizationId) {
-    return (
-      <div className="grid gap-2 p-5 md:p-6" role="status">
-        <h2 className="text-lg font-semibold">Setting up Workspace billing</h2>
-        <p className="text-sm text-muted-foreground">
-          Free access remains available while Relay connects this Workspace to
-          Clerk.
-        </p>
-      </div>
-    );
-  }
-
-  if (activeOrganizationId !== subscription.clerkOrganizationId) {
-    return (
-      <div className="grid max-w-xl gap-4 p-5 md:p-6">
-        <h2 className="text-lg font-semibold">
-          Select this Workspace in Clerk
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Billing follows the active Clerk Organization. Select the matching
-          Workspace to view its plans.
-        </p>
-        <OrganizationSwitcher
-          hidePersonal
-          afterSelectOrganizationUrl="/subscription"
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Confirmed plan</span>
-          <Badge variant="outline">{subscription.plan}</Badge>
-        </div>
+        {subscription ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Confirmed plan
+            </span>
+            <Badge variant="outline">{subscription.plan}</Badge>
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            Choose your Relay plan
+          </span>
+        )}
         <Button asChild variant="outline" size="sm">
-          <Link href="/organization-profile">Manage billing in Clerk</Link>
+          <Link href="/account#billing">Manage billing in Clerk</Link>
         </Button>
       </div>
-      <BillingStatus
-        checkoutReturned={checkoutReturned}
-        subscription={subscription}
-      />
+      {subscription ? (
+        <BillingStatus
+          checkoutReturned={checkoutReturned}
+          subscription={subscription}
+        />
+      ) : null}
       <PricingTable
-        for="organization"
-        highlightedPlan="creator"
+        for="user"
+        highlightedPlan="creator_plan"
         collapseFeatures={false}
         ctaPosition="bottom"
         newSubscriptionRedirectUrl="/subscription?checkout=return"
@@ -210,42 +168,18 @@ export function ClerkPricingPlans({
   subscription,
 }: {
   checkoutReturned?: boolean;
-  subscription: WorkspaceSubscriptionState;
+  subscription?: WorkspaceSubscriptionState | null;
 }) {
-  const { isLoaded, organization } = useOrganization();
-  if (!isLoaded) return null;
   return (
     <SubscriptionPricingView
-      activeOrganizationId={organization?.id ?? null}
       checkoutReturned={checkoutReturned}
       subscription={subscription}
     />
   );
 }
 
-export function OrganizationBillingProfile({
-  subscription,
-}: {
-  subscription: WorkspaceSubscriptionState | null | undefined;
-}) {
-  const { isLoaded, organization } = useOrganization();
-  if (!subscription) return null;
-  if (!subscription.canManageBilling) {
-    return <p>Only the Workspace Owner can manage billing.</p>;
-  }
-  if (!isLoaded) return null;
-  if (organization?.id !== subscription.clerkOrganizationId) {
-    return (
-      <div className="grid gap-4">
-        <p>Select this Workspace in Clerk to manage its billing.</p>
-        <OrganizationSwitcher
-          hidePersonal
-          afterSelectOrganizationUrl="/organization-profile"
-        />
-      </div>
-    );
-  }
-  return <OrganizationProfile routing="hash" />;
+export function UserBillingProfile() {
+  return <UserProfile routing="hash" />;
 }
 
 export function FirstLoginPlanDialog() {
