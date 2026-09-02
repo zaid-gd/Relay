@@ -403,7 +403,7 @@ const profile = getProfile(DEFAULT_PROFILE_ID);
 const statusOptions: ProjectStatus[] = [...PROJECT_STATUS_VALUES];
 // Upcoming capability: keep R2 disabled until the storage release is approved.
 const R2_STORAGE_ENABLED = false;
-const MAX_SAFE_PROJECT_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_SAFE_PROJECT_FILE_BYTES = 20_000_000;
 
 const teamRoleOptions = [...TEAM_ROLE_VALUES];
 const currencyOptions = ["USD", "EUR", "GBP", "INR", "AED", "SAR"];
@@ -588,6 +588,10 @@ export function TrackerApp({
   );
   const teamData = useQuery(
     api.team.getMyWorkspace,
+    shouldLoadTeamPermissions ? {} : "skip"
+  );
+  const workspaceSubscription = useQuery(
+    api.workspaceSubscriptions.getCurrent,
     shouldLoadTeamPermissions ? {} : "skip"
   );
   const workspaceDiscovery = useQuery(
@@ -1593,23 +1597,42 @@ export function TrackerApp({
       <TemplatesDesignPage
         onUseBlank={() => openBlankProject("personal")}
         onUseTemplate={(template) => openTemplateProject(template, "personal")}
-        canManageTemplates={!teamData || canManageTeamProjects}
+        canManageTemplates={
+          (!teamData || canManageTeamProjects) &&
+          (!isAuthEnabled ||
+            Boolean(
+              workspaceSubscription?.capabilities.customWorkflowTemplates
+            ))
+        }
       />
     ) : page === "reports" ? (
       <div className="grid gap-4">
-        <PrecisionReports
-          projects={projects}
-          salaryBatches={salaryBatches}
-          settings={settings}
-          editors={activeTeamMembers.map((member) => ({
-            userId: member.userId,
-            name: member.name,
-          }))}
-          currentUserId={teamData?.currentMember.userId}
-          canManageFinance={canManageFinance}
-          onUpdateBatchPayment={updateSalaryBatchPayment}
-        />
-        {!teamData || teamData.currentMember.role === "Owner" ? (
+        {!isAuthEnabled ||
+        workspaceSubscription?.capabilities.advancedReports ? (
+          <PrecisionReports
+            projects={projects}
+            salaryBatches={salaryBatches}
+            settings={settings}
+            editors={activeTeamMembers.map((member) => ({
+              userId: member.userId,
+              name: member.name,
+            }))}
+            currentUserId={teamData?.currentMember.userId}
+            canManageFinance={canManageFinance}
+            onUpdateBatchPayment={updateSalaryBatchPayment}
+          />
+        ) : (
+          <ContentSection
+            title="Advanced reports"
+            description="Creator or Team plan required."
+          >
+            <OwnedButton asChild size="sm">
+              <Link href="/subscription">View plans</Link>
+            </OwnedButton>
+          </ContentSection>
+        )}
+        {(!teamData || teamData.currentMember.role === "Owner") &&
+        (!isAuthEnabled || workspaceSubscription?.capabilities.salaryPlans) ? (
           <SalaryPlansPanel
             settings={settings}
             projects={personalProjects}
@@ -3542,7 +3565,7 @@ function TeamDesignPage({
             </ContentSection>
             <ContentSection
               title="Create a workspace"
-              description="Owners can invite up to two members. Projects, comments, notifications, activity, and chat sync through Convex."
+              description="Team includes three editing seats. Viewers are free and do not use an editing seat."
             >
               <FieldLayout
                 className="mt-5"
@@ -7706,6 +7729,21 @@ function normalizeChecklistCompleted(
 function SubscriptionPage() {
   const { isAuthEnabled } = useData();
   const { isSignedIn, isLoaded, openSignIn, openSignUp } = useOptionalAuth();
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexAuthLoading,
+  } = useConvexAuth();
+  const subscription = useQuery(
+    api.workspaceSubscriptions.getCurrent,
+    isSignedIn && isConvexAuthenticated ? {} : "skip"
+  );
+  const [checkoutReturned, setCheckoutReturned] = useState(false);
+
+  useEffect(() => {
+    setCheckoutReturned(
+      new URLSearchParams(window.location.search).get("checkout") === "return"
+    );
+  }, []);
 
   return (
     <WorkspacePage
@@ -7728,7 +7766,10 @@ function SubscriptionPage() {
           description="Plan selection, checkout, and subscription status."
           bodyMode="flush"
         >
-          {!isLoaded ? (
+          {!isLoaded ||
+          (isSignedIn &&
+            (isConvexAuthLoading ||
+              (isConvexAuthenticated && subscription === undefined))) ? (
             <div
               role="status"
               className="grid min-h-[220px] place-items-center p-6"
@@ -7739,9 +7780,10 @@ function SubscriptionPage() {
               />
             </div>
           ) : isSignedIn ? (
-            <div className="min-h-[calc(100dvh-15rem)] p-4 md:p-6">
-              <ClerkPricingPlans />
-            </div>
+            <ClerkPricingPlans
+              checkoutReturned={checkoutReturned}
+              subscription={subscription}
+            />
           ) : (
             <div className="grid max-w-[620px] gap-4 p-5 md:p-6">
               <h2 className="text-xl font-semibold text-foreground">

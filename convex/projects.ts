@@ -2,6 +2,7 @@ import { type Infer, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { fileCategoryValidator, projectOutputReviewStateValidator, workflowStageValidator } from "./domainValidators";
+import { requireWorkspaceCapability } from "./workspaceSubscriptions";
 
 const createProjectValidator = v.object({
   id: v.string(),
@@ -451,6 +452,11 @@ export const create = mutation({
       throw new Error("A Project cannot start in its Delivered stage");
     }
     const now = new Date().toISOString();
+    if (project.teamId && project.assigneeUserIds.length) {
+      const workspaceId = ctx.db.normalizeId("teamWorkspaces", project.teamId);
+      if (!workspaceId) throw new Error("Workspace not found");
+      await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
+    }
     const assigneeUserIds = await validatedAssignees(ctx, project.teamId, project.assigneeUserIds);
     const { starterOutputs = [], ...projectFields } = project;
     if (starterOutputs.length > 20) throw new Error("A Template can create at most 20 Project Outputs");
@@ -532,6 +538,11 @@ export const update = mutation({
     const earnings = salaryPlan || (!project.teamId && workType === settings.salaryWorkType)
       ? 0
       : Math.max(0, args.changes.earnings ?? project.earnings);
+    if (project.teamId && args.changes.assigneeUserIds?.length) {
+      const workspaceId = ctx.db.normalizeId("teamWorkspaces", project.teamId);
+      if (!workspaceId) throw new Error("Workspace not found");
+      await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
+    }
     const assigneeUserIds = args.changes.assigneeUserIds === undefined
       ? undefined
       : await validatedAssignees(ctx, project.teamId, args.changes.assigneeUserIds);

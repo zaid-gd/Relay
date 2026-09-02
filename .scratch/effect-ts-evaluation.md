@@ -92,7 +92,7 @@ Consequences:
 
 - Do not wrap Convex queries or mutations in generic Effect retry schedules. It duplicates platform behavior and may amplify contention.
 - Do not blindly retry `createUploadUrl`, `completeUpload`, download signing, or delete actions. The current R2 workflow creates and changes durable session state around external object-storage calls; retries require an explicit idempotency analysis.
-- Effect typed errors do not automatically survive the Convex transport. Expected backend failures should still use typed return unions or `ConvexError` data so production clients receive structured information ([application errors](https://docs.convex.dev/functions/error-handling/application-errors)).
+- Effect-typed errors do not automatically survive the Convex transport. Expected backend failures should still use typed return unions or `ConvexError` data so production clients receive structured information ([application errors](https://docs.convex.dev/functions/error-handling/application-errors)).
 - Keep database invariants inside a single Convex mutation rather than splitting them into Effect services. Convex warns that multiple `runQuery`/`runMutation` calls are separate transactions and recommends batching database access ([actions best practices](https://docs.convex.dev/functions/actions)).
 - The default Convex runtime supports most browser/worker-compatible npm packages, while Node-only packages must be isolated in `"use node"` action files; every Convex file is bundled for its selected runtime ([runtimes](https://docs.convex.dev/functions/runtimes)). Stable Effect core may be technically bundleable, but that compatibility should be proven with `convex dev/deploy` before backend use.
 

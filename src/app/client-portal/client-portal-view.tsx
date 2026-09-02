@@ -65,6 +65,7 @@ type PublicPortal = {
   stage: string;
   progress: number;
   outputs: PublicOutput[];
+  branding?: { name: string; accentColor: string };
 };
 type PublicAccess =
   | { kind: "loading" }
@@ -193,6 +194,7 @@ export function readPublicPortalAccess(value: unknown): PublicAccess {
     return { kind: "pin-required", wrongPin: false };
   const source = isRecord(value.portal) ? value.portal : value;
   const project = isRecord(source.project) ? source.project : source;
+  const branding = isRecord(source.branding) ? source.branding : undefined;
   const title = text(project.title) ?? text(project.name);
   const stage = normalizePublicStage(
     text(project.stage) ?? text(project.publicStage) ?? text(project.status)
@@ -213,6 +215,14 @@ export function readPublicPortalAccess(value: unknown): PublicAccess {
         Math.min(100, number(project.progress) ?? progressForStage(stage))
       ),
       outputs: readOutputs(project.outputs ?? source.outputs),
+      branding:
+        text(branding?.name) &&
+        /^#[0-9a-fA-F]{6}$/.test(text(branding?.accentColor) ?? "")
+          ? {
+              name: text(branding?.name)!,
+              accentColor: text(branding?.accentColor)!,
+            }
+          : undefined,
     },
   };
 }
@@ -633,7 +643,16 @@ function ActivePortal({
     <main className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
         <header className="flex items-center justify-between gap-4 border-b border-border pb-5">
-          <RelayBrand compact />
+          {portal.branding ? (
+            <span
+              className="text-base font-semibold"
+              style={{ color: portal.branding.accentColor }}
+            >
+              {portal.branding.name}
+            </span>
+          ) : (
+            <RelayBrand compact />
+          )}
           <span className="text-xs font-medium text-muted-foreground">
             Client portal
           </span>

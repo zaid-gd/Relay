@@ -4,15 +4,17 @@
 
 **Blocked by:** 01: Establish Workspace subscription authority.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Convex keeps an exact retained-byte total per Workspace instead of scanning all Projects during upload.
-- [ ] The quota is zero hosted bytes for Free, 5 GB for Creator, and 15 GB for base Team.
-- [ ] Upload capacity is reserved before data transfer and committed with stored file metadata.
-- [ ] Failed, abandoned, and expired uploads release reservations safely.
-- [ ] Archived files count until permanent deletion.
-- [ ] Existing files remain readable above quota while new uploads stay blocked.
-- [ ] Storage usage and quota appear together with an upgrade action.
-- [ ] Concurrent uploads cannot exceed the confirmed quota.
-- [ ] Tests cover upload, completion, failure, expiry, deletion, downgrade, and concurrent reservations.
-- [ ] Type checking and Project file tests pass.
+- [x] Convex keeps an exact retained-byte total per Workspace instead of scanning all Projects during upload.
+- [x] The quota is zero hosted bytes for Free, 5 GB for Creator, and 15 GB for base Team.
+- [x] Upload capacity is reserved before data transfer and committed with stored file metadata.
+- [x] Failed, abandoned, and expired uploads release reservations safely.
+- [x] Archived files count until permanent deletion.
+- [x] Existing files remain readable above quota while new uploads stay blocked.
+- [x] Storage usage and quota appear together with an upgrade action.
+- [x] Concurrent uploads cannot exceed the confirmed quota.
+- [x] Tests cover upload, completion, failure, expiry, deletion, downgrade, and concurrent reservations.
+- [x] Type checking and Project file tests pass.
+
+The Project Files panel shows retained storage beside the Workspace quota and links to the subscription page when the current plan or capacity blocks uploads.

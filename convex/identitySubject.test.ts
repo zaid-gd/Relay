@@ -6,12 +6,13 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
-test("Clerk issuer changes do not detach account data", async () => {
+test("account data uses the Clerk token identifier consistently", async () => {
   const t = convexTest(schema, modules);
+  const tokenIdentifier = "https://relay-app.cc.cd|user_stable";
   const subject = "user_stable";
   await t.run((ctx) =>
     ctx.db.insert("projects", {
-      ownerUserId: subject,
+      ownerUserId: tokenIdentifier,
       id: "project",
       assigneeUserIds: [],
       profileId: "profile",
@@ -29,12 +30,17 @@ test("Clerk issuer changes do not detach account data", async () => {
       notes: "",
       createdAt: "2026-01-01",
       updatedAt: "2026-01-01",
-    }),
+    })
   );
 
-  const before = t.withIdentity({ tokenIdentifier: "https://old.example|user_stable", subject });
-  const after = t.withIdentity({ tokenIdentifier: "https://new.example|user_stable", subject });
+  const user = t.withIdentity({ tokenIdentifier, subject });
+  const otherIssuer = t.withIdentity({
+    tokenIdentifier: "https://other-issuer.example|user_stable",
+    subject,
+  });
 
-  await expect(before.query(api.projects.list, {})).resolves.toHaveLength(1);
-  await expect(after.query(api.projects.list, {})).resolves.toHaveLength(1);
+  await expect(user.query(api.projects.list, {})).resolves.toHaveLength(1);
+  await expect(otherIssuer.query(api.projects.list, {})).resolves.toHaveLength(
+    0
+  );
 });

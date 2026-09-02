@@ -4,7 +4,9 @@
 
 **Blocked by:** 06: Launch Team with correct seat rules.
 
-**Status:** ready-for-agent
+**Status:** paused
+
+This requires an extra-seat charging model that works with Clerk User Billing. Convex capacity fields exist, but no public purchase flow is approved.
 
 - [ ] The Team billing setup charges only for editing seats above the three included seats.
 - [ ] Monthly Team uses $5 monthly extra seats and annual Team uses $50 annual extra seats.

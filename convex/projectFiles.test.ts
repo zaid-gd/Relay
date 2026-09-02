@@ -2,7 +2,7 @@
 
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import type {
   FileCategory,
@@ -68,34 +68,49 @@ const editorPermissions = {
   useChat: true,
 };
 
-async function setupProject(team = false) {
+async function setupProject(
+  team = false,
+  plan: "free" | "creator" | "team" = "creator"
+) {
   const t = convexTest(schema, modules);
   const createdAt = new Date().toISOString();
-  const teamId = team
-    ? await t.run((ctx) =>
-        ctx.db.insert("teamWorkspaces", {
-          ownerUserId: "owner",
-          name: "File Team",
-          inviteCode: "FILES1",
-          createdAt,
-        })
-      )
-    : undefined;
-  if (teamId) {
+  const workspaceId = await t.run((ctx) =>
+    ctx.db.insert("teamWorkspaces", {
+      ownerUserId: "owner",
+      name: "File Team",
+      inviteCode: "FILES1",
+      createdAt,
+    })
+  );
+  await t.run(async (ctx) => {
+    await ctx.db.insert("teamMembers", {
+      teamId: workspaceId,
+      userId: "owner",
+      email: "owner@example.com",
+      name: "Owner User",
+      role: "Owner",
+      status: "active",
+      permissions: ownerPermissions,
+      createdAt,
+      joinedAt: createdAt,
+    });
+    await ctx.db.insert("workspaceSubscriptions", {
+      workspaceId,
+      plan,
+      billingPeriod: plan === "free" ? null : "monthly",
+      subscriptionStatus: plan === "free" ? "free" : "active",
+      confirmedEditorQuantity: team ? 2 : 1,
+      includedEditorSeatQuantity: plan === "team" ? 3 : 1,
+      purchasedExtraEditorSeatQuantity: 0,
+      storageAddonQuantity: 0,
+      reconciliationState: "synced",
+      updatedAt: createdAt,
+    });
+  });
+  if (team) {
     await t.run(async (ctx) => {
       await ctx.db.insert("teamMembers", {
-        teamId,
-        userId: "owner",
-        email: "owner@example.com",
-        name: "Owner User",
-        role: "Owner",
-        status: "active",
-        permissions: ownerPermissions,
-        createdAt,
-        joinedAt: createdAt,
-      });
-      await ctx.db.insert("teamMembers", {
-        teamId,
+        teamId: workspaceId,
         userId: "editor",
         email: "editor@example.com",
         name: "Editor User",
@@ -106,7 +121,7 @@ async function setupProject(team = false) {
         joinedAt: createdAt,
       });
       await ctx.db.insert("teamMembers", {
-        teamId,
+        teamId: workspaceId,
         userId: "reviewer",
         email: "reviewer@example.com",
         name: "Review User",
@@ -122,7 +137,7 @@ async function setupProject(team = false) {
     ctx.db.insert("projects", {
       ownerUserId: "owner",
       id: "project-files",
-      teamId,
+      teamId: team ? workspaceId : undefined,
       assigneeUserIds: team ? ["reviewer"] : [],
       profileId: "video-editing",
       title: "Project Files",
@@ -172,7 +187,7 @@ async function setupProject(team = false) {
 
 describe("project file management", () => {
   test("blocks Free users from creating or saving uploads", async () => {
-    const { t } = await setupProject();
+    const { t } = await setupProject(false, "free");
     const freeOwner = t.withIdentity({
       tokenIdentifier: "owner",
       subject: "owner",
@@ -185,12 +200,30 @@ describe("project file management", () => {
     await expect(
       freeOwner.mutation(api.projectFiles.generateUploadUrl, {
         projectId: "project-files",
+        size: 7,
       })
     ).rejects.toThrow("Creator or Team");
+    const reservationId = await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      return await ctx.db.insert("workspaceStorageReservations", {
+        workspaceId: subscription.workspaceId,
+        projectId: "project-files",
+        uploaderUserId: "owner",
+        bytes: 7,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        expiresAt: Date.now() + 60_000,
+      });
+    });
     await expect(
       freeOwner.mutation(api.projectFiles.saveStorageVersion, {
         projectId: "project-files",
         storageId,
+        reservationId,
         category: "Asset",
         title: "Blocked upload",
         description: "",
@@ -204,19 +237,131 @@ describe("project file management", () => {
     ).rejects.toThrow("Creator or Team");
   });
 
-  test("allows Team members to create upload URLs", async () => {
-    const { t } = await setupProject(true);
-    const teamOwner = t.withIdentity({
-      tokenIdentifier: "owner",
-      subject: "owner",
-      pla: "o:team",
+  test("allows Editors to use their Workspace Creator entitlement", async () => {
+    const { editor } = await setupProject(true, "creator");
+    await expect(
+      editor.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 1,
+      })
+    ).resolves.toMatchObject({ url: expect.any(String) });
+  });
+
+  test("allows uploads during a confirmed Creator trial", async () => {
+    const { t, owner } = await setupProject(false, "creator");
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, {
+        subscriptionStatus: "trialing",
+        trialEndsAt: "2026-09-08T00:00:00.000Z",
+      });
     });
 
     await expect(
-      teamOwner.mutation(api.projectFiles.generateUploadUrl, {
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 1,
+      })
+    ).resolves.toMatchObject({ url: expect.any(String) });
+  });
+
+  test("blocks new uploads after a paid Workspace becomes past due", async () => {
+    const { t, owner } = await setupProject(false, "creator");
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, { subscriptionStatus: "past_due" });
+    });
+
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 1,
+      })
+    ).rejects.toThrow("Creator or Team");
+  });
+
+  test.each([
+    ["free", 0],
+    ["creator", 5_000_000_000],
+    ["team", 15_000_000_000],
+  ] as const)("reports the %s Workspace quota", async (plan, quota) => {
+    const { owner } = await setupProject(plan === "team", plan);
+
+    await expect(
+      owner.query(api.projectFiles.listForProject, {
         projectId: "project-files",
       })
-    ).resolves.toBeTypeOf("string");
+    ).resolves.toMatchObject({
+      retainedBytes: 0,
+      workspaceLimitBytes: quota,
+    });
+  });
+
+  test("serializes upload reservations against the confirmed quota", async () => {
+    const { t, owner } = await setupProject();
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, {
+        retainedStorageBytes: 4_999_999_990,
+      });
+    });
+
+    const first = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 6,
+    });
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 6,
+      })
+    ).rejects.toThrow("Workspace storage limit reached");
+
+    await owner.mutation(api.projectFiles.releaseUploadReservation, {
+      reservationId: first.reservationId,
+    });
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 6,
+      })
+    ).resolves.toMatchObject({ url: expect.any(String) });
+  });
+
+  test("releases expired upload reservations", async () => {
+    const { t, owner } = await setupProject();
+    const upload = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 12,
+    });
+    await t.run((ctx) =>
+      ctx.db.patch(upload.reservationId, { expiresAt: Date.now() - 1 })
+    );
+
+    await t.mutation(internal.projectFiles.releaseExpiredReservation, {
+      reservationId: upload.reservationId,
+    });
+
+    await expect(
+      t.run((ctx) =>
+        ctx.db
+          .query("workspaceSubscriptions")
+          .withIndex("by_workspaceId")
+          .unique()
+      )
+    ).resolves.toMatchObject({ reservedStorageBytes: 0 });
   });
 
   test("rejects unknown file categories, statuses, and providers", async () => {
@@ -320,9 +465,14 @@ describe("project file management", () => {
     const storageId = await t.run((ctx) =>
       ctx.storage.store(new Blob(["image-data"], { type: "image/png" }))
     );
+    const { reservationId } = await owner.mutation(
+      api.projectFiles.generateUploadUrl,
+      { projectId: "project-files", size: 10 }
+    );
     await owner.mutation(api.projectFiles.saveStorageVersion, {
       projectId: "project-files",
       storageId,
+      reservationId,
       category: "Asset",
       title: "Source clip",
       description: "Camera original",
@@ -345,6 +495,103 @@ describe("project file management", () => {
       uploadedByName: "Owner User",
     });
     expect(result.uploadHistory[0].url).toBeTruthy();
+  });
+
+  test("commits hosted bytes, keeps archives counted, and frees permanent deletions", async () => {
+    const { t, owner } = await setupProject();
+    const storageId = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["retained"], { type: "text/plain" }))
+    );
+    const upload = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 8,
+    });
+    const fileId = await owner.mutation(api.projectFiles.saveStorageVersion, {
+      projectId: "project-files",
+      storageId,
+      reservationId: upload.reservationId,
+      category: "Asset",
+      title: "Retained upload",
+      description: "",
+      status: "draft",
+      clientVisible: false,
+      downloadable: true,
+      fileName: "retained.txt",
+      mimeType: "text/plain",
+      notes: "",
+    });
+
+    await expect(
+      owner.query(api.projectFiles.listForProject, {
+        projectId: "project-files",
+      })
+    ).resolves.toMatchObject({ retainedBytes: 8 });
+    await owner.mutation(api.projectFiles.archiveFile, { fileId });
+    await expect(
+      owner.query(api.projectFiles.listForProject, {
+        projectId: "project-files",
+        includeArchived: true,
+      })
+    ).resolves.toMatchObject({ retainedBytes: 8 });
+    await owner.mutation(api.projectFiles.removeFile, { fileId });
+    await expect(
+      owner.query(api.projectFiles.listForProject, {
+        projectId: "project-files",
+      })
+    ).resolves.toMatchObject({ retainedBytes: 0 });
+  });
+
+  test("keeps existing files readable after a downgrade while blocking growth", async () => {
+    const { t, owner } = await setupProject();
+    const storageId = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["keep"], { type: "text/plain" }))
+    );
+    const upload = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 4,
+    });
+    await owner.mutation(api.projectFiles.saveStorageVersion, {
+      projectId: "project-files",
+      storageId,
+      reservationId: upload.reservationId,
+      category: "Asset",
+      title: "Keep after downgrade",
+      description: "",
+      status: "draft",
+      clientVisible: false,
+      downloadable: true,
+      fileName: "keep.txt",
+      mimeType: "text/plain",
+      notes: "",
+    });
+    await t.run(async (ctx) => {
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId")
+        .unique();
+      if (!subscription) throw new Error("Subscription missing");
+      await ctx.db.patch(subscription._id, {
+        plan: "free",
+        billingPeriod: null,
+        subscriptionStatus: "free",
+      });
+    });
+
+    await expect(
+      owner.query(api.projectFiles.listForProject, {
+        projectId: "project-files",
+      })
+    ).resolves.toMatchObject({
+      retainedBytes: 4,
+      workspaceLimitBytes: 0,
+      files: [expect.objectContaining({ title: "Keep after downgrade" })],
+    });
+    await expect(
+      owner.mutation(api.projectFiles.generateUploadUrl, {
+        projectId: "project-files",
+        size: 1,
+      })
+    ).rejects.toThrow("Creator or Team");
   });
 
   test("normalizes legacy file states and upgrades the latest legacy version on edit", async () => {
@@ -427,10 +674,22 @@ describe("project file management", () => {
       notes: "",
     };
 
-    await owner.mutation(api.projectFiles.saveStorageVersion, version);
+    const first = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 6,
+    });
+    await owner.mutation(api.projectFiles.saveStorageVersion, {
+      ...version,
+      reservationId: first.reservationId,
+    });
+    const second = await owner.mutation(api.projectFiles.generateUploadUrl, {
+      projectId: "project-files",
+      size: 6,
+    });
     await expect(
       owner.mutation(api.projectFiles.saveStorageVersion, {
         ...version,
+        reservationId: second.reservationId,
         title: "Duplicate source",
       })
     ).rejects.toThrow(
@@ -466,6 +725,7 @@ describe("project file management", () => {
     await expect(
       reviewer.mutation(api.projectFiles.generateUploadUrl, {
         projectId: "project-files",
+        size: 1,
       })
     ).rejects.toThrow("Project access required");
     await expect(

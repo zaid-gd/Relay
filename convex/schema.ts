@@ -18,6 +18,10 @@ import {
   storedFileStatusValidator,
   storedProjectStatusValidator,
   storedTeamRoleValidator,
+  subscriptionPlanValidator,
+  billingPeriodValidator,
+  subscriptionStatusValidator,
+  reconciliationStateValidator,
   teamActivityKindValidator,
   waitlistAudienceValidator,
   workflowStageValidator,
@@ -362,6 +366,40 @@ export default defineSchema({
     expiresAt: v.number(),
   }),
 
+  workspaceStorageReservations: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    projectId: v.string(),
+    uploaderUserId: v.string(),
+    bytes: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("committed"),
+      v.literal("released")
+    ),
+    createdAt: v.string(),
+    expiresAt: v.number(),
+  }).index("by_workspaceId_and_status", ["workspaceId", "status"]),
+
+  clientContacts: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clientId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    active: v.boolean(),
+    createdAt: v.string(),
+  })
+    .index("by_workspaceId_and_clientId", ["workspaceId", "clientId"])
+    .index("by_email_and_active", ["email", "active"]),
+
+  clientHubProjects: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clientId: v.string(),
+    projectId: v.string(),
+    publishedAt: v.string(),
+  })
+    .index("by_workspaceId_and_projectId", ["workspaceId", "projectId"])
+    .index("by_workspaceId_and_clientId", ["workspaceId", "clientId"]),
+
   teamWorkspaces: defineTable({
     ownerUserId: v.string(),
     name: v.string(),
@@ -371,9 +409,36 @@ export default defineSchema({
     currencyCode: v.optional(v.string()),
     timeZone: v.optional(v.string()),
     defaultWorkflowTemplateId: v.optional(v.string()),
+    portalBrandName: v.optional(v.string()),
+    portalAccentColor: v.optional(v.string()),
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_inviteCode", ["inviteCode"]),
+
+  workspaceSubscriptions: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clerkUserId: v.optional(v.string()),
+    clerkOrganizationId: v.optional(v.string()),
+    clerkSubscriptionId: v.optional(v.string()),
+    clerkPlanId: v.optional(v.string()),
+    plan: subscriptionPlanValidator,
+    billingPeriod: billingPeriodValidator,
+    subscriptionStatus: subscriptionStatusValidator,
+    trialStartsAt: v.optional(v.string()),
+    trialEndsAt: v.optional(v.string()),
+    confirmedEditorQuantity: v.number(),
+    includedEditorSeatQuantity: v.number(),
+    purchasedExtraEditorSeatQuantity: v.number(),
+    storageAddonQuantity: v.number(),
+    retainedStorageBytes: v.optional(v.number()),
+    reservedStorageBytes: v.optional(v.number()),
+    lastClerkEventAt: v.optional(v.string()),
+    reconciliationState: reconciliationStateValidator,
+    updatedAt: v.string(),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_clerkUserId", ["clerkUserId"])
+    .index("by_clerkOrganizationId", ["clerkOrganizationId"]),
 
   teamMembers: defineTable({
     teamId: v.string(),

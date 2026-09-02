@@ -15,6 +15,7 @@ import type { Id } from "./_generated/dataModel";
 
 type UploadSessionResult = {
   sessionId: Id<"r2UploadSessions">;
+  reservationId: Id<"workspaceStorageReservations">;
   key: string;
   url: string;
   expiresAt: number;
@@ -44,7 +45,9 @@ function r2Config() {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   const bucket = process.env.R2_BUCKET;
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
-    throw new Error("R2 is not configured. Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.");
+    throw new Error(
+      "R2 is not configured. Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET."
+    );
   }
   return { endpoint, region, accessKeyId, secretAccessKey, bucket };
 }
@@ -71,15 +74,20 @@ export const createUploadUrl = action({
     projectFileId: v.optional(v.id("projectFiles")),
     fileName: v.string(),
     mimeType: v.string(),
+    size: v.number(),
   },
   handler: async (ctx, args): Promise<UploadSessionResult> => {
     const { config, s3 } = client();
-    const session: Omit<UploadSessionResult, "url"> = await ctx.runMutation(internal.projectFiles.createR2UploadSession, {
-      projectId: args.projectId,
-      projectFileId: args.projectFileId,
-      fileName: args.fileName,
-    });
-    const { sessionId, key, expiresAt } = session;
+    const session: Omit<UploadSessionResult, "url"> = await ctx.runMutation(
+      internal.projectFiles.createR2UploadSession,
+      {
+        projectId: args.projectId,
+        projectFileId: args.projectFileId,
+        fileName: args.fileName,
+        size: args.size,
+      }
+    );
+    const { sessionId, reservationId, key, expiresAt } = session;
     const url = await getSignedUrl(
       s3,
       new PutObjectCommand({
@@ -89,16 +97,21 @@ export const createUploadUrl = action({
       }),
       { expiresIn: 15 * 60 }
     );
-    return { sessionId, key, url, expiresAt };
+    return { sessionId, reservationId, key, url, expiresAt };
   },
 });
 
 export const completeUpload = action({
   args: {
     sessionId: v.id("r2UploadSessions"),
+    reservationId: v.id("workspaceStorageReservations"),
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
-    category: v.union(v.literal("Deliverable"), v.literal("Reference"), v.literal("Asset")),
+    category: v.union(
+      v.literal("Deliverable"),
+      v.literal("Reference"),
+      v.literal("Asset")
+    ),
     title: v.string(),
     description: v.string(),
     status: v.union(
@@ -115,19 +128,26 @@ export const completeUpload = action({
     notes: v.string(),
   },
   handler: async (ctx, args): Promise<Id<"projectFiles">> => {
-    const session: UploadSession | null = await ctx.runQuery(internal.projectFiles.getR2UploadSession, {
-      sessionId: args.sessionId,
-    });
-    if (!session || session.projectId !== args.projectId) throw new Error("R2 upload session not found");
+    const session: UploadSession | null = await ctx.runQuery(
+      internal.projectFiles.getR2UploadSession,
+      {
+        sessionId: args.sessionId,
+      }
+    );
+    if (!session || session.projectId !== args.projectId)
+      throw new Error("R2 upload session not found");
     const { config, s3 } = client();
     let metadata;
     try {
-      metadata = await s3.send(new HeadObjectCommand({ Bucket: config.bucket, Key: session.key }));
+      metadata = await s3.send(
+        new HeadObjectCommand({ Bucket: config.bucket, Key: session.key })
+      );
     } catch {
       throw new Error("R2 upload was not found. Try uploading the file again.");
     }
     return await ctx.runMutation(internal.projectFiles.finalizeR2Upload, {
       sessionId: args.sessionId,
+      reservationId: args.reservationId,
       projectId: args.projectId,
       projectFileId: args.projectFileId,
       category: args.category,
@@ -137,7 +157,8 @@ export const completeUpload = action({
       clientVisible: args.clientVisible,
       downloadable: args.downloadable,
       fileName: args.fileName,
-      mimeType: args.mimeType || metadata.ContentType || "application/octet-stream",
+      mimeType:
+        args.mimeType || metadata.ContentType || "application/octet-stream",
       size: metadata.ContentLength ?? 0,
       notes: args.notes,
     });
@@ -147,7 +168,10 @@ export const completeUpload = action({
 export const createDownloadUrl = action({
   args: { versionId: v.id("projectFileVersions") },
   handler: async (ctx, args): Promise<string> => {
-    const target: R2DownloadTarget | null = await ctx.runQuery(internal.projectFiles.getR2DownloadTarget, args);
+    const target: R2DownloadTarget | null = await ctx.runQuery(
+      internal.projectFiles.getR2DownloadTarget,
+      args
+    );
     if (!target) throw new Error("R2 file not found");
     const { config, s3 } = client();
     return await getSignedUrl(
@@ -170,7 +194,10 @@ export const createPortalDownloadUrl = action({
     password: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<string> => {
-    const target: R2DownloadTarget | null = await ctx.runQuery(internal.clientPortals.getPublicR2DownloadTarget, args);
+    const target: R2DownloadTarget | null = await ctx.runQuery(
+      internal.clientPortals.getPublicR2DownloadTarget,
+      args
+    );
     if (!target) throw new Error("This file is no longer available");
     const { config, s3 } = client();
     return await getSignedUrl(
@@ -190,7 +217,9 @@ export const deleteObject = internalAction({
   args: { key: v.string() },
   handler: async (_ctx, args): Promise<null> => {
     const { config, s3 } = client();
-    await s3.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: args.key }));
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: config.bucket, Key: args.key })
+    );
     return null;
   },
 });

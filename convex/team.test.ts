@@ -32,14 +32,14 @@ async function setupTeam() {
   const teamId = await t.run(async (ctx) => {
     const createdAt = new Date().toISOString();
     const workspaceId = await ctx.db.insert("teamWorkspaces", {
-      ownerUserId: "owner",
+      ownerUserId: "test|owner",
       name: "Test Team",
       inviteCode: "ABC123",
       createdAt,
     });
     await ctx.db.insert("teamMembers", {
       teamId: workspaceId,
-      userId: "owner",
+      userId: "test|owner",
       email: "owner@example.com",
       name: "Owner User",
       role: "Owner",
@@ -50,7 +50,7 @@ async function setupTeam() {
     });
     await ctx.db.insert("teamMembers", {
       teamId: workspaceId,
-      userId: "reviewer",
+      userId: "test|reviewer",
       email: "reviewer@example.com",
       name: "Review User",
       role: "Reviewer",
@@ -85,10 +85,10 @@ async function insertProject(
   const createdAt = new Date().toISOString();
   await t.run((ctx) =>
     ctx.db.insert("projects", {
-      ownerUserId: "owner",
+      ownerUserId: "test|owner",
       id,
       teamId,
-      assigneeUserIds: ["reviewer"],
+      assigneeUserIds: ["test|reviewer"],
       profileId: "video-editing",
       title: "Current team project",
       clientId: "client",
@@ -167,7 +167,7 @@ describe("team workspace permissions and synchronization", () => {
       const member = await ctx.db
         .query("teamMembers")
         .withIndex("by_teamId_and_userId", (q) =>
-          q.eq("teamId", teamId).eq("userId", "reviewer")
+          q.eq("teamId", teamId).eq("userId", "test|reviewer")
         )
         .unique();
       if (!member) throw new Error("Reviewer missing");
@@ -196,7 +196,7 @@ describe("team workspace permissions and synchronization", () => {
       for (let index = 0; index < 2; index += 1) {
         await ctx.db.insert("teamNotifications", {
           teamId,
-          userId: "owner",
+          userId: "test|owner",
           kind: "project_update",
           message: `Unread notification ${index}`,
           read: false,
@@ -211,7 +211,7 @@ describe("team workspace permissions and synchronization", () => {
       ctx.db
         .query("teamNotifications")
         .withIndex("by_teamId_and_userId_and_read_and_createdAt", (q) =>
-          q.eq("teamId", teamId).eq("userId", "owner").eq("read", false)
+          q.eq("teamId", teamId).eq("userId", "test|owner").eq("read", false)
         )
         .take(10)
     );

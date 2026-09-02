@@ -1,5 +1,31 @@
 import { v } from "convex/values";
 
+export const subscriptionPlanValidator = v.union(
+  v.literal("free"),
+  v.literal("creator"),
+  v.literal("team")
+);
+
+export const billingPeriodValidator = v.union(
+  v.literal("monthly"),
+  v.literal("annual"),
+  v.null()
+);
+
+export const subscriptionStatusValidator = v.union(
+  v.literal("free"),
+  v.literal("trialing"),
+  v.literal("active"),
+  v.literal("past_due"),
+  v.literal("canceled")
+);
+
+export const reconciliationStateValidator = v.union(
+  v.literal("pending"),
+  v.literal("synced"),
+  v.literal("repair")
+);
+
 export const projectStatusValidator = v.union(
   v.literal("Planned"),
   v.literal("In Progress"),

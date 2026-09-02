@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { ExternalLink, RefreshCw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +48,13 @@ export function ProjectPortalPanel({
     [outputData]
   );
   const data = useProjectPortal(project.id, canEdit);
+  const hubSettings = useQuery(api.clientHub.getOwnerSettings, {
+    projectId: project.id,
+  });
+  const setHubPublished = useMutation(api.clientHub.setProjectPublished);
+  const saveBranding = useMutation(api.clientHub.setBranding);
+  const [brandName, setBrandName] = useState("");
+  const [accentColor, setAccentColor] = useState("#f59e0b");
   const [draft, setDraft] = useState<ProjectPortalDraft>(() =>
     draftFromPortal(null)
   );
@@ -57,6 +66,12 @@ export function ProjectPortalPanel({
   useEffect(() => {
     if (!data.loading) setDraft(data.initialDraft);
   }, [data.initialDraft, data.loading]);
+
+  useEffect(() => {
+    if (!hubSettings) return;
+    setBrandName(hubSettings.brandName);
+    setAccentColor(hubSettings.accentColor);
+  }, [hubSettings?.accentColor, hubSettings?.brandName]);
 
   const selectedOutputs = useMemo(
     () => new Set(draft.selectedOutputIds),
@@ -150,6 +165,32 @@ export function ProjectPortalPanel({
     }
   }
 
+  async function changeHubPublished(published: boolean) {
+    setFormError("");
+    try {
+      await setHubPublished({ projectId: project.id, published });
+    } catch (caught) {
+      setFormError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not update Client Hub access."
+      );
+    }
+  }
+
+  async function saveHubBranding() {
+    setFormError("");
+    try {
+      await saveBranding({ brandName, accentColor });
+    } catch (caught) {
+      setFormError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save portal branding."
+      );
+    }
+  }
+
   const portalUrl =
     data.portal?.token && typeof window !== "undefined"
       ? `${window.location.origin}/client-portal/${data.portal.token}`
@@ -216,6 +257,51 @@ export function ProjectPortalPanel({
       ) : null}
 
       <div className="grid gap-6 py-5">
+        {canEdit && hubSettings?.available ? (
+          <section
+            className="grid gap-4 border-b pb-6"
+            aria-labelledby="client-hub-title"
+          >
+            <div>
+              <h3 id="client-hub-title" className="font-medium">
+                Client Hub and branding
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Publish this Project to signed-in Client Contacts. Branding
+                changes presentation only.
+              </p>
+            </div>
+            <label className="flex items-center gap-3 text-sm">
+              <Checkbox
+                checked={hubSettings.published}
+                onCheckedChange={(checked) =>
+                  void changeHubPublished(checked === true)
+                }
+              />
+              Publish to Client Hub
+            </label>
+            <div className="grid gap-3 sm:grid-cols-[1fr_110px_auto]">
+              <Input
+                value={brandName}
+                onChange={(event) => setBrandName(event.target.value)}
+                aria-label="Portal brand name"
+              />
+              <Input
+                type="color"
+                value={accentColor}
+                onChange={(event) => setAccentColor(event.target.value)}
+                aria-label="Portal accent color"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void saveHubBranding()}
+              >
+                Save branding
+              </Button>
+            </div>
+          </section>
+        ) : null}
         <section
           className="grid gap-4 border-b pb-6"
           aria-labelledby="portal-link-title"

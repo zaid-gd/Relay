@@ -4,7 +4,9 @@
 
 **Blocked by:** 04: Enforce accurate Workspace storage quotas.
 
-**Status:** ready-for-agent
+**Status:** paused
+
+The cost gate, R2 launch, and Clerk User Billing add-on model are not approved.
 
 - [ ] A recorded Convex and Cloudflare R2 cost review approves the public add-on price before the offer becomes visible.
 - [ ] Creator and Team Owners can buy monthly or annual packs that match the Workspace billing period.

@@ -6,6 +6,11 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import {
+  insertPendingFreeProjection,
+  requireWorkspaceCapability,
+  resolveWorkspaceEntitlements,
+} from "./workspaceSubscriptions";
 import { recordProjectActivity } from "./projectActivity";
 import { teamRoleValidator } from "./domainValidators";
 import type {
@@ -18,7 +23,7 @@ import {
   normalizeOptionalTimecode,
 } from "../src/lib/timecode";
 
-const MAX_TEAM_MEMBERS = 3;
+const MAX_WORKSPACE_MEMBERS = 500;
 const TEAM_WORKSPACE_NAME_LIMIT = 80;
 const TEAM_PERMISSION_KEYS = [
   "viewProjects",
@@ -182,6 +187,41 @@ async function requirePermission(
   return { identity, member };
 }
 
+function consumesEditorSeat(
+  member: Pick<Doc<"teamMembers">, "role" | "status">
+) {
+  return member.status === "active" || member.status === "invited"
+    ? member.role === "Owner" || member.role === "Editor"
+    : false;
+}
+
+async function requireEditorSeatAvailable(
+  ctx: MutationCtx,
+  workspaceId: Doc<"teamWorkspaces">["_id"]
+) {
+  const entitlement = await resolveWorkspaceEntitlements(ctx, workspaceId);
+  const members = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_teamId", (q) => q.eq("teamId", workspaceId))
+    .take(MAX_WORKSPACE_MEMBERS);
+  if (
+    members.filter(consumesEditorSeat).length >= entitlement.editorSeatAllowance
+  )
+    throw new Error("All confirmed Editor seats are reserved");
+}
+
+async function requireWorkspaceMemberCapacity(
+  ctx: MutationCtx,
+  workspaceId: Doc<"teamWorkspaces">["_id"]
+) {
+  const members = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_teamId", (q) => q.eq("teamId", workspaceId))
+    .take(MAX_WORKSPACE_MEMBERS);
+  if (members.length >= MAX_WORKSPACE_MEMBERS)
+    throw new Error("Workspace member limit reached");
+}
+
 async function requireTeamProject(
   ctx: QueryCtx | MutationCtx,
   teamId: string,
@@ -257,7 +297,7 @@ async function membersMatchingMentions(
   const members = await ctx.db
     .query("teamMembers")
     .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
-    .take(MAX_TEAM_MEMBERS + 1);
+    .take(MAX_WORKSPACE_MEMBERS);
   return members.filter((member) => {
     if (member.status !== "active" || member.userId === args.senderUserId)
       return false;
@@ -300,7 +340,7 @@ async function notifyProjectParticipants(
       .filter((userId): userId is string =>
         Boolean(userId && !excludedUserIds.has(userId))
       )
-      .slice(0, MAX_TEAM_MEMBERS)
+      .slice(0, MAX_WORKSPACE_MEMBERS)
       .map((userId) =>
         ctx.db.insert("teamNotifications", {
           teamId: args.teamId,
@@ -367,7 +407,7 @@ export const getMyWorkspace = query({
     const members = await ctx.db
       .query("teamMembers")
       .withIndex("by_teamId", (q) => q.eq("teamId", currentMember.teamId))
-      .take(MAX_TEAM_MEMBERS + 1);
+      .take(MAX_WORKSPACE_MEMBERS);
     const activity = await ctx.db
       .query("teamActivity")
       .withIndex("by_teamId_and_createdAt", (q) =>
@@ -464,6 +504,7 @@ export const createWorkspace = mutation({
       createdAt: now,
       joinedAt: now,
     });
+    await insertPendingFreeProjection(ctx, workspaceId, identity.subject);
     await logActivity(ctx, {
       teamId: workspaceId,
       actorUserId: identity.tokenIdentifier,
@@ -532,17 +573,15 @@ export const inviteMember = mutation({
       args.teamId,
       "manageTeam"
     );
+    const workspaceId = ctx.db.normalizeId("teamWorkspaces", args.teamId);
+    if (!workspaceId) throw new Error("Workspace not found");
+    await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
+    await requireWorkspaceMemberCapacity(ctx, workspaceId);
     const email = normalizeEmail(args.email);
     if (!email.includes("@")) throw new Error("Enter a valid email address");
 
-    const members = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
-      .take(MAX_TEAM_MEMBERS + 1);
-    if (members.length >= MAX_TEAM_MEMBERS)
-      throw new Error(
-        "Free workspaces are limited to one Owner and two invited members"
-      );
+    if (args.role === "Editor")
+      await requireEditorSeatAvailable(ctx, workspaceId);
 
     const existing = await ctx.db
       .query("teamMembers")
@@ -600,18 +639,11 @@ export const joinWorkspace = mutation({
     const members = await ctx.db
       .query("teamMembers")
       .withIndex("by_teamId", (q) => q.eq("teamId", workspace._id))
-      .take(MAX_TEAM_MEMBERS + 1);
+      .take(MAX_WORKSPACE_MEMBERS);
     const userMember = members.find(
       (member) => member.userId === identity.tokenIdentifier
     );
     if (userMember?.status === "active") return workspace._id;
-    if (
-      members.filter((member) => member.status === "active").length >=
-      MAX_TEAM_MEMBERS
-    ) {
-      throw new Error("This team is already full");
-    }
-
     const pendingInvites = members.filter(
       (member) => member.status === "invited"
     );
@@ -674,6 +706,12 @@ export const updateMemberRole = mutation({
       throw new Error("Team member not found");
     if (member.role === "Owner")
       throw new Error("Owner role cannot be changed");
+    if (args.role === "Editor" && member.role !== "Editor") {
+      const workspaceId = ctx.db.normalizeId("teamWorkspaces", args.teamId);
+      if (!workspaceId) throw new Error("Workspace not found");
+      await requireWorkspaceCapability(ctx, workspaceId, "teamFeatures");
+      await requireEditorSeatAvailable(ctx, workspaceId);
+    }
     await ctx.db.patch(args.memberId, {
       role: args.role,
       permissions: normalizePermissions(args.role),

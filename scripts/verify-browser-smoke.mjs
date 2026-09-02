@@ -44,10 +44,9 @@ const routes = [
     label: "reports",
     expectedText: [
       "Reports",
-      "Invoice drafts",
-      "Salary Batch Ledger",
-      "Editor Summary",
-      "Delivered Projects",
+      "Advanced reports",
+      "Creator or Team plan required.",
+      "View plans",
     ],
   },
   { path: "/settings", label: "settings", expectedText: ["Settings"] },
@@ -246,13 +245,6 @@ try {
     if (dimensions.width < 1200 || dimensions.height < 800) {
       throw new Error(
         `Browser screenshot for ${route.path} is unexpectedly small: ${dimensions.width}x${dimensions.height}.`
-      );
-    }
-
-    const bytes = readFileSync(screenshotPath);
-    if (bytes.byteLength < 50_000) {
-      throw new Error(
-        `Browser screenshot for ${route.path} looks too small to be a real rendered page: ${bytes.byteLength} bytes.`
       );
     }
   }

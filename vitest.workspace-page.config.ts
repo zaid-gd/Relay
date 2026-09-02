@@ -9,6 +9,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/components/workspace-page/**/*.test.tsx", "src/lib/*.test.ts"],
+    include: [
+      "src/components/workspace-page/**/*.test.tsx",
+      "src/components/subscription-plans.test.tsx",
+      "src/lib/*.test.ts",
+    ],
   },
 });
