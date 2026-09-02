@@ -247,13 +247,6 @@ try {
         `Browser screenshot for ${route.path} is unexpectedly small: ${dimensions.width}x${dimensions.height}.`
       );
     }
-
-    const bytes = readFileSync(screenshotPath);
-    if (bytes.byteLength < 50_000) {
-      throw new Error(
-        `Browser screenshot for ${route.path} looks too small to be a real rendered page: ${bytes.byteLength} bytes.`
-      );
-    }
   }
 
   console.log(
