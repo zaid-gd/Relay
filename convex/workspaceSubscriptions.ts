@@ -76,6 +76,22 @@ type SubscriptionProjection = Omit<
   "_id" | "_creationTime"
 >;
 
+interface ConfirmedSubscription {
+  clerkUserId?: string;
+  clerkOrganizationId?: string;
+  clerkSubscriptionId?: string;
+  clerkPlanId: string;
+  billingPeriod: Doc<"workspaceSubscriptions">["billingPeriod"];
+  subscriptionStatus: Doc<"workspaceSubscriptions">["subscriptionStatus"];
+  trialStartsAt?: string;
+  trialEndsAt?: string;
+  confirmedEditorQuantity: number;
+  includedEditorSeatQuantity: number;
+  purchasedExtraEditorSeatQuantity: number;
+  storageAddonQuantity: number;
+  clerkEventAt: string;
+}
+
 export function pendingFreeProjection(
   workspaceId: Id<"teamWorkspaces">,
   clerkUserId?: string
@@ -133,6 +149,40 @@ async function projectionForWorkspace(
     .query("workspaceSubscriptions")
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
     .unique();
+}
+
+async function confirmProjection(
+  ctx: MutationCtx,
+  projection: Doc<"workspaceSubscriptions">,
+  confirmation: ConfirmedSubscription
+) {
+  if (
+    projection.lastClerkEventAt &&
+    projection.lastClerkEventAt > confirmation.clerkEventAt
+  ) {
+    return;
+  }
+  const quantities = [
+    confirmation.confirmedEditorQuantity,
+    confirmation.includedEditorSeatQuantity,
+    confirmation.purchasedExtraEditorSeatQuantity,
+    confirmation.storageAddonQuantity,
+  ];
+  if (
+    quantities.some(
+      (quantity) => !Number.isSafeInteger(quantity) || quantity < 0
+    )
+  ) {
+    throw new Error("Billing quantities must be non-negative integers");
+  }
+  const { clerkEventAt, ...confirmed } = confirmation;
+  await ctx.db.patch(projection._id, {
+    ...confirmed,
+    plan: relayPlanForClerkId(confirmation.clerkPlanId),
+    lastClerkEventAt: clerkEventAt,
+    reconciliationState: "synced",
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 function storageQuotaBytes(
@@ -345,33 +395,35 @@ export const confirm = internalMutation({
   handler: async (ctx, args) => {
     const projection = await projectionForWorkspace(ctx, args.workspaceId);
     if (!projection) throw new Error("Workspace subscription missing");
-    if (
-      projection.lastClerkEventAt &&
-      projection.lastClerkEventAt > args.clerkEventAt
-    ) {
-      return null;
-    }
-    const plan = relayPlanForClerkId(args.clerkPlanId);
-    const quantities = [
-      args.confirmedEditorQuantity,
-      args.includedEditorSeatQuantity,
-      args.purchasedExtraEditorSeatQuantity,
-      args.storageAddonQuantity,
-    ];
-    if (
-      quantities.some(
-        (quantity) => !Number.isSafeInteger(quantity) || quantity < 0
-      )
-    )
-      throw new Error("Billing quantities must be non-negative integers");
-    const { clerkEventAt, ...confirmed } = args;
-    await ctx.db.patch(projection._id, {
-      ...confirmed,
-      plan,
-      lastClerkEventAt: clerkEventAt,
-      reconciliationState: "synced",
-      updatedAt: new Date().toISOString(),
-    });
+    const { workspaceId: _, ...confirmation } = args;
+    await confirmProjection(ctx, projection, confirmation);
+    return null;
+  },
+});
+
+export const confirmForClerkUser = internalMutation({
+  args: {
+    clerkUserId: v.string(),
+    clerkSubscriptionId: v.optional(v.string()),
+    clerkPlanId: v.string(),
+    billingPeriod: billingPeriodValidator,
+    subscriptionStatus: subscriptionStatusValidator,
+    trialStartsAt: v.optional(v.string()),
+    trialEndsAt: v.optional(v.string()),
+    confirmedEditorQuantity: v.number(),
+    includedEditorSeatQuantity: v.number(),
+    purchasedExtraEditorSeatQuantity: v.number(),
+    storageAddonQuantity: v.number(),
+    clerkEventAt: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const projection = await ctx.db
+      .query("workspaceSubscriptions")
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .unique();
+    if (!projection) throw new Error("Clerk user subscription missing");
+    await confirmProjection(ctx, projection, args);
     return null;
   },
 });

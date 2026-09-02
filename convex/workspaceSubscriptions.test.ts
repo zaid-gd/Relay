@@ -74,6 +74,34 @@ describe("Workspace subscription authority", () => {
     });
   });
 
+  test("Clerk User billing events update the linked Workspace", async () => {
+    const t = convexTest(schema, modules);
+    const owner = asUser(t, "owner");
+
+    await owner.mutation(api.team.createWorkspace, { name: "Owner Workspace" });
+    await t.mutation(internal.workspaceSubscriptions.confirmForClerkUser, {
+      clerkUserId: "owner",
+      clerkSubscriptionId: "sub_owner",
+      clerkPlanId: "team_plan",
+      billingPeriod: "annual",
+      subscriptionStatus: "active",
+      confirmedEditorQuantity: 1,
+      includedEditorSeatQuantity: 1,
+      purchasedExtraEditorSeatQuantity: 0,
+      storageAddonQuantity: 0,
+      clerkEventAt: "2026-09-02T00:00:00.000Z",
+    });
+
+    await expect(
+      owner.query(api.workspaceSubscriptions.getCurrent, {})
+    ).resolves.toMatchObject({
+      plan: "team",
+      billingPeriod: "annual",
+      subscriptionStatus: "active",
+      reconciliationState: "synced",
+    });
+  });
+
   test("Free blocks Team invitations and Team allows them", async () => {
     const t = convexTest(schema, modules);
     const owner = asUser(t, "owner");
