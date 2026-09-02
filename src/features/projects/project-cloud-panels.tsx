@@ -62,6 +62,7 @@ import {
   useProjectCommentsAdapter,
   useProjectFilesAdapter,
   type ProjectFileId,
+  type WorkspaceStorageReservationId,
 } from "./project-cloud-adapter";
 import type {
   ProjectActivityEvent,
@@ -211,6 +212,7 @@ export function ProjectFileManager({
     files: fileData,
     generateUploadUrl,
     saveStorageVersion,
+    releaseUploadReservation,
     createR2UploadUrl,
     completeR2Upload,
     createR2DownloadUrl,
@@ -243,6 +245,9 @@ export function ProjectFileManager({
     R2_STORAGE_ENABLED &&
     process.env.NEXT_PUBLIC_FILE_STORAGE_PROVIDER === "r2";
   const canUploadFiles = subscription?.capabilities.fileUploads ?? false;
+  const hasUploadCapacity =
+    canUploadFiles &&
+    (!fileData || fileData.retainedBytes < fileData.workspaceLimitBytes);
 
   useEffect(() => {
     if (!fileData) return;
@@ -308,6 +313,7 @@ export function ProjectFileManager({
       return;
     }
     const controller = new AbortController();
+    let reservationId: WorkspaceStorageReservationId | undefined;
     uploadControllerRef.current = controller;
     setBusy("save");
     setError("");
@@ -341,7 +347,9 @@ export function ProjectFileManager({
           projectFileId: targetFileId,
           fileName: browserFile.name,
           mimeType,
+          size: browserFile.size,
         });
+        reservationId = upload.reservationId;
         const response = await fetch(upload.url, {
           method: "PUT",
           headers: { "Content-Type": mimeType },
@@ -352,12 +360,18 @@ export function ProjectFileManager({
         await completeR2Upload({
           ...shared,
           sessionId: upload.sessionId,
+          reservationId: upload.reservationId,
           fileName: browserFile.name,
           mimeType,
         });
+        reservationId = undefined;
       } else {
-        const uploadUrl = await generateUploadUrl({ projectId: project.id });
-        const response = await fetch(uploadUrl, {
+        const upload = await generateUploadUrl({
+          projectId: project.id,
+          size: browserFile.size,
+        });
+        reservationId = upload.reservationId;
+        const response = await fetch(upload.url, {
           method: "POST",
           headers: { "Content-Type": mimeType },
           body: browserFile,
@@ -368,13 +382,18 @@ export function ProjectFileManager({
         await saveStorageVersion({
           ...shared,
           storageId,
+          reservationId: upload.reservationId,
           fileName: browserFile.name,
           mimeType,
         });
+        reservationId = undefined;
       }
       setDialogOpen(false);
       resetForm();
     } catch (caught) {
+      if (reservationId) {
+        await releaseUploadReservation({ reservationId }).catch(() => null);
+      }
       if (controller.signal.aborted) return;
       setError(
         caught instanceof Error ? caught.message : "Could not save this file."
@@ -491,7 +510,7 @@ export function ProjectFileManager({
               Deliverables, references, assets, uploads, and every saved version
               in one project model.
             </p>
-            {fileData?.workspaceLimitBytes ? (
+            {fileData ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatFileSize(fileData.retainedBytes)} retained of{" "}
                 {formatFileSize(fileData.workspaceLimitBytes)}. Archived files
@@ -499,7 +518,7 @@ export function ProjectFileManager({
               </p>
             ) : null}
           </div>
-          {canEdit && isConvexAuthenticated && canUploadFiles ? (
+          {canEdit && isConvexAuthenticated && hasUploadCapacity ? (
             <div className="flex flex-wrap gap-2">
               <OwnedButton type="button" onClick={openNewFile}>
                 <Upload aria-hidden="true" />
@@ -508,7 +527,9 @@ export function ProjectFileManager({
             </div>
           ) : canEdit && isConvexAuthenticated ? (
             <OwnedButton asChild variant="outline">
-              <Link href="/subscription">Upgrade to upload files</Link>
+              <Link href="/subscription">
+                {canUploadFiles ? "Upgrade storage" : "Upgrade to upload files"}
+              </Link>
             </OwnedButton>
           ) : null}
         </div>
@@ -751,7 +772,7 @@ export function ProjectFileManager({
                               </div>
                             ))}
                           </div>
-                          {canEdit && canUploadFiles ? (
+                          {canEdit && hasUploadCapacity ? (
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                               <OwnedButton
                                 type="button"
@@ -1038,11 +1059,10 @@ export function ProjectFileManager({
 
 function formatFileSize(bytes: number) {
   if (!bytes) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes < 1_000) return `${bytes} B`;
+  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+  if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
 }
 
 function providerLabel(provider: string) {

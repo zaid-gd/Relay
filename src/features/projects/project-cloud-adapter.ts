@@ -6,6 +6,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export type ProjectFileId = Id<"projectFiles">;
 export type ProjectStorageId = Id<"_storage">;
+export type WorkspaceStorageReservationId = Id<"workspaceStorageReservations">;
 
 export function parseProjectStorageId(value: unknown): ProjectStorageId {
   if (
@@ -44,6 +45,9 @@ export function useProjectFilesAdapter(
     files,
     generateUploadUrl: useMutation(api.projectFiles.generateUploadUrl),
     saveStorageVersion: useMutation(api.projectFiles.saveStorageVersion),
+    releaseUploadReservation: useMutation(
+      api.projectFiles.releaseUploadReservation
+    ),
     createR2UploadUrl: useAction(api.r2.createUploadUrl),
     completeR2Upload: useAction(api.r2.completeUpload),
     createR2DownloadUrl: useAction(api.r2.createDownloadUrl),

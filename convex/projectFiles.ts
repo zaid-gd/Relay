@@ -29,15 +29,15 @@ import type {
   TeamActivityKind,
 } from "../src/lib/domain-values";
 import {
-  requireCurrentWorkspaceCapability,
   requireWorkspaceCapability,
+  resolveWorkspaceEntitlements,
 } from "./workspaceSubscriptions";
 
 const MAX_PROJECT_FILES = 100;
 const MAX_PROJECT_VERSIONS = 500;
 const MAX_VERSIONS_PER_FILE = 20;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
-const MAX_WORKSPACE_BYTES = 200 * 1024 * 1024;
+const UPLOAD_RESERVATION_MS = 15 * 60 * 1000;
 type FileActivityKind = ProjectActivityKind & TeamActivityKind;
 
 type ProjectRecord = Pick<
@@ -90,17 +90,37 @@ async function requireFileUploadCapability(
   identity: Awaited<ReturnType<typeof requireIdentity>>,
   project: ProjectRecord
 ) {
-  const workspaceId = project.teamId
-    ? ctx.db.normalizeId("teamWorkspaces", project.teamId)
-    : null;
-  if (workspaceId) {
-    return await requireWorkspaceCapability(ctx, workspaceId, "fileUploads");
-  }
-  return await requireCurrentWorkspaceCapability(
+  const workspaceId = await workspaceIdForProject(ctx, project);
+  const entitlement = await requireWorkspaceCapability(
     ctx,
-    identity.tokenIdentifier,
+    workspaceId,
     "fileUploads"
   );
+  return { entitlement, workspaceId };
+}
+
+async function workspaceIdForProject(
+  ctx: QueryCtx | MutationCtx,
+  project: ProjectRecord
+) {
+  if (project.teamId) {
+    const workspaceId = ctx.db.normalizeId("teamWorkspaces", project.teamId);
+    if (workspaceId) return workspaceId;
+  }
+  const memberships = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_userId_and_status", (q) =>
+      q.eq("userId", project.ownerUserId).eq("status", "active")
+    )
+    .take(2);
+  if (memberships.length !== 1)
+    throw new Error("Select one Workspace before using hosted storage");
+  const workspaceId = ctx.db.normalizeId(
+    "teamWorkspaces",
+    memberships[0].teamId
+  );
+  if (!workspaceId) throw new Error("Workspace not found");
+  return workspaceId;
 }
 
 function actorName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
@@ -161,47 +181,99 @@ async function validateProjectOutput(
   }
 }
 
-async function workspaceUsage(
-  ctx: QueryCtx | MutationCtx,
-  project: ProjectRecord
-) {
-  const projects = project.teamId
-    ? await ctx.db
-        .query("projects")
-        .withIndex("by_teamId", (q) => q.eq("teamId", project.teamId))
-        .take(500)
-    : await ctx.db
-        .query("projects")
-        .withIndex("by_ownerUserId_and_teamId", (q) =>
-          q.eq("ownerUserId", project.ownerUserId).eq("teamId", undefined)
-        )
-        .take(500);
-  let total = 0;
-  for (const candidate of projects) {
-    const versions = await ctx.db
-      .query("projectFileVersions")
-      .withIndex("by_projectId_and_uploadedAt", (q) =>
-        q.eq("projectId", candidate.id)
-      )
-      .take(MAX_PROJECT_VERSIONS);
-    total += versions.reduce((sum, version) => sum + version.size, 0);
-  }
-  return total;
-}
-
-async function requireWorkspaceCapacity(
-  ctx: QueryCtx | MutationCtx,
+async function reserveWorkspaceCapacity(
+  ctx: MutationCtx,
   project: ProjectRecord,
-  incomingBytes = 0
+  uploaderUserId: string,
+  bytes: number
 ) {
-  if (
-    (await workspaceUsage(ctx, project)) + incomingBytes >
-    MAX_WORKSPACE_BYTES
-  ) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > MAX_FILE_BYTES)
+    throw new Error("Files must be 20 MB or smaller");
+  const workspaceId = await workspaceIdForProject(ctx, project);
+  const subscription = await ctx.db
+    .query("workspaceSubscriptions")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .unique();
+  if (!subscription) throw new Error("Workspace subscription missing");
+  const entitlement = await requireWorkspaceCapability(
+    ctx,
+    workspaceId,
+    "fileUploads"
+  );
+  const retainedBytes = subscription.retainedStorageBytes ?? 0;
+  const reservedBytes = subscription.reservedStorageBytes ?? 0;
+  if (retainedBytes + reservedBytes + bytes > entitlement.storageQuotaBytes) {
     throw new Error(
       "Workspace storage limit reached. Permanently delete archived files before uploading more."
     );
   }
+  const expiresAt = Date.now() + UPLOAD_RESERVATION_MS;
+  const reservationId = await ctx.db.insert("workspaceStorageReservations", {
+    workspaceId,
+    projectId: project.id,
+    uploaderUserId,
+    bytes,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    expiresAt,
+  });
+  await ctx.db.patch(subscription._id, {
+    reservedStorageBytes: reservedBytes + bytes,
+    updatedAt: new Date().toISOString(),
+  });
+  await ctx.scheduler.runAt(
+    expiresAt,
+    internal.projectFiles.releaseExpiredReservation,
+    { reservationId }
+  );
+  return reservationId;
+}
+
+async function commitStorageReservation(
+  ctx: MutationCtx,
+  reservationId: Id<"workspaceStorageReservations">,
+  project: ProjectRecord,
+  uploaderUserId: string,
+  retainedBytes: number
+) {
+  const reservation = await ctx.db.get(reservationId);
+  if (
+    !reservation ||
+    reservation.status !== "pending" ||
+    reservation.projectId !== project.id ||
+    reservation.uploaderUserId !== uploaderUserId
+  ) {
+    throw new Error("Upload reservation not found");
+  }
+  if (reservation.expiresAt <= Date.now())
+    throw new Error("Upload reservation expired");
+  const subscription = await ctx.db
+    .query("workspaceSubscriptions")
+    .withIndex("by_workspaceId", (q) =>
+      q.eq("workspaceId", reservation.workspaceId)
+    )
+    .unique();
+  if (!subscription) throw new Error("Workspace subscription missing");
+  const additionalBytes = Math.max(0, retainedBytes - reservation.bytes);
+  const entitlement = await requireWorkspaceCapability(
+    ctx,
+    reservation.workspaceId,
+    "fileUploads"
+  );
+  const currentRetainedBytes = subscription.retainedStorageBytes ?? 0;
+  const currentReservedBytes = subscription.reservedStorageBytes ?? 0;
+  if (
+    currentRetainedBytes + currentReservedBytes + additionalBytes >
+    entitlement.storageQuotaBytes
+  ) {
+    throw new Error("Uploaded file exceeds the reserved storage capacity");
+  }
+  await ctx.db.patch(subscription._id, {
+    retainedStorageBytes: currentRetainedBytes + retainedBytes,
+    reservedStorageBytes: Math.max(0, currentReservedBytes - reservation.bytes),
+    updatedAt: new Date().toISOString(),
+  });
+  await ctx.db.patch(reservationId, { status: "committed" });
 }
 
 async function requireEditableFile(
@@ -292,11 +364,6 @@ async function insertVersion(
   const now = new Date().toISOString();
   validateSafeFile(args.fileName, args.mimeType, args.size, args.provider);
   await validateProjectOutput(ctx, args.project.id, args.projectOutputId);
-  await requireWorkspaceCapacity(
-    ctx,
-    args.project,
-    Math.max(0, Math.floor(args.size))
-  );
   const projectVersions = await ctx.db
     .query("projectFileVersions")
     .withIndex("by_projectId_and_uploadedAt", (q) =>
@@ -459,9 +526,15 @@ export const listForProject = query({
         notes: version.notes,
       }))
     );
+    const workspaceId = await workspaceIdForProject(ctx, project);
+    const subscription = await ctx.db
+      .query("workspaceSubscriptions")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+      .unique();
+    const entitlement = await resolveWorkspaceEntitlements(ctx, workspaceId);
     return {
-      retainedBytes: await workspaceUsage(ctx, project),
-      workspaceLimitBytes: MAX_WORKSPACE_BYTES,
+      retainedBytes: subscription?.retainedStorageBytes ?? 0,
+      workspaceLimitBytes: entitlement.storageQuotaBytes,
       files: visibleFiles.map((file) => ({
         _id: file._id,
         category: file.category,
@@ -536,7 +609,7 @@ export const listForPortal = query({
 });
 
 export const generateUploadUrl = mutation({
-  args: { projectId: v.string() },
+  args: { projectId: v.string(), size: v.number() },
   handler: async (ctx, args) => {
     const { identity, project } = await requireProjectAccess(
       ctx,
@@ -544,8 +617,77 @@ export const generateUploadUrl = mutation({
       "editProjects"
     );
     await requireFileUploadCapability(ctx, identity, project);
-    await requireWorkspaceCapacity(ctx, project);
-    return await ctx.storage.generateUploadUrl();
+    const reservationId = await reserveWorkspaceCapacity(
+      ctx,
+      project,
+      identity.tokenIdentifier,
+      args.size
+    );
+    return {
+      reservationId,
+      url: await ctx.storage.generateUploadUrl(),
+    };
+  },
+});
+
+export const releaseExpiredReservation = internalMutation({
+  args: { reservationId: v.id("workspaceStorageReservations") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const reservation = await ctx.db.get(args.reservationId);
+    if (
+      !reservation ||
+      reservation.status !== "pending" ||
+      reservation.expiresAt > Date.now()
+    ) {
+      return null;
+    }
+    const subscription = await ctx.db
+      .query("workspaceSubscriptions")
+      .withIndex("by_workspaceId", (q) =>
+        q.eq("workspaceId", reservation.workspaceId)
+      )
+      .unique();
+    if (subscription) {
+      await ctx.db.patch(subscription._id, {
+        reservedStorageBytes: Math.max(
+          0,
+          (subscription.reservedStorageBytes ?? 0) - reservation.bytes
+        ),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    await ctx.db.patch(args.reservationId, { status: "released" });
+    return null;
+  },
+});
+
+export const releaseUploadReservation = mutation({
+  args: { reservationId: v.id("workspaceStorageReservations") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const reservation = await ctx.db.get(args.reservationId);
+    if (!reservation || reservation.uploaderUserId !== identity.tokenIdentifier)
+      throw new Error("Upload reservation not found");
+    if (reservation.status !== "pending") return null;
+    const subscription = await ctx.db
+      .query("workspaceSubscriptions")
+      .withIndex("by_workspaceId", (q) =>
+        q.eq("workspaceId", reservation.workspaceId)
+      )
+      .unique();
+    if (subscription) {
+      await ctx.db.patch(subscription._id, {
+        reservedStorageBytes: Math.max(
+          0,
+          (subscription.reservedStorageBytes ?? 0) - reservation.bytes
+        ),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    await ctx.db.patch(args.reservationId, { status: "released" });
+    return null;
   },
 });
 
@@ -554,6 +696,7 @@ export const createR2UploadSession = internalMutation({
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
     fileName: v.string(),
+    size: v.number(),
   },
   handler: async (ctx, args) => {
     const { identity, project } = await requireProjectAccess(
@@ -562,7 +705,12 @@ export const createR2UploadSession = internalMutation({
       "editProjects"
     );
     await requireFileUploadCapability(ctx, identity, project);
-    await requireWorkspaceCapacity(ctx, project);
+    const reservationId = await reserveWorkspaceCapacity(
+      ctx,
+      project,
+      identity.tokenIdentifier,
+      args.size
+    );
     const safeName =
       cleanText(args.fileName, 160).replace(/[^a-zA-Z0-9._-]+/g, "-") || "file";
     const key = `projects/${encodeURIComponent(project.id)}/files/${crypto.randomUUID()}-${safeName}`;
@@ -577,7 +725,7 @@ export const createR2UploadSession = internalMutation({
       createdAt: now,
       expiresAt,
     });
-    return { sessionId, key, expiresAt };
+    return { sessionId, reservationId, key, expiresAt };
   },
 });
 
@@ -609,6 +757,7 @@ export const getR2DownloadTarget = internalQuery({
 export const finalizeR2Upload = internalMutation({
   args: {
     sessionId: v.id("r2UploadSessions"),
+    reservationId: v.id("workspaceStorageReservations"),
     projectId: v.string(),
     projectFileId: v.optional(v.id("projectFiles")),
     projectOutputId: v.optional(v.id("projectOutputs")),
@@ -667,6 +816,13 @@ export const finalizeR2Upload = internalMutation({
       size: args.size,
       notes: args.notes,
     });
+    await commitStorageReservation(
+      ctx,
+      args.reservationId,
+      project,
+      identity.tokenIdentifier,
+      Math.max(0, Math.floor(args.size))
+    );
     await ctx.db.patch(args.sessionId, { status: "completed" });
     return fileId;
   },
@@ -678,6 +834,7 @@ export const saveStorageVersion = mutation({
     projectFileId: v.optional(v.id("projectFiles")),
     projectOutputId: v.optional(v.id("projectOutputs")),
     storageId: v.id("_storage"),
+    reservationId: v.id("workspaceStorageReservations"),
     category: fileCategoryValidator,
     title: v.string(),
     description: v.string(),
@@ -697,7 +854,7 @@ export const saveStorageVersion = mutation({
     await requireFileUploadCapability(ctx, identity, project);
     const metadata = await ctx.db.system.get(args.storageId);
     if (!metadata) throw new Error("Uploaded file not found");
-    return await insertVersion(ctx, {
+    const fileId = await insertVersion(ctx, {
       ...args,
       project,
       identity,
@@ -706,6 +863,14 @@ export const saveStorageVersion = mutation({
       mimeType:
         args.mimeType || metadata.contentType || "application/octet-stream",
     });
+    await commitStorageReservation(
+      ctx,
+      args.reservationId,
+      project,
+      identity.tokenIdentifier,
+      metadata.size
+    );
+    return fileId;
   },
 });
 
@@ -863,6 +1028,26 @@ export const removeFile = mutation({
         q.eq("projectFileId", args.fileId)
       )
       .take(MAX_VERSIONS_PER_FILE);
+    const retainedBytes = versions.reduce(
+      (total, version) =>
+        total + (version.storageId || version.r2Key ? version.size : 0),
+      0
+    );
+    if (retainedBytes > 0) {
+      const workspaceId = await workspaceIdForProject(ctx, project);
+      const subscription = await ctx.db
+        .query("workspaceSubscriptions")
+        .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+        .unique();
+      if (!subscription) throw new Error("Workspace subscription missing");
+      await ctx.db.patch(subscription._id, {
+        retainedStorageBytes: Math.max(
+          0,
+          (subscription.retainedStorageBytes ?? 0) - retainedBytes
+        ),
+        updatedAt: new Date().toISOString(),
+      });
+    }
     await Promise.all(
       versions.map(async (version) => {
         if (version.storageId) await ctx.storage.delete(version.storageId);

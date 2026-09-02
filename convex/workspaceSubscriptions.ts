@@ -14,7 +14,9 @@ import {
   subscriptionStatusValidator,
 } from "./domainValidators";
 
-const GIB = 1024 ** 3;
+export const FREE_STORAGE_QUOTA_BYTES = 0;
+export const CREATOR_STORAGE_QUOTA_BYTES = 5_000_000_000;
+export const TEAM_BASE_STORAGE_QUOTA_BYTES = 15_000_000_000;
 
 const capabilityValidator = v.object({
   fileUploads: v.boolean(),
@@ -189,9 +191,16 @@ function storageQuotaBytes(
   projection: SubscriptionProjection,
   plan: SubscriptionPlan
 ) {
-  const base = plan === "creator" ? 5 * GIB : plan === "team" ? 15 * GIB : 0;
+  const base =
+    plan === "creator"
+      ? CREATOR_STORAGE_QUOTA_BYTES
+      : plan === "team"
+        ? TEAM_BASE_STORAGE_QUOTA_BYTES
+        : FREE_STORAGE_QUOTA_BYTES;
   const editorSeatStorage =
-    plan === "team" ? projection.purchasedExtraEditorSeatQuantity * 2 * GIB : 0;
+    plan === "team"
+      ? projection.purchasedExtraEditorSeatQuantity * 2_000_000_000
+      : 0;
   // Storage Add-ons remain disabled until ticket 08 records cost approval.
   return base + editorSeatStorage;
 }
@@ -258,17 +267,24 @@ export async function requireWorkspaceCapability(
   workspaceId: Id<"teamWorkspaces">,
   capability: WorkspaceCapability
 ) {
+  const resolved = await resolveWorkspaceEntitlements(ctx, workspaceId);
+  if (!resolved.capabilities[capability]) {
+    throw new Error(capabilityErrors[capability]);
+  }
+  return resolved;
+}
+
+export async function resolveWorkspaceEntitlements(
+  ctx: QueryCtx | MutationCtx,
+  workspaceId: Id<"teamWorkspaces">
+) {
   const projection = await projectionForWorkspace(ctx, workspaceId);
-  const resolved = entitlements(
+  return entitlements(
     projection ?? {
       ...pendingFreeProjection(workspaceId),
       reconciliationState: "repair",
     }
   );
-  if (!resolved.capabilities[capability]) {
-    throw new Error(capabilityErrors[capability]);
-  }
-  return resolved;
 }
 
 export async function requireCurrentWorkspaceCapability(

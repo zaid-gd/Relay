@@ -366,6 +366,20 @@ export default defineSchema({
     expiresAt: v.number(),
   }),
 
+  workspaceStorageReservations: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    projectId: v.string(),
+    uploaderUserId: v.string(),
+    bytes: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("committed"),
+      v.literal("released")
+    ),
+    createdAt: v.string(),
+    expiresAt: v.number(),
+  }).index("by_workspaceId_and_status", ["workspaceId", "status"]),
+
   teamWorkspaces: defineTable({
     ownerUserId: v.string(),
     name: v.string(),
@@ -394,6 +408,8 @@ export default defineSchema({
     includedEditorSeatQuantity: v.number(),
     purchasedExtraEditorSeatQuantity: v.number(),
     storageAddonQuantity: v.number(),
+    retainedStorageBytes: v.optional(v.number()),
+    reservedStorageBytes: v.optional(v.number()),
     lastClerkEventAt: v.optional(v.string()),
     reconciliationState: reconciliationStateValidator,
     updatedAt: v.string(),
