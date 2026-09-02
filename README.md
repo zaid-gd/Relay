@@ -138,8 +138,8 @@ Create two Workers Builds projects from this repository:
 
 | Worker            | Root directory | Build command                           | Deploy command              |
 | ----------------- | -------------- | --------------------------------------- | --------------------------- |
-| `relay-web`       | `/`            | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
-| `relay-marketing` | `/website`     | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+| `relay`     | `/`        | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
+| `relay-web` | `/website` | `pnpm exec opennextjs-cloudflare build` | `pnpm exec wrangler deploy` |
 
 Set these in the Worker environment:
 
