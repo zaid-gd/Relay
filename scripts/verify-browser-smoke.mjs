@@ -44,10 +44,9 @@ const routes = [
     label: "reports",
     expectedText: [
       "Reports",
-      "Invoice drafts",
-      "Salary Batch Ledger",
-      "Editor Summary",
-      "Delivered Projects",
+      "Advanced reports",
+      "Creator or Team plan required.",
+      "View plans",
     ],
   },
   { path: "/settings", label: "settings", expectedText: ["Settings"] },
