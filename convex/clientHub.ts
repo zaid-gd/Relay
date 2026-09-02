@@ -1,8 +1,16 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { requireWorkspaceCapability } from "./workspaceSubscriptions";
+import {
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
+import {
+  requireWorkspaceCapability,
+  resolveWorkspaceEntitlements,
+} from "./workspaceSubscriptions";
 
-async function requireOwner(ctx: MutationCtx) {
+async function requireOwner(ctx: MutationCtx | QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
   const membership = await ctx.db
@@ -18,6 +26,79 @@ async function requireOwner(ctx: MutationCtx) {
   await requireWorkspaceCapability(ctx, workspaceId, "clientHub");
   return { identity, workspaceId };
 }
+
+export const getOwnerSettings = query({
+  args: { projectId: v.optional(v.string()) },
+  returns: v.object({
+    available: v.boolean(),
+    published: v.boolean(),
+    brandName: v.string(),
+    accentColor: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const membership = identity
+      ? await ctx.db
+          .query("teamMembers")
+          .withIndex("by_userId_and_status", (q) =>
+            q.eq("userId", identity.tokenIdentifier).eq("status", "active")
+          )
+          .unique()
+      : null;
+    const workspaceId = membership
+      ? ctx.db.normalizeId("teamWorkspaces", membership.teamId)
+      : null;
+    if (!workspaceId || membership?.role !== "Owner")
+      return {
+        available: false,
+        published: false,
+        brandName: "Relay",
+        accentColor: "#f59e0b",
+      };
+    const access = await resolveWorkspaceEntitlements(ctx, workspaceId);
+    if (!access.capabilities.clientHub)
+      return {
+        available: false,
+        published: false,
+        brandName: "Relay",
+        accentColor: "#f59e0b",
+      };
+    const workspace = await ctx.db.get(workspaceId);
+    const publication = args.projectId
+      ? await ctx.db
+          .query("clientHubProjects")
+          .withIndex("by_workspaceId_and_projectId", (q) =>
+            q.eq("workspaceId", workspaceId).eq("projectId", args.projectId!)
+          )
+          .unique()
+      : null;
+    return {
+      available: true,
+      published: Boolean(publication),
+      brandName: workspace?.portalBrandName ?? "Relay",
+      accentColor: workspace?.portalAccentColor ?? "#f59e0b",
+    };
+  },
+});
+
+export const setBranding = mutation({
+  args: { brandName: v.string(), accentColor: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { workspaceId } = await requireOwner(ctx);
+    await requireWorkspaceCapability(ctx, workspaceId, "customPortalBranding");
+    const brandName = args.brandName.trim().slice(0, 80);
+    const accentColor = args.accentColor.trim().toLowerCase();
+    if (!brandName) throw new Error("Brand name is required");
+    if (!/^#[0-9a-f]{6}$/.test(accentColor))
+      throw new Error("Use a six-digit hex color");
+    await ctx.db.patch(workspaceId, {
+      portalBrandName: brandName,
+      portalAccentColor: accentColor,
+    });
+    return null;
+  },
+});
 
 export const addContact = mutation({
   args: { clientId: v.string(), email: v.string(), name: v.string() },
@@ -111,6 +192,11 @@ export const getMine = query({
       .take(20);
     const projects = [];
     for (const contact of contacts) {
+      const access = await resolveWorkspaceEntitlements(
+        ctx,
+        contact.workspaceId
+      );
+      if (!access.capabilities.clientHub) continue;
       const publications = await ctx.db
         .query("clientHubProjects")
         .withIndex("by_workspaceId_and_clientId", (q) =>

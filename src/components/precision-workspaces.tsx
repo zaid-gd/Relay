@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import {
   Area,
   AreaChart,
@@ -186,6 +188,10 @@ export function PrecisionClients({
   const [newNotes, setNewNotes] = useState("");
   const [copiedName, setCopiedName] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [hubContactName, setHubContactName] = useState("");
+  const [hubContactEmail, setHubContactEmail] = useState("");
+  const [hubMessage, setHubMessage] = useState("");
+  const addHubContact = useMutation(api.clientHub.addContact);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const reduceMotion = useHydratedReducedMotion();
 
@@ -295,6 +301,24 @@ export function PrecisionClients({
       setCopiedName(name);
     } catch {
       setCopiedName("");
+    }
+  }
+
+  async function grantHubAccess(clientId: string) {
+    setHubMessage("");
+    try {
+      await addHubContact({
+        clientId,
+        name: hubContactName,
+        email: hubContactEmail,
+      });
+      setHubContactName("");
+      setHubContactEmail("");
+      setHubMessage("Client Hub access added.");
+    } catch (error) {
+      setHubMessage(
+        error instanceof Error ? error.message : "Could not add access."
+      );
     }
   }
 
@@ -547,6 +571,35 @@ export function PrecisionClients({
                           ))}
                       </dl>
                     ) : null}
+                    <div className="grid gap-3 border-b border-[var(--app-border)] p-5 sm:grid-cols-[1fr_1fr_auto]">
+                      <Input
+                        value={hubContactName}
+                        onChange={(event) =>
+                          setHubContactName(event.target.value)
+                        }
+                        placeholder="Contact name"
+                        aria-label="Client Hub contact name"
+                      />
+                      <Input
+                        type="email"
+                        value={hubContactEmail}
+                        onChange={(event) =>
+                          setHubContactEmail(event.target.value)
+                        }
+                        placeholder="contact@example.com"
+                        aria-label="Client Hub contact email"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void grantHubAccess(selected.id)}
+                      >
+                        Add Hub access
+                      </Button>
+                      {hubMessage ? (
+                        <p className="text-xs sm:col-span-3">{hubMessage}</p>
+                      ) : null}
+                    </div>
                     <section
                       className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5"
                       tabIndex={0}

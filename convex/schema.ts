@@ -409,6 +409,8 @@ export default defineSchema({
     currencyCode: v.optional(v.string()),
     timeZone: v.optional(v.string()),
     defaultWorkflowTemplateId: v.optional(v.string()),
+    portalBrandName: v.optional(v.string()),
+    portalAccentColor: v.optional(v.string()),
   })
     .index("by_ownerUserId", ["ownerUserId"])
     .index("by_inviteCode", ["inviteCode"]),
