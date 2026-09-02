@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as clientHub from "../clientHub.js";
 import type * as clientPortals from "../clientPortals.js";
 import type * as domainValidators from "../domainValidators.js";
 import type * as http from "../http.js";
@@ -36,6 +37,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  clientHub: typeof clientHub;
   clientPortals: typeof clientPortals;
   domainValidators: typeof domainValidators;
   http: typeof http;

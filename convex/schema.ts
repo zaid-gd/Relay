@@ -380,6 +380,26 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_workspaceId_and_status", ["workspaceId", "status"]),
 
+  clientContacts: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clientId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    active: v.boolean(),
+    createdAt: v.string(),
+  })
+    .index("by_workspaceId_and_clientId", ["workspaceId", "clientId"])
+    .index("by_email_and_active", ["email", "active"]),
+
+  clientHubProjects: defineTable({
+    workspaceId: v.id("teamWorkspaces"),
+    clientId: v.string(),
+    projectId: v.string(),
+    publishedAt: v.string(),
+  })
+    .index("by_workspaceId_and_projectId", ["workspaceId", "projectId"])
+    .index("by_workspaceId_and_clientId", ["workspaceId", "clientId"]),
+
   teamWorkspaces: defineTable({
     ownerUserId: v.string(),
     name: v.string(),
