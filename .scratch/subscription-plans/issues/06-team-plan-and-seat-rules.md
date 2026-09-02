@@ -11,10 +11,10 @@
 - [x] Owners and Editors consume editing seats in Convex.
 - [x] Pending Editor invitations reserve seats until accepted, revoked, or expired.
 - [x] Viewers authenticate with Clerk and receive Convex Workspace access without consuming editing seats.
-- [ ] Viewer invitations, removals, and access do not change the Editor quantity.
+- [x] Viewer invitations, removals, and access do not change the Editor quantity.
 - [x] Team unlocks roles, Project assignments, payouts, and workload reports through server-side entitlements.
 - [x] The fixed three-record Workspace cap no longer limits Viewers or confirmed Editors.
-- [ ] Tests cover Owner, Editor, Viewer, pending invitation, promotion, demotion, removal, and Workspace isolation.
+- [x] Tests cover Owner, Editor, Viewer, pending invitation, promotion, demotion, removal, and Workspace isolation.
 - [ ] Type checking, Team tests, and focused browser checks pass.
 
-The backend seat rules are in place. Checkout, Clerk configuration, full role coverage, and browser checks remain paused.
+The backend seat rules and role coverage are in place. Checkout, Clerk configuration, and browser checks remain paused.
