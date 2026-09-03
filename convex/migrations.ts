@@ -8,14 +8,18 @@ export const migrations = new Migrations(components.migrations, {
   internalMutation,
 });
 
-// Clerk tokenIdentifier includes the Clerk issuer. Production moved from the
-// relay-dev site to relay-app, so existing rows need their issuer rewritten.
+// Clerk tokenIdentifier includes the Clerk issuer. Existing rows were written
+// with subject alone, and some older rows may contain the previous issuer.
 export const LEGACY_TOKEN_PREFIX = "https://relay-dev.cc.cd|";
-export const CURRENT_TOKEN_PREFIX = "https://relay-app.cc.cd|";
+export const LEGACY_SUBJECT_PREFIX = "user_";
+export const CURRENT_TOKEN_PREFIX = "https://clerk.relay-app.cc.cd|";
 
 export function rewriteLegacyIdentity(value: string): string {
-  return value.startsWith(LEGACY_TOKEN_PREFIX)
-    ? CURRENT_TOKEN_PREFIX + value.slice(LEGACY_TOKEN_PREFIX.length)
+  if (value.startsWith(LEGACY_TOKEN_PREFIX)) {
+    return CURRENT_TOKEN_PREFIX + value.slice(LEGACY_TOKEN_PREFIX.length);
+  }
+  return value.startsWith(LEGACY_SUBJECT_PREFIX)
+    ? CURRENT_TOKEN_PREFIX + value
     : value;
 }
 

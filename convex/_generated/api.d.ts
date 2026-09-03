@@ -36,7 +36,6 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type { ComponentApi as MigrationsComponentApi } from "@convex-dev/migrations/_generated/component.js";
 
 declare const fullApi: ApiFromModules<{
   clientHub: typeof clientHub;
@@ -90,5 +89,5 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  migrations: MigrationsComponentApi<"migrations">;
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
 };
