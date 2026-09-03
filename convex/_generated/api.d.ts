@@ -13,6 +13,7 @@ import type * as clientPortals from "../clientPortals.js";
 import type * as domainValidators from "../domainValidators.js";
 import type * as http from "../http.js";
 import type * as mediaVersionComments from "../mediaVersionComments.js";
+import type * as migrations from "../migrations.js";
 import type * as projectActivity from "../projectActivity.js";
 import type * as projectFiles from "../projectFiles.js";
 import type * as projectGroups from "../projectGroups.js";
@@ -35,6 +36,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type { ComponentApi as MigrationsComponentApi } from "@convex-dev/migrations/_generated/component.js";
 
 declare const fullApi: ApiFromModules<{
   clientHub: typeof clientHub;
@@ -42,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   domainValidators: typeof domainValidators;
   http: typeof http;
   mediaVersionComments: typeof mediaVersionComments;
+  migrations: typeof migrations;
   projectActivity: typeof projectActivity;
   projectFiles: typeof projectFiles;
   projectGroups: typeof projectGroups;
@@ -86,4 +89,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  migrations: MigrationsComponentApi<"migrations">;
+};

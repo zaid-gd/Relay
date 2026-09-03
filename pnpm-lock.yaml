@@ -22,6 +22,9 @@ importers:
       "@clerk/nextjs":
         specifier: ^7.8.1
         version: 7.8.2(next@16.3.2(@playwright/test@1.62.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      "@convex-dev/migrations":
+        specifier: 0.3.6
+        version: 0.3.6(convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))
       "@dnd-kit/core":
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -782,6 +785,15 @@ packages:
     engines: { node: ">=16" }
     cpu: [x64]
     os: [win32]
+
+  "@convex-dev/migrations@0.3.6":
+    resolution:
+      {
+        integrity: sha512-cURYG4uy323MDi55QWNF5HAGemS4QspSgJ4uP+gGPAJdBLBbk2KFO7toFlKhacc1NinJQiG6+D/YEFyFyBS1/A==,
+      }
+    peerDependencies:
+      convex: ^1.42.0
+      convex-helpers: ^0.1.115
 
   "@cspotcode/source-map-support@0.8.1":
     resolution:
@@ -3943,6 +3955,31 @@ packages:
     peerDependencies:
       convex: ^1.32.0
 
+  convex-helpers@0.1.123:
+    resolution:
+      {
+        integrity: sha512-E9W4tscZy6ZtNnwPDdL5UhMc7Rj9aUYlzjdYiKsfVIAwdarABWqvPB8+St3Q6IwS83r+QIGSO1lTidTamDdyPQ==,
+      }
+    hasBin: true
+    peerDependencies:
+      "@standard-schema/spec": ^1.0.0
+      convex: ^1.43.0
+      hono: ^4.0.5
+      react: ^17.0.2 || ^18.0.0 || ^19.0.0
+      typescript: ^5.5 || ^6.0.0 || ^7.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      "@standard-schema/spec":
+        optional: true
+      hono:
+        optional: true
+      react:
+        optional: true
+      typescript:
+        optional: true
+      zod:
+        optional: true
+
   convex@1.45.0:
     resolution:
       {
@@ -7043,6 +7080,11 @@ snapshots:
       - react
       - react-dom
 
+  "@convex-dev/migrations@0.3.6(convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3))(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))":
+    dependencies:
+      convex: 1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
+      convex-helpers: 0.1.123(@standard-schema/spec@1.1.0)(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3)
+
   "@clerk/nextjs@7.8.2(next@16.3.2(@playwright/test@1.62.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)":
     dependencies:
       "@clerk/backend": 3.16.12(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -9081,6 +9123,15 @@ snapshots:
   convex-test@0.0.53(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)):
     dependencies:
       convex: 1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
+
+  convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3)(zod@4.4.3):
+    dependencies:
+      convex: 1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
+    optionalDependencies:
+      "@standard-schema/spec": 1.1.0
+      react: 19.2.8
+      typescript: 5.9.3
+      zod: 4.4.3
 
   convex@1.45.0(@clerk/react@6.14.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8):
     dependencies:
