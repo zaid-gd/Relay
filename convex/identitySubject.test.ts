@@ -8,7 +8,7 @@ const modules = import.meta.glob("./**/*.ts");
 
 test("account data uses the Clerk token identifier consistently", async () => {
   const t = convexTest(schema, modules);
-  const tokenIdentifier = "https://relay-app.cc.cd|user_stable";
+  const tokenIdentifier = "https://clerk.relay-app.cc.cd|user_stable";
   const subject = "user_stable";
   await t.run((ctx) =>
     ctx.db.insert("projects", {
