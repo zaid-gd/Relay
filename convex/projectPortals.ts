@@ -1,3 +1,4 @@
+import { requireProjectVisibility } from "./projectAccess";
 import { v } from "convex/values";
 import type { Id, Doc } from "./_generated/dataModel";
 import {
@@ -69,6 +70,7 @@ async function requireProjectAccess(
   if (membership?.status !== "active" || !permitted) {
     throw new Error("Permission denied");
   }
+  await requireProjectVisibility(ctx, project, membership);
   return { identity, project };
 }
 

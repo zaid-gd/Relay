@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -5282,7 +5283,8 @@ function SettingsDesignPage({
   teamWorkspace?: TeamWorkspaceContract;
   canManageWorkspace?: boolean;
 }) {
-  const { exportBackup, importBackup } = useData();
+  const { exportBackup, importBackup, settingsSaveState, retrySettingsSave } =
+    useData();
   const [optionalAnalytics, setOptionalAnalytics] = useState(
     () => getAnalyticsConsent() === "granted"
   );
@@ -5400,9 +5402,9 @@ function SettingsDesignPage({
   const settingsNavigation = [
     { id: "workspace" as const, label: "Workspace", icon: FolderKanban },
     { id: "workflow" as const, label: "Workflow", icon: History },
-    { id: "notifications" as const, label: "Notifications", icon: Bell },
     { id: "permissions" as const, label: "Permissions", icon: LockKeyhole },
     { id: "integrations" as const, label: "Integrations", icon: Plug },
+    { id: "notifications" as const, label: "Notifications", icon: Bell },
     { id: "appearance" as const, label: "Appearance", icon: Palette },
     { id: "regional" as const, label: "Regional", icon: Globe2 },
   ];
@@ -5491,8 +5493,8 @@ function SettingsDesignPage({
   function resetSettings() {
     setSettings({
       ...defaultSettings,
-      customClients: [...defaultSettings.customClients],
-      clients: defaultSettings.clients.map((client) => ({ ...client })),
+      customClients: settings.customClients,
+      clients: settings.clients,
       customProjectTemplates: defaultSettings.customProjectTemplates.map(
         (template) => ({
           ...template,
@@ -5565,17 +5567,24 @@ function SettingsDesignPage({
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             <span className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-medium text-[var(--app-muted)]">
-              <CircleCheckBig className="size-4 text-[var(--app-success)]" />
-              Saved automatically
+              {settingsSaveState === "saved" ? (
+                <CircleCheckBig className="size-4 text-[var(--app-success)]" />
+              ) : null}
+              <span role="status">
+                {settingsSaveState === "saving"
+                  ? "Saving..."
+                  : settingsSaveState === "error"
+                    ? "Save failed"
+                    : settingsSaveState === "local"
+                      ? "Saved on this device"
+                      : "Saved"}
+              </span>
             </span>
-            <OwnedButton
-              type="button"
-              variant="outline"
-              onClick={resetSettings}
-              className="text-destructive hover:text-destructive"
-            >
-              Reset
-            </OwnedButton>
+            {settingsSaveState === "error" ? (
+              <OwnedButton variant="outline" onClick={retrySettingsSave}>
+                Retry save
+              </OwnedButton>
+            ) : null}
           </div>
         }
       />
@@ -5623,27 +5632,42 @@ function SettingsDesignPage({
                 </div>
                 <div className="grid flex-1 content-start gap-1 overflow-y-auto p-2 overscroll-contain">
                   {settingsNavigation.map(({ id, label, icon: Icon }) => (
-                    <OwnedButton
-                      key={id}
-                      type="button"
-                      variant="ghost"
-                      aria-current={activeSection === id ? "page" : undefined}
-                      onClick={() => setActiveSection(id)}
-                      className={cn(
-                        "min-h-11 w-full justify-start gap-3 rounded-[6px] px-3 text-left text-xs font-medium",
-                        activeSection === id
-                          ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
-                          : "text-muted-foreground hover:bg-accent hover:text-primary"
-                      )}
-                    >
-                      <Icon className="size-4 shrink-0" aria-hidden="true" />
-                      {label}
-                    </OwnedButton>
+                    <Fragment key={id}>
+                      {id === "workspace" || id === "notifications" ? (
+                        <p className="px-3 pt-3 pb-1 text-xs font-semibold">
+                          {id === "workspace"
+                            ? "Workspace defaults"
+                            : "Personal preferences"}
+                        </p>
+                      ) : null}
+                      <OwnedButton
+                        key={id}
+                        type="button"
+                        variant="ghost"
+                        aria-current={activeSection === id ? "page" : undefined}
+                        onClick={() => setActiveSection(id)}
+                        className={cn(
+                          "min-h-11 w-full justify-start gap-3 rounded-[6px] px-3 text-left text-xs font-medium",
+                          activeSection === id
+                            ? "bg-[var(--app-active)] text-[var(--app-highlight)]"
+                            : "text-muted-foreground hover:bg-accent hover:text-primary"
+                        )}
+                      >
+                        <Icon className="size-4 shrink-0" aria-hidden="true" />
+                        {label}
+                      </OwnedButton>
+                    </Fragment>
                   ))}
                 </div>
-                <p className="border-t border-border p-4 text-[11px] leading-5 text-muted-foreground">
-                  Changes save automatically to the active workspace.
-                </p>
+                <div className="border-t border-border p-4">
+                  <OwnedButton
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={resetSettings}
+                  >
+                    Reset preferences
+                  </OwnedButton>
+                </div>
               </nav>
             }
             detail={

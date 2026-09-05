@@ -247,11 +247,11 @@ export function PrecisionClients({
     );
     for (const project of projects) {
       const name = project.client?.trim();
-      if (!name) continue;
+      if (!project.clientId && !name) continue;
       const entry =
         (project.clientId ? map.get(project.clientId) : undefined) ??
         [...map.values()].find(
-          ({ client }) => client.name.toLowerCase() === name.toLowerCase()
+          ({ client }) => client.name.toLowerCase() === name?.toLowerCase()
         );
       if (entry) entry.projects.push(project);
     }

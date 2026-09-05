@@ -1,3 +1,10 @@
+import {
+  clientValidator,
+  readWorkspaceClients,
+  saveWorkspaceClient,
+} from "./workspaceClients";
+import schema from "./schema";
+import { normalizeClientRecords } from "../src/lib/clients";
 import { type Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import {
@@ -14,17 +21,6 @@ const teamMemberSchema = v.object({
   name: v.string(),
   role: storedTeamRoleValidator,
   email: v.string(),
-});
-
-const clientValidator = v.object({
-  id: v.string(),
-  name: v.string(),
-  company: v.string(),
-  contactName: v.string(),
-  email: v.string(),
-  phone: v.string(),
-  notes: v.string(),
-  archived: v.boolean(),
 });
 
 const customProjectTemplateValidator = v.object({
@@ -114,17 +110,9 @@ function identityKeys(identity: {
   return [...new Set(keys)];
 }
 
-function clientRecordCount(settings: {
-  clients?: unknown[];
-  customClients?: string[];
-}) {
-  return (
-    (settings.clients?.length ?? 0) + (settings.customClients?.length ?? 0)
-  );
-}
-
 export const get = query({
   args: {},
+  returns: v.union(v.null(), schema.doc("settings")),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
@@ -140,70 +128,92 @@ export const get = query({
       )
     ).flat();
 
-    return (
+    const selected =
       rows.sort((a, b) => {
-        const clientDifference = clientRecordCount(b) - clientRecordCount(a);
-        if (clientDifference) return clientDifference;
         const aCanonical = a.userId === identity.tokenIdentifier ? 1 : 0;
         const bCanonical = b.userId === identity.tokenIdentifier ? 1 : 0;
         return bCanonical - aCanonical || b._creationTime - a._creationTime;
-      })[0] ?? null
+      })[0] ?? null;
+    if (!selected) return null;
+    const clients = await readWorkspaceClients(
+      ctx,
+      identity.tokenIdentifier,
+      normalizeClientRecords(selected.clients, selected.customClients)
     );
+    return {
+      ...selected,
+      clients,
+      customClients: clients
+        .filter((client) => !client.archived)
+        .map((client) => client.name),
+    };
   },
 });
 
+const settingsInputValidator = v.object({
+  studioName: v.string(),
+  profileName: v.string(),
+  profileUsername: v.string(),
+  profileTitle: v.string(),
+  profileBio: v.string(),
+  profileLocation: v.string(),
+  profileImageUrl: v.string(),
+  publicActiveProjects: v.optional(v.number()),
+  publicDeliveredEdits: v.optional(v.number()),
+  publicTurnaroundDays: v.optional(v.number()),
+  timeZone: v.string(),
+  dateFormat: v.string(),
+  weekStart: v.string(),
+  currencyCode: v.string(),
+  customClients: v.optional(v.array(v.string())),
+  clients: v.optional(v.array(clientValidator)),
+  customProjectTemplates: v.optional(v.array(customProjectTemplateValidator)),
+  projectTags: v.array(v.string()),
+  salaryWorkType: v.string(),
+  salaryBatchSize: v.number(),
+  salaryBatchAmount: v.number(),
+  projectStages: v.array(v.string()),
+  notifications: v.record(v.string(), v.boolean()),
+  integrationLinks: v.optional(integrationLinkValidator),
+  teamRole: settingsTeamRoleValidator,
+  teamMembers: v.array(teamMemberSchema),
+  rolePermissions: v.record(v.string(), v.record(v.string(), v.boolean())),
+  integrationConfigs: v.record(
+    v.string(),
+    v.object({
+      connected: v.boolean(),
+      account: v.string(),
+      folder: v.string(),
+      channel: v.string(),
+      workspace: v.string(),
+      webhookUrl: v.string(),
+      connectedAt: v.string(),
+      lastSyncAt: v.string(),
+    })
+  ),
+  theme: v.string(),
+  accentColor: v.string(),
+  density: v.string(),
+});
+
 export const upsert = mutation({
-  args: {
-    studioName: v.string(),
-    profileName: v.string(),
-    profileUsername: v.string(),
-    profileTitle: v.string(),
-    profileBio: v.string(),
-    profileLocation: v.string(),
-    profileImageUrl: v.string(),
-    publicActiveProjects: v.optional(v.number()),
-    publicDeliveredEdits: v.optional(v.number()),
-    publicTurnaroundDays: v.optional(v.number()),
-    timeZone: v.string(),
-    dateFormat: v.string(),
-    weekStart: v.string(),
-    currencyCode: v.string(),
-    customClients: v.optional(v.array(v.string())),
-    clients: v.optional(v.array(clientValidator)),
-    customProjectTemplates: v.optional(v.array(customProjectTemplateValidator)),
-    projectTags: v.array(v.string()),
-    salaryWorkType: v.string(),
-    salaryBatchSize: v.number(),
-    salaryBatchAmount: v.number(),
-    projectStages: v.array(v.string()),
-    notifications: v.record(v.string(), v.boolean()),
-    integrationLinks: v.optional(integrationLinkValidator),
-    teamRole: settingsTeamRoleValidator,
-    teamMembers: v.array(teamMemberSchema),
-    rolePermissions: v.record(v.string(), v.record(v.string(), v.boolean())),
-    integrationConfigs: v.record(
-      v.string(),
-      v.object({
-        connected: v.boolean(),
-        account: v.string(),
-        folder: v.string(),
-        channel: v.string(),
-        workspace: v.string(),
-        webhookUrl: v.string(),
-        connectedAt: v.string(),
-        lastSyncAt: v.string(),
-      })
-    ),
-    theme: v.string(),
-    accentColor: v.string(),
-    density: v.string(),
-  },
+  args: settingsInputValidator.fields,
+  returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     const userId = identity.tokenIdentifier;
+    const { clients, customClients, ...preferences } = args;
+    for (const client of clients ??
+      normalizeClientRecords(undefined, customClients)) {
+      await saveWorkspaceClient(ctx, userId, client);
+    }
     const normalizedArgs = {
-      ...args,
+      ...preferences,
+      // Client records now live separately; do not recreate old names on later reads.
+      ...(clients !== undefined || customClients !== undefined
+        ? { clients: undefined, customClients: undefined }
+        : {}),
       customProjectTemplates: args.customProjectTemplates?.map(
         normalizeCustomProjectTemplate
       ),
@@ -230,5 +240,58 @@ export const upsert = mutation({
     } else {
       await ctx.db.insert("settings", { ...normalizedArgs, userId });
     }
+    return null;
+  },
+});
+
+export const patch = mutation({
+  args: {
+    changes: settingsInputValidator.omit("clients", "customClients").partial(),
+    clients: v.optional(v.array(clientValidator)),
+  },
+  returns: v.null(),
+  handler: async (ctx, { changes, clients }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    let stored = await ctx.db
+      .query("settings")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.tokenIdentifier))
+      .unique();
+    if (!stored) {
+      for (const userId of identityKeys(identity)) {
+        const legacy = await ctx.db
+          .query("settings")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .first();
+        if (!legacy) continue;
+        const { _id, _creationTime, ...preferences } = legacy;
+        const id = await ctx.db.insert("settings", {
+          ...preferences,
+          userId: identity.tokenIdentifier,
+        });
+        stored = await ctx.db.get(id);
+        break;
+      }
+    }
+    if (!stored) throw new Error("Settings must be initialized before editing");
+    if (
+      changes.customProjectTemplates !== undefined &&
+      JSON.stringify(changes.customProjectTemplates) !==
+        JSON.stringify(stored.customProjectTemplates ?? [])
+    ) {
+      await requireCurrentWorkspaceCapability(
+        ctx,
+        identity.tokenIdentifier,
+        "customWorkflowTemplates"
+      );
+      changes.customProjectTemplates = changes.customProjectTemplates.map(
+        normalizeCustomProjectTemplate
+      );
+    }
+    for (const client of clients ?? [])
+      await saveWorkspaceClient(ctx, identity.tokenIdentifier, client);
+    // An edit to one preference never submits unrelated fields from a stale tab.
+    if (Object.keys(changes).length) await ctx.db.patch(stored._id, changes);
+    return null;
   },
 });

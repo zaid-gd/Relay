@@ -108,7 +108,7 @@ export function useProjectsApplicationState({
   const [billingFilter, setBillingFilter] = useState<"ALL" | "Paid" | "Unpaid">(
     "ALL"
   );
-  const [sortKey, setSortKey] = useState<ProjectSortKey>("createdAt_desc");
+  const [sortKey, setSortKey] = useState<ProjectSortKey>("dueDate_asc");
   const [dashboardActivity, setDashboardActivity] = useState<
     ProjectDashboardActivity[]
   >([]);

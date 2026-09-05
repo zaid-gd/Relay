@@ -1,5 +1,8 @@
 import type { Client, WorkItem } from "../../lib/types";
-import type { StoredProjectStatus, StoredTeamRole } from "../../lib/domain-values";
+import type {
+  StoredProjectStatus,
+  StoredTeamRole,
+} from "../../lib/domain-values";
 
 export {
   getProjectStageMenuChoices,
@@ -48,21 +51,40 @@ export type ProjectTableRules = {
 
 type ProjectTableScope =
   | { kind: "personal" }
-  | { kind: "team"; currentUserId: string; role: StoredTeamRole; allowAllTeamProjects: boolean };
+  | {
+      kind: "team";
+      currentUserId: string;
+      role: StoredTeamRole;
+      allowAllTeamProjects: boolean;
+    };
 
-type ProjectTableContext = ProjectTableRules & { clients: readonly Client[]; scope: ProjectTableScope };
+type ProjectTableContext = ProjectTableRules & {
+  clients: readonly Client[];
+  scope: ProjectTableScope;
+};
 
 function nonEmpty(value: string | null) {
   return value?.trim() ?? "";
 }
 
 function parseStage(value: string | null): ProjectTableState["stage"] {
-  if (value === "Planned" || value === "In Progress" || value === "Review" || value === "Revision" || value === "Delivered" || value === "Cancelled" || value === "Client Review") return value;
+  if (
+    value === "Planned" ||
+    value === "In Progress" ||
+    value === "Review" ||
+    value === "Revision" ||
+    value === "Delivered" ||
+    value === "Cancelled" ||
+    value === "Client Review"
+  )
+    return value;
   return "all";
 }
 
 function parsePayment(value: string | null): ProjectTablePayment {
-  return value === "paid" || value === "unpaid" || value === "not-billable" ? value : "all";
+  return value === "paid" || value === "unpaid" || value === "not-billable"
+    ? value
+    : "all";
 }
 
 function parseSalary(value: string | null): ProjectTableSalary {
@@ -74,7 +96,12 @@ function parseView(value: string | null): ProjectTableView {
 }
 
 function parseSort(value: string | null): ProjectTableSort {
-  return value === "name" || value === "stage" || value === "payment" || value === "salary" ? value : "due";
+  return value === "name" ||
+    value === "stage" ||
+    value === "payment" ||
+    value === "salary"
+    ? value
+    : "due";
 }
 
 function parseDirection(value: string | null): ProjectTableDirection {
@@ -92,7 +119,9 @@ function toSearchParams(search: string | URLSearchParams) {
   return new URLSearchParams(query.split("#")[0]);
 }
 
-export function parseProjectTableSearch(search: string | URLSearchParams): ProjectTableState {
+export function parseProjectTableSearch(
+  search: string | URLSearchParams
+): ProjectTableState {
   const params = toSearchParams(search);
   return {
     query: nonEmpty(params.get("q")),
@@ -116,30 +145,57 @@ export function serializeProjectTableSearch(state: ProjectTableState) {
   if (state.payment !== "all") params.set("payment", state.payment);
   if (state.salary !== "all") params.set("salary", state.salary);
   if (state.assigneeUserId) params.set("assignee", state.assigneeUserId);
-  if (state.view !== DEFAULT_PROJECT_TABLE_STATE.view) params.set("view", state.view);
-  if (state.sort !== DEFAULT_PROJECT_TABLE_STATE.sort) params.set("sort", state.sort);
-  if (state.direction !== DEFAULT_PROJECT_TABLE_STATE.direction) params.set("dir", state.direction);
-  if (state.archive !== DEFAULT_PROJECT_TABLE_STATE.archive) params.set("archive", state.archive);
+  if (state.view !== DEFAULT_PROJECT_TABLE_STATE.view)
+    params.set("view", state.view);
+  if (state.sort !== DEFAULT_PROJECT_TABLE_STATE.sort)
+    params.set("sort", state.sort);
+  if (state.direction !== DEFAULT_PROJECT_TABLE_STATE.direction)
+    params.set("dir", state.direction);
+  if (state.archive !== DEFAULT_PROJECT_TABLE_STATE.archive)
+    params.set("archive", state.archive);
   return params.toString();
 }
 
 function clientName(project: WorkItem, clients: readonly Client[]) {
-  const record = project.clientId ? clients.find((client) => client.id === project.clientId) : undefined;
+  const record = project.clientId
+    ? clients.find((client) => client.id === project.clientId)
+    : undefined;
   return record?.name ?? project.client ?? "";
 }
 
-export function projectBelongsToDefaultEditorScope(project: WorkItem, scope: ProjectTableScope) {
-  if (scope.kind === "personal" || !project.teamId || scope.role !== "Editor" || scope.allowAllTeamProjects) return true;
-  return project.ownerUserId === scope.currentUserId || (project.assigneeUserIds ?? []).includes(scope.currentUserId);
+export function projectBelongsToDefaultEditorScope(
+  project: WorkItem,
+  scope: ProjectTableScope
+) {
+  if (
+    scope.kind === "personal" ||
+    !project.teamId ||
+    scope.role !== "Editor" ||
+    scope.allowAllTeamProjects
+  )
+    return true;
+  return (
+    project.ownerUserId === scope.currentUserId ||
+    (project.assigneeUserIds ?? []).includes(scope.currentUserId)
+  );
 }
 
-export function shouldShowProjectAssignees({ isTeamWorkspace, activeMemberCount }: { isTeamWorkspace: boolean; activeMemberCount: number }) {
+export function shouldShowProjectAssignees({
+  isTeamWorkspace,
+  activeMemberCount,
+}: {
+  isTeamWorkspace: boolean;
+  activeMemberCount: number;
+}) {
   return isTeamWorkspace && activeMemberCount > 1;
 }
 
 export type ProjectPaymentState = "paid" | "unpaid" | "not-billable";
 
-export function getProjectPaymentState(project: WorkItem, rules: ProjectTableRules): ProjectPaymentState {
+export function getProjectPaymentState(
+  project: WorkItem,
+  rules: ProjectTableRules
+): ProjectPaymentState {
   if (!rules.isBillableProject(project)) return "not-billable";
   return project.paid ? "paid" : "unpaid";
 }
@@ -147,13 +203,14 @@ export function getProjectPaymentState(project: WorkItem, rules: ProjectTableRul
 export function filterProjectTableProjects(
   projects: readonly WorkItem[],
   state: ProjectTableState,
-  context: ProjectTableContext,
+  context: ProjectTableContext
 ) {
   const query = state.query.toLowerCase();
   return projects.filter((project) => {
     const payment = getProjectPaymentState(project, context);
     const salary = context.isSalaryProject(project);
-    const searchable = `${project.title} ${clientName(project, context.clients)} ${project.notes} ${project.workType}`.toLowerCase();
+    const searchable =
+      `${project.title} ${clientName(project, context.clients)} ${project.notes} ${project.workType}`.toLowerCase();
     if (state.archive === "active" && project.archived) return false;
     if (state.archive === "archived" && !project.archived) return false;
     if (query && !searchable.includes(query)) return false;
@@ -162,7 +219,11 @@ export function filterProjectTableProjects(
     if (state.payment !== "all" && payment !== state.payment) return false;
     if (state.salary === "salary" && !salary) return false;
     if (state.salary === "client" && salary) return false;
-    if (state.assigneeUserId && !(project.assigneeUserIds ?? []).includes(state.assigneeUserId)) return false;
+    if (
+      state.assigneeUserId &&
+      !(project.assigneeUserIds ?? []).includes(state.assigneeUserId)
+    )
+      return false;
     return projectBelongsToDefaultEditorScope(project, context.scope);
   });
 }
@@ -171,23 +232,51 @@ function compareText(left: string, right: string) {
   return left.localeCompare(right) || 0;
 }
 
-function compareProjects(left: WorkItem, right: WorkItem, state: ProjectTableState, context: ProjectTableRules & { clients: readonly Client[] }) {
+function compareProjects(
+  left: WorkItem,
+  right: WorkItem,
+  state: ProjectTableState,
+  context: ProjectTableRules & { clients: readonly Client[] }
+) {
+  if (state.sort === "due") {
+    const finished = (project: WorkItem) =>
+      project.status === "Delivered" || project.status === "Cancelled";
+    const completionOrder = Number(finished(left)) - Number(finished(right));
+    if (completionOrder) return completionOrder;
+  }
   let result = 0;
   if (state.sort === "name") result = compareText(left.title, right.title);
-  else if (state.sort === "stage") result = compareText(left.status, right.status);
-  else if (state.sort === "payment") result = compareText(getProjectPaymentState(left, context), getProjectPaymentState(right, context));
-  else if (state.sort === "salary") result = Number(context.isSalaryProject(left)) - Number(context.isSalaryProject(right));
-  else result = (left.dueDate || "9999-12-31").localeCompare(right.dueDate || "9999-12-31");
+  else if (state.sort === "stage")
+    result = compareText(left.status, right.status);
+  else if (state.sort === "payment")
+    result = compareText(
+      getProjectPaymentState(left, context),
+      getProjectPaymentState(right, context)
+    );
+  else if (state.sort === "salary")
+    result =
+      Number(context.isSalaryProject(left)) -
+      Number(context.isSalaryProject(right));
+  else
+    result = (left.dueDate || "9999-12-31").localeCompare(
+      right.dueDate || "9999-12-31"
+    );
   if (state.direction === "desc") result = -result;
-  return result || compareText(left.title, right.title) || compareText(left.id, right.id);
+  return (
+    result ||
+    compareText(left.title, right.title) ||
+    compareText(left.id, right.id)
+  );
 }
 
 export function sortProjectTableProjects(
   projects: readonly WorkItem[],
   state: ProjectTableState,
-  context: ProjectTableRules & { clients: readonly Client[] },
+  context: ProjectTableRules & { clients: readonly Client[] }
 ) {
-  return [...projects].sort((left, right) => compareProjects(left, right, state, context));
+  return [...projects].sort((left, right) =>
+    compareProjects(left, right, state, context)
+  );
 }
 
 export function getProjectTableDeletionWarning(projectTitle: string) {

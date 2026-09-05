@@ -1,3 +1,4 @@
+import { getWorkspaceClient } from "./workspaceClients";
 import { v } from "convex/values";
 import {
   mutation,
@@ -40,15 +41,8 @@ async function requireClient(
   ownerUserId: string,
   clientId: string
 ) {
-  const settings = await ctx.db
-    .query("settings")
-    .withIndex("by_userId", (q) => q.eq("userId", ownerUserId))
-    .unique();
-  if (
-    !settings?.clients?.some(
-      (client) => client.id === clientId && !client.archived
-    )
-  ) {
+  const client = await getWorkspaceClient(ctx, ownerUserId, clientId);
+  if (!client || client.archived) {
     throw new Error("Salary Plan Client must belong to this Workspace");
   }
 }

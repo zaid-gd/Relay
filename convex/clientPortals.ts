@@ -1,3 +1,4 @@
+import { getWorkspaceClient } from "./workspaceClients";
 import { v } from "convex/values";
 import {
   internalQuery,
@@ -541,14 +542,10 @@ export const publish = mutation({
       Math.min(20, Math.floor(args.revisionLimit))
     );
     const clientStage = args.clientStage;
-    const settings = await ctx.db
-      .query("settings")
-      .withIndex("by_userId", (q) => q.eq("userId", project.ownerUserId))
-      .unique();
     const snapshot = {
       title: cleanText(project.title, 160),
       clientName: cleanText(
-        settings?.clients?.find((client) => client.id === project.clientId)
+        (await getWorkspaceClient(ctx, project.ownerUserId, project.clientId))
           ?.name ?? "",
         120
       ),

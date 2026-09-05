@@ -1,3 +1,4 @@
+import { readWorkspaceClients } from "./workspaceClients";
 import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
 
@@ -101,9 +102,13 @@ export const list = query({
     const visible = includeArchived
       ? projects
       : projects.filter((project) => !project.archived);
-    const clientRecords = (settings?.clients ?? []).filter(
-      (client) => includeArchived || !client.archived
-    );
+    const clientRecords = (
+      await readWorkspaceClients(
+        ctx,
+        teamOwnerId ?? identity.tokenIdentifier,
+        settings?.clients
+      )
+    ).filter((client) => includeArchived || !client.archived);
     const clientNames = new Map(
       clientRecords.map((client) => [client.id, client.name])
     );

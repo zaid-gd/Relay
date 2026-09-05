@@ -1,3 +1,4 @@
+import { getWorkspaceClient } from "./workspaceClients";
 import { v } from "convex/values";
 import {
   mutation,
@@ -107,11 +108,7 @@ export const addContact = mutation({
     const { identity, workspaceId } = await requireOwner(ctx);
     const workspace = await ctx.db.get(workspaceId);
     if (!workspace) throw new Error("Workspace not found");
-    const settings = await ctx.db
-      .query("settings")
-      .withIndex("by_userId", (q) => q.eq("userId", workspace.ownerUserId))
-      .unique();
-    if (!settings?.clients?.some((client) => client.id === args.clientId))
+    if (!(await getWorkspaceClient(ctx, workspace.ownerUserId, args.clientId)))
       throw new Error("Client not found");
     const email = args.email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))

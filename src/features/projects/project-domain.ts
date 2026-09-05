@@ -294,6 +294,22 @@ export function getProjectWorkflowStage(
   );
 }
 
+export function getProjectProgress(
+  project: Pick<
+    WorkItem,
+    "workflowStageId" | "workflowStage" | "workflowStages" | "status"
+  >
+) {
+  if (project.status === "Cancelled") return 0;
+  if (project.status === "Delivered") return 100;
+  const stages = getProjectWorkflowStages(project);
+  const current = getProjectWorkflowStage(project);
+  const index = stages.findIndex((stage) => stage.id === current.id);
+  return stages.length > 1
+    ? Math.round((Math.max(0, index) / (stages.length - 1)) * 100)
+    : 0;
+}
+
 export function getWorkflowStageStatus(
   project: Pick<WorkItem, "workflowStages">,
   stage: string | WorkflowStage

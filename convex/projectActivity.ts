@@ -1,3 +1,4 @@
+import { requireProjectAccess } from "./projectAccess";
 import { v } from "convex/values";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -5,35 +6,6 @@ import type { ProjectActivityKind } from "../src/lib/domain-values";
 import { projectActivityKindValidator } from "./domainValidators";
 
 const MAX_PROJECT_EVENTS = 150;
-
-async function requireProjectAccess(ctx: QueryCtx, projectId: string) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Not authenticated");
-  const project = await ctx.db
-    .query("projects")
-    .withIndex("by_projectId", (q) => q.eq("id", projectId))
-    .unique();
-  if (!project) throw new Error("Project not found");
-  const teamId = project.teamId;
-  if (!teamId) {
-    if (project.ownerUserId !== identity.tokenIdentifier)
-      throw new Error("Project access required");
-    return;
-  }
-  const membership = await ctx.db
-    .query("teamMembers")
-    .withIndex("by_teamId_and_userId", (q) =>
-      q.eq("teamId", teamId).eq("userId", identity.tokenIdentifier)
-    )
-    .unique();
-  if (
-    !membership ||
-    membership.status !== "active" ||
-    !membership.permissions.viewProjects
-  ) {
-    throw new Error("Project access required");
-  }
-}
 
 export async function recordProjectActivity(
   ctx: MutationCtx,

@@ -1,3 +1,11 @@
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+
+import { getProjectProgress } from "@/features/projects/project-domain";
 import { ProjectOutputsPanel } from "@/components/project-outputs-panel";
 import { ProjectPortalPanel } from "@/components/project-portal-panel";
 import { Badge as OwnedBadge } from "@/components/ui/badge";
@@ -30,7 +38,7 @@ import {
 } from "@/lib/integrations";
 import { projectStatusTone } from "@/lib/project-status-style";
 import type { SettingsState, WorkItem } from "@/lib/types";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, MoreHorizontal } from "lucide-react";
 import {
   formatShortDateTime,
   ProjectActivityFeed,
@@ -69,13 +77,6 @@ function isDoneStatus(status: string) {
     "completed",
     "released",
   ].some((word) => status.toLowerCase().includes(word));
-}
-
-function projectProgress(status: string) {
-  if (isDoneStatus(status)) return 100;
-  if (status === "In Progress") return 60;
-  if (status === "Planned") return 25;
-  return 10;
 }
 
 function formatDate(value: string, dateFormat: string) {
@@ -182,32 +183,30 @@ export function ProjectWorkspace({
               Back to Projects
             </OwnedButton>
             {canEdit ? (
-              <OwnedButton
-                onClick={() => {
-                  onViewChange("outputs");
-                  window.setTimeout(
-                    () =>
-                      document.getElementById("add-project-output")?.click(),
-                    0
-                  );
-                }}
-              >
-                Add Output
-              </OwnedButton>
-            ) : null}
-            {canEdit ? (
               <OwnedButton variant="outline" onClick={() => onEdit(project)}>
                 Edit
               </OwnedButton>
             ) : null}
             {canDelete ? (
-              <OwnedButton
-                variant="ghost"
-                className="text-destructive"
-                onClick={() => onDelete(project)}
-              >
-                Delete
-              </OwnedButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <OwnedButton
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Project actions"
+                  >
+                    <MoreHorizontal />
+                  </OwnedButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onSelect={() => onDelete(project)}
+                  >
+                    Delete project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
           </>
         }
@@ -275,7 +274,7 @@ export function ProjectWorkspace({
                   </MetricStrip>
                   <ContentSection
                     title="Workflow"
-                    description={`${projectProgress(project.status)}% complete`}
+                    description={`${getProjectProgress(project)}% complete`}
                   >
                     <ProjectStageTracker status={project.status} />
                   </ContentSection>

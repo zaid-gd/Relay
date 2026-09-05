@@ -1,3 +1,4 @@
+import { requireProjectAccess } from "./projectAccess";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
@@ -49,40 +50,6 @@ async function requireIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
   return identity;
-}
-
-async function requireProjectAccess(
-  ctx: QueryCtx | MutationCtx,
-  projectId: string,
-  permission: "viewProjects" | "editProjects"
-) {
-  const identity = await requireIdentity(ctx);
-  const project = await ctx.db
-    .query("projects")
-    .withIndex("by_projectId", (q) => q.eq("id", projectId))
-    .unique();
-  if (!project) throw new Error("Project not found");
-  if (!project.teamId) {
-    if (project.ownerUserId !== identity.tokenIdentifier)
-      throw new Error("Project access required");
-    return { identity, project };
-  }
-  const member = await ctx.db
-    .query("teamMembers")
-    .withIndex("by_teamId_and_userId", (q) =>
-      q
-        .eq("teamId", project.teamId as string)
-        .eq("userId", identity.tokenIdentifier)
-    )
-    .unique();
-  if (
-    !member ||
-    member.status !== "active" ||
-    !member.permissions[permission]
-  ) {
-    throw new Error("Project access required");
-  }
-  return { identity, project };
 }
 
 async function requireFileUploadCapability(

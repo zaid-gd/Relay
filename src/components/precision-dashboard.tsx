@@ -1,5 +1,7 @@
 "use client";
 
+import { getProjectProgress } from "@/features/projects/project-domain";
+
 import {
   AlertCircle,
   ArrowDown,
@@ -247,16 +249,6 @@ function reviewProject(project: WorkItem) {
   );
 }
 
-function progressFor(project: WorkItem) {
-  if (project.status === "Delivered") return 100;
-  if (project.status === "Review" || project.status === "Client Review")
-    return 82;
-  if (project.status === "Revision") return 72;
-  if (project.status === "In Progress") return 54;
-  if (project.status === "Cancelled") return 0;
-  return 18;
-}
-
 function priorityFor(project: WorkItem) {
   const days = daysFromToday(project.dueDate);
   if (!delivered(project) && days < 0) return "Urgent";
@@ -343,9 +335,8 @@ function PriorityBadge({ project }: { project: WorkItem }) {
 
 export function PrecisionDashboard(props: DashboardProps) {
   const reduceMotion = useHydratedReducedMotion();
-  const [selectedId, setSelectedId] = useState(
-    props.visibleProjects[0]?.id ?? ""
-  );
+  const [selectedId, setSelectedId] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [activityMode, setActivityMode] = useState<"recent" | "team">("recent");
@@ -354,7 +345,7 @@ export function PrecisionDashboard(props: DashboardProps) {
 
   useEffect(() => {
     if (!props.visibleProjects.some((project) => project.id === selectedId)) {
-      setSelectedId(props.visibleProjects[0]?.id ?? "");
+      setSelectedId("");
     }
   }, [props.visibleProjects, selectedId]);
 
@@ -367,9 +358,7 @@ export function PrecisionDashboard(props: DashboardProps) {
   }, [activityMode]);
 
   const selected =
-    props.projects.find((project) => project.id === selectedId) ??
-    props.visibleProjects[0] ??
-    null;
+    props.projects.find((project) => project.id === selectedId) ?? null;
   const projectSummary = useMemo(() => {
     const activeProjects = props.projects.filter(
       (project) => !delivered(project) && project.status !== "Cancelled"
@@ -432,23 +421,13 @@ export function PrecisionDashboard(props: DashboardProps) {
           const project = row.original;
           return (
             <div className="flex min-w-[220px] items-center gap-3">
-              <div
-                className="relative hidden h-9 w-12 shrink-0 overflow-hidden rounded-md border border-[var(--app-border)] sm:block"
-                style={{ background: projectColor(project) }}
-              >
-                <span className="absolute inset-x-2 bottom-2 h-px rounded bg-[var(--app-ink)]/20" />
-                <FolderOpen
-                  className="absolute right-1.5 top-1.5 size-3 text-[var(--app-ink)]/25"
-                  strokeWidth={1.75}
-                />
-              </div>
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium tracking-[-0.01em] text-[var(--app-ink)]">
                   {project.title}
                 </span>
                 <span className="mt-0.5 block max-w-[260px] truncate text-[11px] leading-relaxed text-[var(--app-muted)]">
                   {project.client ? `${project.client} · ` : ""}
-                  {project.notes || "No notes"}
+                  {project.notes}
                 </span>
               </span>
             </div>
@@ -479,7 +458,7 @@ export function PrecisionDashboard(props: DashboardProps) {
         id: "progress",
         header: "Progress",
         cell: ({ row }) => {
-          const progress = progressFor(row.original);
+          const progress = getProjectProgress(row.original);
           return (
             <div className="w-[110px]">
               <div className="mb-1.5 flex items-center justify-between text-[10px]">
@@ -556,8 +535,16 @@ export function PrecisionDashboard(props: DashboardProps) {
     ]
   );
 
+  const ledgerProjects = useMemo(
+    () =>
+      props.visibleProjects.filter(
+        (project) =>
+          showCompleted || props.statusFilter !== "All" || !delivered(project)
+      ),
+    [props.visibleProjects, props.statusFilter, showCompleted]
+  );
   const table = useReactTable({
-    data: props.visibleProjects,
+    data: ledgerProjects,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -657,7 +644,7 @@ export function PrecisionDashboard(props: DashboardProps) {
     });
   }
 
-  const attentionContext = [...blockers, ...overdue, ...dueSoon]
+  const attentionContext = [...blockers, ...overdue]
     .filter(
       (project, index, projects) =>
         projects.findIndex((candidate) => candidate.id === project.id) === index
@@ -673,14 +660,12 @@ export function PrecisionDashboard(props: DashboardProps) {
         transition={{ duration: reduceMotion ? 0 : 0.5, ease: easing }}
       >
         <PageHeader
-          eyebrow="Production desk"
           title={
             <>
               Good to see you,{" "}
               {props.settings.profileName?.split(" ")[0] || "editor"}.
             </>
           }
-          description="Scan commitments, deadlines, handoffs, and earnings from one focused production ledger."
           actions={
             <PageToolbar
               primary={
@@ -839,7 +824,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">Any date</SelectItem>
-                    <SelectItem value="This Week">This week</SelectItem>
+                    <SelectItem value="This Week">Within 7 days</SelectItem>
                     <SelectItem value="Overdue">Overdue</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                   </SelectContent>
@@ -883,7 +868,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                 className="gap-0 bg-transparent [&>div:not(:last-child)]:border-b [&>div:not(:last-child)]:border-[var(--app-border)] sm:[&>div]:border-b-0 sm:[&>div:not(:last-child)]:border-r"
               >
                 <div className="bg-[var(--app-panel)] px-4 py-3">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
                     In motion
                   </p>
                   <div className="mt-1 flex items-baseline gap-2">
@@ -896,8 +881,8 @@ export function PrecisionDashboard(props: DashboardProps) {
                   </div>
                 </div>
                 <div className="bg-[var(--app-panel)] px-4 py-3">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
-                    Due this week
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                    Due within 7 days
                   </p>
                   <div className="mt-1 flex items-baseline gap-2">
                     <p className="text-xl font-semibold tracking-[-0.04em] tabular-nums text-[var(--app-ink)]">
@@ -909,7 +894,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                   </div>
                 </div>
                 <div className="bg-[var(--app-panel)] px-4 py-3">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
                     Waiting reviews
                   </p>
                   <div className="mt-1 flex items-baseline gap-2">
@@ -929,7 +914,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                   </div>
                 </div>
                 <div className="bg-[var(--app-panel)] px-4 py-3">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
                     Collected
                   </p>
                   <div className="mt-1 flex items-baseline gap-2">
@@ -953,10 +938,10 @@ export function PrecisionDashboard(props: DashboardProps) {
                 {showSalaryBatch ? (
                   <div className="bg-[var(--app-panel)] px-4 py-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--app-muted)]">
                         Salary batch
                       </p>
-                      <span className="font-mono text-[9px] tabular-nums text-[var(--app-muted)]">
+                      <span className="font-mono text-[11px] tabular-nums text-[var(--app-muted)]">
                         <AnimatedNumber value={salaryPercent} />%
                       </span>
                     </div>
@@ -976,7 +961,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-6 shrink-0 px-2 text-[9px] shadow-none"
+                        className="h-6 shrink-0 px-2 text-[11px] shadow-none"
                         disabled={!pendingSalaryBatch}
                         aria-label={
                           pendingSalaryBatch
@@ -1017,28 +1002,43 @@ export function PrecisionDashboard(props: DashboardProps) {
                 <div className="h-full min-w-0">
                   <WorkspaceSection
                     title="Project ledger"
-                    count={props.visibleProjects.length}
+                    count={ledgerProjects.length}
                     icon={FolderKanban}
                     className="h-full rounded-none"
                     action={
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-[11px] text-[var(--app-muted)] hover:text-[var(--app-ink)]"
-                      >
-                        <Link href="/projects">
-                          View all projects
-                          <ArrowRight className="size-3.5" strokeWidth={1.75} />
-                        </Link>
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowCompleted((value) => !value)}
+                          aria-pressed={showCompleted}
+                        >
+                          {showCompleted
+                            ? "Hide delivered"
+                            : `Show delivered (${props.visibleProjects.filter(delivered).length})`}
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-[11px] text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                        >
+                          <Link href="/projects">
+                            View all projects
+                            <ArrowRight
+                              className="size-3.5"
+                              strokeWidth={1.75}
+                            />
+                          </Link>
+                        </Button>
+                      </div>
                     }
                   >
                     <DataTableFrame
                       bounded={false}
                       bodyClassName="overflow-x-auto"
                     >
-                      {props.visibleProjects.length ? (
+                      {ledgerProjects.length ? (
                         <>
                           <div className="divide-y divide-[var(--app-border)] sm:hidden">
                             {table
@@ -1046,7 +1046,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                               .rows.slice(0, 5)
                               .map((row, rowIndex) => {
                                 const project = row.original;
-                                const progress = progressFor(project);
+                                const progress = getProjectProgress(project);
                                 return (
                                   <motion.button
                                     key={row.id}
@@ -1130,7 +1130,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                                               : "none"
                                         }
                                         className={cn(
-                                          "h-8 px-3 text-left text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--app-subtle)]",
+                                          "h-8 px-3 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--app-subtle)]",
                                           header.column.id === "workType" &&
                                             "hidden 2xl:table-cell"
                                         )}
@@ -1272,7 +1272,9 @@ export function PrecisionDashboard(props: DashboardProps) {
                             <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-[var(--app-muted)]">
                               {activeFilterCount || props.query
                                 ? "No projects match the current filters."
-                                : "Create the first project in your workspace."}
+                                : props.visibleProjects.length > 0
+                                  ? "No unfinished projects. Show delivered to see completed work."
+                                  : "Create the first project in your workspace."}
                             </p>
                             <div className="mt-5 flex justify-center gap-2">
                               {activeFilterCount || props.query ? (
@@ -1302,15 +1304,17 @@ export function PrecisionDashboard(props: DashboardProps) {
                 </div>
               }
               secondary={
-                <div className="h-full min-w-0">
-                  <ProjectInspector
-                    project={selected}
-                    settings={props.settings}
-                    onOpen={props.onViewProject}
-                    onEdit={props.onEditProject}
-                    canEdit={props.canEditProjects}
-                  />
-                </div>
+                selected ? (
+                  <div className="h-full min-w-0">
+                    <ProjectInspector
+                      project={selected}
+                      settings={props.settings}
+                      onOpen={props.onViewProject}
+                      onEdit={props.onEditProject}
+                      canEdit={props.canEditProjects}
+                    />
+                  </div>
+                ) : null
               }
             />
           </motion.div>
@@ -1336,7 +1340,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                   className="h-full"
                   action={
                     overdue.length ? (
-                      <span className="font-mono text-[9px] text-[var(--app-danger)]">
+                      <span className="font-mono text-[11px] text-[var(--app-danger)]">
                         {overdue.length} overdue
                       </span>
                     ) : null
@@ -1416,7 +1420,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                           id="activity-recent-tab"
                           aria-controls="activity-panel"
                           value="recent"
-                          className="text-[9px] uppercase tracking-[0.05em]"
+                          className="text-[11px] uppercase tracking-[0.05em]"
                         >
                           Recent
                         </TabsTrigger>
@@ -1424,7 +1428,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                           id="activity-team-tab"
                           aria-controls="activity-panel"
                           value="team"
-                          className="text-[9px] uppercase tracking-[0.05em]"
+                          className="text-[11px] uppercase tracking-[0.05em]"
                         >
                           Team
                         </TabsTrigger>
@@ -1488,7 +1492,7 @@ export function PrecisionDashboard(props: DashboardProps) {
                               <span className="line-clamp-2 block text-[11px] font-medium leading-4 text-[var(--app-ink)]">
                                 {item.message}
                               </span>
-                              <span className="mt-0.5 block font-mono text-[9px] text-[var(--app-muted)]">
+                              <span className="mt-0.5 block font-mono text-[11px] text-[var(--app-muted)]">
                                 {item.actor || props.teamName || "Workspace"} ·{" "}
                                 {relativeActivityTime(item.createdAt)}
                               </span>
@@ -1678,7 +1682,7 @@ function ProjectInspector({
     );
   }
 
-  const progress = progressFor(project);
+  const progress = getProjectProgress(project);
 
   return (
     <AnimatePresence mode="wait">

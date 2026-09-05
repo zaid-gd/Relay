@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { clientValidator } from "./workspaceClients";
 import {
   clientPortalStageValidator,
   fileCategoryValidator,
@@ -28,6 +29,9 @@ import {
 } from "./domainValidators";
 
 export default defineSchema({
+  clients: defineTable(
+    clientValidator.extend({ ownerUserId: v.string() })
+  ).index("by_ownerUserId_and_id", ["ownerUserId", "id"]),
   projects: defineTable({
     ownerUserId: v.string(),
     id: v.string(),

@@ -5,11 +5,12 @@ export function projectWorkspaceView(
   value: string | null
 ): ProjectWorkspaceView {
   return value === "overview" ||
+    value === "outputs" ||
     value === "review" ||
     value === "files" ||
     value === "activity"
     ? value
-    : "outputs";
+    : "overview";
 }
 
 export function projectHref({

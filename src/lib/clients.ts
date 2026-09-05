@@ -1,4 +1,17 @@
-import type { Client } from "./types";
+import type { Client, WorkItem } from "./types";
+
+export function projectClientName(
+  project: Pick<WorkItem, "clientId" | "client">,
+  clients: readonly Client[]
+) {
+  return (
+    (project.clientId
+      ? clients.find((client) => client.id === project.clientId)?.name
+      : undefined) ??
+    project.client?.trim() ??
+    ""
+  );
+}
 
 function clientId(name: string) {
   return `client-${

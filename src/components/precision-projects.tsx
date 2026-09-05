@@ -1,5 +1,7 @@
 "use client";
 
+import { getProjectProgress } from "@/features/projects/project-domain";
+
 import {
   ArrowRight,
   CalendarDays,
@@ -83,8 +85,6 @@ import {
 } from "@/components/ui/table";
 import {
   DataTableFrame,
-  MetricItem,
-  MetricStrip,
   PageContent,
   PageHeader,
   PageToolbar,
@@ -125,15 +125,6 @@ const columnHelper = createColumnHelper<WorkItem>();
 
 function delivered(project: WorkItem) {
   return project.status === "Delivered";
-}
-
-function progress(project: WorkItem) {
-  if (project.status === "Delivered") return 100;
-  if (["Review", "Client Review"].includes(project.status)) return 84;
-  if (project.status === "Revision") return 70;
-  if (project.status === "In Progress") return 52;
-  if (project.status === "Cancelled") return 0;
-  return 16;
 }
 
 function formatDate(value: string) {
@@ -347,7 +338,6 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
     source,
     projects,
     board,
-    summary,
     hasFilters,
     showAssignees,
     getPaymentState,
@@ -606,11 +596,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
           transition={contentTransition}
           className="contents"
         >
-          <PageHeader
-            eyebrow="Production workspace"
-            title="Projects"
-            description="A focused index for every tracked edit, handoff, review, and salary batch item."
-          />
+          <PageHeader title="Projects" />
 
           <PageContent mode="fill">
             <PageToolbar
@@ -756,7 +742,7 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="active">Unarchived</SelectItem>
                       <SelectItem value="archived">Archived</SelectItem>
                       <SelectItem value="all">All records</SelectItem>
                     </SelectContent>
@@ -901,33 +887,6 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
               }
             />
 
-            <MetricStrip columns={4}>
-              <MetricItem
-                icon={<FolderKanban className="size-3.5" />}
-                label="All projects"
-                value={source.length}
-                supporting="this workspace"
-              />
-              <MetricItem
-                icon={<CalendarDays className="size-3.5" />}
-                label="In motion"
-                value={summary.active}
-                supporting={`${summary.dueSoon} due soon`}
-              />
-              <MetricItem
-                icon={<UsersRound className="size-3.5" />}
-                label="Needs attention"
-                value={summary.review}
-                supporting="review or revision"
-              />
-              <MetricItem
-                icon={<CheckCircle2 className="size-3.5" />}
-                label="Delivered"
-                value={summary.delivered}
-                supporting={`${money(summary.earned, props.settings.currencyCode)} collected`}
-              />
-            </MetricStrip>
-
             <motion.div
               initial={reduceMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -954,16 +913,6 @@ export function PrecisionProjects(props: PrecisionProjectsProps) {
                       <div className="absolute inset-x-0 top-0 z-20 h-0.5 bg-[var(--app-accent)]" />
                     ) : null}
                     <header className="flex h-12 items-center justify-between px-4">
-                      <div>
-                        <h2 className="text-sm font-semibold">
-                          Project library
-                        </h2>
-                        <p className="text-[10px] text-[var(--app-muted)]">
-                          {scope === "team"
-                            ? props.teamName || "Team workspace"
-                            : "Private workspace"}
-                        </p>
-                      </div>
                       <span
                         className="flex items-center gap-2 text-[11px] text-[var(--app-muted)]"
                         aria-live="polite"
@@ -1408,7 +1357,7 @@ function ProjectInspector({
       </MotionCard>
     );
   }
-  const value = progress(project);
+  const value = getProjectProgress(project);
   return (
     <MotionCard
       role="region"

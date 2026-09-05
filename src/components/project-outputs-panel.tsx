@@ -422,15 +422,6 @@ export function ProjectOutputsPanel({
             <p className="mt-1 text-sm text-muted-foreground">
               Add the first promised result for this Project.
             </p>
-            {canEdit ? (
-              <Button
-                type="button"
-                className="mt-4"
-                onClick={() => openOutput()}
-              >
-                Add first output
-              </Button>
-            ) : null}
           </div>
         )}
       </section>

@@ -138,7 +138,7 @@ async function setupProject(
       ownerUserId: "owner",
       id: "project-files",
       teamId: team ? workspaceId : undefined,
-      assigneeUserIds: team ? ["reviewer"] : [],
+      assigneeUserIds: team ? ["reviewer", "editor"] : [],
       profileId: "video-editing",
       title: "Project Files",
       clientId: "client",
@@ -727,7 +727,7 @@ describe("project file management", () => {
         projectId: "project-files",
         size: 1,
       })
-    ).rejects.toThrow("Project access required");
+    ).rejects.toThrow("Permission denied");
     await expect(
       reviewer.mutation(api.projectFiles.updateFile, {
         fileId,
@@ -738,10 +738,10 @@ describe("project file management", () => {
         clientVisible: false,
         downloadable: true,
       })
-    ).rejects.toThrow("Project access required");
+    ).rejects.toThrow("Permission denied");
     await expect(
       reviewer.mutation(api.projectFiles.removeFile, { fileId })
-    ).rejects.toThrow("Project access required");
+    ).rejects.toThrow("Permission denied");
 
     const portalId = await t.run(async (ctx) => {
       const now = new Date().toISOString();
