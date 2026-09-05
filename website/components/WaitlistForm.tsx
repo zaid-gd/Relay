@@ -72,15 +72,20 @@ export default function WaitlistForm() {
         <p className="waitlist-kicker">Request received</p>
         <h2>You are on the list.</h2>
         <p>
-          We will contact <strong>{state.email}</strong> when a testing spot is
-          ready.
+          If selected, you will receive an invite at{" "}
+          <strong>{state.email}</strong>.
         </p>
       </section>
     );
   }
 
   return (
-    <form className="waitlist-card" id="waitlist" onSubmit={handleSubmit}>
+    <form
+      className="waitlist-card"
+      id="waitlist"
+      onSubmit={handleSubmit}
+      aria-busy={state.kind === "submitting"}
+    >
       <div className="waitlist-heading">
         <p className="waitlist-kicker">Early access</p>
         <h2>Request an invite</h2>
@@ -100,7 +105,7 @@ export default function WaitlistForm() {
           />
         </label>
         <label>
-          <span>Work email</span>
+          <span>Email</span>
           <input
             name="email"
             type="email"

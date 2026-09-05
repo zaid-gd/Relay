@@ -36,8 +36,8 @@ export default function WaitlistPage() {
           <p className="eyebrow">Relay early access</p>
           <h1 id="waitlist-title">Test Relay before launch.</h1>
           <p>
-            Join the waitlist to test the production workspace. We will email
-            you when a spot opens.
+            Join the waitlist to test the production workspace. Selected testers
+            receive an email invite.
           </p>
         </div>
 

@@ -77,13 +77,13 @@ const plans = [
     trial: null,
     description: "For freelancers getting their workflow organized.",
     features: [
-      "Unlimited Projects and Clients",
+      "Unlimited projects and clients",
       "Project tracking and delivery",
-      "Client Portals",
+      "Client portals",
       "External video embeds",
     ],
     note: "Comments are not available on embedded videos.",
-    cta: "Join waitlist",
+    cta: "Join the waitlist",
   },
   {
     name: "Creator",
@@ -96,12 +96,12 @@ const plans = [
       "Everything in Free",
       "5 GB for uploaded videos",
       "Comments on uploaded videos",
-      "Custom Workflow Templates",
-      "Salary Plans and advanced reports",
-      "Client Hub and custom portal branding",
+      "Custom workflow templates",
+      "Salary plans and advanced reports",
+      "Client hub and custom portal branding",
     ],
     note: null,
-    cta: "Join waitlist",
+    cta: "Join the waitlist",
   },
   {
     name: "Team",
@@ -114,12 +114,12 @@ const plans = [
       "Everything in Creator",
       "Three editing seats",
       "15 GB for shared video uploads",
-      "Roles and Project assignments",
+      "Roles and project assignments",
       "Team payouts and workload reports",
-      "Free Viewer access",
+      "Free viewer access",
     ],
-    note: "Extra Editor seats cost $5/month and add 2 GB for shared video uploads.",
-    cta: "Join waitlist",
+    note: "Extra editor seats cost $5/month and add 2 GB for shared video uploads.",
+    cta: "Join the waitlist",
   },
 ] as const;
 
@@ -136,7 +136,7 @@ const proofEvents = [
     kind: "Project",
     action: "Status changed",
     project: "Summer launch film",
-    detail: "In production",
+    detail: "In progress",
     time: "9:04 AM",
     owner: "Jordan",
   },
@@ -176,7 +176,7 @@ const proofWeeks = [
         type: "Video · Product",
         due: "Apr 29\n4:00 PM",
         review: "Needs review",
-        status: "In review",
+        status: "Review",
       },
       {
         day: "Fri, May 2",
@@ -197,7 +197,7 @@ const proofWeeks = [
         type: "Video · Campaign",
         due: "May 5\n5:00 PM",
         review: "Needs review",
-        status: "In production",
+        status: "In progress",
       },
       {
         day: "Tue, May 6",
@@ -213,7 +213,7 @@ const proofWeeks = [
         type: "Video · Brand",
         due: "May 7\n10:00 AM",
         review: "Needs review",
-        status: "In review",
+        status: "Review",
       },
       {
         day: "Thu, May 8",
@@ -234,7 +234,7 @@ const proofWeeks = [
         type: "Video · Brand",
         due: "May 12\n1:00 PM",
         review: "Needs review",
-        status: "In production",
+        status: "In progress",
       },
       {
         day: "Thu, May 15",
@@ -254,7 +254,7 @@ function SectionTitle({ children }: { children: string }) {
 
 export default function ProductStory() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [commentId, setCommentId] = useState(3);
+  const [commentId, setCommentId] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -262,7 +262,7 @@ export default function ProductStory() {
   const [deliveryStep, setDeliveryStep] = useState(3);
   const [proofFilter, setProofFilter] = useState("All events");
   const [proofWeek, setProofWeek] = useState(1);
-  const comment = comments.find((item) => item.id === commentId) ?? comments[0];
+  const comment = comments.find((item) => item.id === commentId);
   const visibleProofEvents =
     proofFilter === "All events"
       ? proofEvents
@@ -322,26 +322,25 @@ export default function ProductStory() {
             <div className="stage-ledger">
               <div className="mini-bar">
                 <strong>Project ledger</strong>
-                <span>12 projects</span>
+                <span>3 projects</span>
               </div>
               {[
                 "Summer launch film",
                 "Founder story cutdown",
                 "Field Notes episode 12",
               ].map((project, index) => (
-                <button
+                <div
                   key={project}
-                  type="button"
-                  className={index === 1 ? "is-current" : ""}
+                  className={`stage-project${index === 1 ? " is-current" : ""}`}
                 >
                   <span>
                     <i />
                     {project}
                   </span>
                   <small>
-                    {index === 0 ? "May 5" : index === 1 ? "Today" : "May 11"}
+                    {index === 0 ? "May 5" : index === 1 ? "May 7" : "May 8"}
                   </small>
-                </button>
+                </div>
               ))}
             </div>
           </Step>
@@ -440,12 +439,14 @@ export default function ProductStory() {
                   if (Number.isFinite(nextDuration)) setDuration(nextDuration);
                 }}
               />
-              <div className="frame-note">
-                <span>
-                  {comment.time} · {comment.author}
-                </span>
-                {comment.text}
-              </div>
+              {comment && (
+                <div className="frame-note">
+                  <span>
+                    {comment.time} · {comment.author}
+                  </span>
+                  {comment.text}
+                </div>
+              )}
               <div className="review-controls">
                 <button
                   type="button"
@@ -492,6 +493,7 @@ export default function ProductStory() {
                   className={commentId === item.id ? "is-active" : ""}
                   key={item.id}
                   type="button"
+                  aria-pressed={commentId === item.id}
                   onClick={() => selectComment(item.id, item.seconds)}
                 >
                   <span>
@@ -525,6 +527,7 @@ export default function ProductStory() {
                   key={item.label}
                   type="button"
                   className={`${index <= deliveryStep ? "is-complete" : ""}${index === deliveryStep ? " is-active" : ""}`}
+                  aria-pressed={index === deliveryStep}
                   onClick={() => setDeliveryStep(index)}
                 >
                   <span className="delivery-step-icon">
@@ -532,7 +535,9 @@ export default function ProductStory() {
                   </span>
                   <span className="delivery-step-copy">
                     <strong>{item.label}</strong>
-                    <small>{item.status}</small>
+                    <small>
+                      {index <= deliveryStep ? item.status : "Pending"}
+                    </small>
                   </span>
                   <Check className="delivery-step-check" size={14} />
                 </button>
@@ -639,9 +644,12 @@ export default function ProductStory() {
             </button>
           </section>
 
-          <section className="proof-ledger" aria-label="Projects due this week">
+          <section
+            className="proof-ledger"
+            aria-label="Sample project deadlines"
+          >
             <div className="proof-panel-head proof-week-head">
-              <h3>Due this week</h3>
+              <h3>Project deadlines</h3>
               <div>
                 <button
                   type="button"
@@ -676,7 +684,7 @@ export default function ProductStory() {
               {proofWeeks[proofWeek].projects.map((project) => (
                 <div className="proof-project-group" key={project.name}>
                   <p>{project.day}</p>
-                  <button type="button">
+                  <div className="proof-project-row">
                     <span className="proof-project-name">
                       <FolderKanban size={16} />
                       <span>
@@ -705,16 +713,17 @@ export default function ProductStory() {
                       />
                       {project.status}
                     </span>
-                  </button>
+                  </div>
                 </div>
               ))}
             </div>
             <button
               className="proof-panel-action"
               type="button"
+              disabled={proofWeek === 1}
               onClick={() => setProofWeek(1)}
             >
-              View current week <ArrowRight size={14} />
+              Return to sample week <ArrowRight size={14} />
             </button>
           </section>
         </div>

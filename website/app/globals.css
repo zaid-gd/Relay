@@ -159,15 +159,12 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   border-color: rgb(198 255 0 / 68%);
   background: #11140a;
   color: var(--white);
   font-weight: 760;
   text-decoration: none;
-}
-
-.nav-action {
   padding: 0 16px;
   border-radius: var(--button-radius);
 }
@@ -561,11 +558,12 @@ h1 span {
 
 .waitlist-page .waitlist-fields label,
 .waitlist-page .waitlist-audience span {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .waitlist-page .waitlist-fields input {
   height: 46px;
+  font-size: 16px;
 }
 
 .waitlist-page .waitlist-audience span,
@@ -1468,7 +1466,7 @@ h1 span {
   font-size: 8px;
 }
 
-.stage-ledger button {
+.stage-ledger .stage-project {
   display: flex;
   justify-content: space-between;
   width: 100%;
@@ -1481,26 +1479,26 @@ h1 span {
   font-size: 9px;
 }
 
-.stage-ledger button span {
+.stage-ledger .stage-project span {
   display: flex;
   gap: 7px;
   align-items: center;
 }
 
-.stage-ledger button i {
+.stage-ledger .stage-project i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #4a4a50;
 }
 
-.stage-ledger button.is-current {
+.stage-ledger .stage-project.is-current {
   background: #18181b;
   color: var(--white);
   box-shadow: inset 2px 0 var(--lime);
 }
 
-.stage-ledger button.is-current i {
+.stage-ledger .stage-project.is-current i {
   background: var(--lime);
 }
 
@@ -2116,7 +2114,7 @@ h1 span {
 }
 
 .proof-ledger-head,
-.proof-project-group > button {
+.proof-project-row {
   display: grid;
   grid-template-columns: 1.45fr 0.62fr 0.78fr 0.85fr;
   align-items: center;
@@ -2151,7 +2149,7 @@ h1 span {
   text-transform: uppercase;
 }
 
-.proof-project-group > button {
+.proof-project-row {
   width: 100%;
   min-height: 70px;
   padding: 0 14px;
@@ -2160,11 +2158,6 @@ h1 span {
   background: #0a0a0b;
   color: var(--white);
   text-align: left;
-  cursor: pointer;
-}
-
-.proof-project-group > button:hover {
-  background: #121214;
 }
 
 .proof-project-name {
@@ -2245,7 +2238,6 @@ h1 span {
 .price-plan.is-featured {
   border-color: var(--lime);
   box-shadow: 0 20px 60px rgb(198 255 0 / 8%);
-  transform: translateY(-8px);
 }
 
 .plan-badge {
@@ -2337,6 +2329,7 @@ h1 span {
 }
 
 .price-plan li svg {
+  flex-shrink: 0;
   color: var(--lime);
 }
 
@@ -2679,7 +2672,7 @@ h1 span {
   }
 
   .nav-action {
-    min-height: 38px;
+    min-height: 44px;
     padding: 0 12px;
     font-size: 12px;
   }
@@ -2713,7 +2706,7 @@ h1 span {
   }
 
   .hero-action {
-    min-height: 42px;
+    min-height: 44px;
     margin-top: 16px;
   }
 
@@ -3024,7 +3017,7 @@ h1 span {
 
   .waitlist-page .waitlist-audience span,
   .waitlist-page .waitlist-submit {
-    min-height: 40px;
+    min-height: 44px;
   }
 }
 
@@ -3068,4 +3061,10 @@ h1 span {
   text-decoration: underline;
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
+}
+
+.proof-panel-action:disabled {
+  color: var(--zinc);
+  cursor: default;
+  opacity: 0.6;
 }

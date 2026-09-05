@@ -145,6 +145,12 @@ export default function InteractiveDashboard() {
 
   const selectedProject =
     projects.find((project) => project.id === selectedId) ?? projects[0];
+  const waitingReviews = projects.filter(
+    (project) => project.status === "Review"
+  ).length;
+  const deliveredProjects = projects.filter(
+    (project) => project.status === "Delivered"
+  ).length;
   const activity = activityScope === "Recent" ? recentActivity : teamActivity;
 
   const createProject = () => {
@@ -185,6 +191,7 @@ export default function InteractiveDashboard() {
                 type="button"
                 key={item.label}
                 aria-label={item.label}
+                aria-pressed={activeSection === item.label}
                 onClick={() => {
                   setActiveSection(item.label);
                   setNotice(`${item.label} selected`);
@@ -219,9 +226,8 @@ export default function InteractiveDashboard() {
               aria-label="Quick search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Quick Search"
+              placeholder="Quick search"
             />
-            <kbd>Ctrl K</kbd>
           </label>
           <div className="demo-top-actions">
             <button type="button" onClick={createProject}>
@@ -291,7 +297,7 @@ export default function InteractiveDashboard() {
           <section className="demo-overview-grid">
             <div className="demo-attention">
               <strong>Attention queue</strong>
-              <p>Two projects are waiting for client review.</p>
+              <p>{waitingReviews} projects are waiting for client review.</p>
             </div>
             <div className="demo-activity">
               <div className="demo-panel-title">
@@ -299,6 +305,7 @@ export default function InteractiveDashboard() {
                 <div>
                   <button
                     className={activityScope === "Recent" ? "is-active" : ""}
+                    aria-pressed={activityScope === "Recent"}
                     onClick={() => setActivityScope("Recent")}
                     type="button"
                   >
@@ -306,6 +313,7 @@ export default function InteractiveDashboard() {
                   </button>
                   <button
                     className={activityScope === "Team" ? "is-active" : ""}
+                    aria-pressed={activityScope === "Team"}
                     onClick={() => setActivityScope("Team")}
                     type="button"
                   >
@@ -343,12 +351,7 @@ export default function InteractiveDashboard() {
             </div>
             <div>
               <span>Waiting reviews</span>
-              <b>
-                {
-                  projects.filter((project) => project.status === "Review")
-                    .length
-                }
-              </b>
+              <b>{waitingReviews}</b>
               <small>awaiting action</small>
             </div>
             <div>
@@ -358,8 +361,8 @@ export default function InteractiveDashboard() {
             </div>
             <div>
               <span>Delivered</span>
-              <b>18</b>
-              <small>client edits</small>
+              <b>{deliveredProjects}</b>
+              <small>completed projects</small>
             </div>
           </section>
 
@@ -384,6 +387,7 @@ export default function InteractiveDashboard() {
                     className={`demo-project-row${project.id === selectedProject.id ? " is-selected" : ""}`}
                     type="button"
                     key={project.id}
+                    aria-pressed={project.id === selectedProject.id}
                     onClick={() => setSelectedId(project.id)}
                   >
                     <span className="demo-project-name">
