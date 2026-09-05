@@ -5603,8 +5603,9 @@ function SettingsDesignPage({
           </OwnedSelect>
         </PageToolbar>
         <FillViewport
+          className="h-full min-h-[32rem]"
           bodyLabel="Settings workspace"
-          bodyClassName="overflow-visible rounded-[6px] border border-border bg-muted/10 lg:overflow-hidden"
+          bodyClassName="overflow-visible lg:overflow-hidden"
         >
           <MasterDetail
             className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
@@ -5613,7 +5614,7 @@ function SettingsDesignPage({
                 aria-label="Settings sections"
                 data-slot="settings-navigation"
                 data-navigation-kind="icon-index"
-                className="hidden h-full overflow-hidden rounded-[6px] border bg-card text-card-foreground lg:flex lg:flex-col"
+                className="hidden h-full overflow-hidden bg-transparent text-card-foreground lg:flex lg:flex-col"
               >
                 <div className="border-b border-border px-4 py-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--app-accent)]">
@@ -5649,7 +5650,7 @@ function SettingsDesignPage({
               <section
                 aria-label={`${settingsNavigation.find((item) => item.id === activeSection)?.label} settings`}
                 className={cn(
-                  "grid min-h-0 min-w-0 content-start overflow-visible p-1 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pr-2",
+                  "grid min-h-full min-w-0 content-start overflow-visible lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pr-2 [&_[data-slot=content-section]]:border-0 [&_[data-slot=content-section]]:shadow-none",
                   "gap-3"
                 )}
                 tabIndex={0}
@@ -7238,7 +7239,6 @@ function SettingsPanel({
   const reduceMotion = useHydratedReducedMotion();
   return (
     <motion.div
-      layout
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -7250,7 +7250,7 @@ function SettingsPanel({
         id={id}
         title={title}
         description={subtitle}
-        className="scroll-mt-[76px] shadow-[var(--app-shadow-1)]"
+        className="scroll-mt-[76px] border-0 shadow-none"
         bodyClassName="grid min-w-0 gap-3.5 p-4 sm:p-5"
       >
         {children}

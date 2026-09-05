@@ -230,7 +230,7 @@ const mobileRoutes: RouteItem[] = [
 ];
 
 const shellTransition = {
-  duration: 0.28,
+  duration: 0.22,
   ease: [0.22, 1, 0.36, 1] as const,
 };
 
@@ -374,15 +374,15 @@ export function WorkspaceShell({
       <div
         className={cn(
           "min-h-dvh transition-[padding] ease-[cubic-bezier(0.22,1,0.36,1)]",
-          reduceMotion ? "duration-0" : "duration-300",
-          collapsed ? "lg:pl-14" : "lg:pl-60"
+          reduceMotion ? "duration-0" : "duration-[220ms]",
+          collapsed ? "lg:pl-[52px]" : "lg:pl-[216px]"
         )}
       >
         <header
           className={cn(
             "fixed inset-x-0 top-0 z-30 flex h-12 items-center bg-[var(--app-sidebar)] px-2.5 transition-[left] ease-[cubic-bezier(0.22,1,0.36,1)] lg:justify-between lg:px-3",
-            reduceMotion ? "duration-0" : "duration-300",
-            collapsed ? "lg:left-14" : "lg:left-60"
+            reduceMotion ? "duration-0" : "duration-[220ms]",
+            collapsed ? "lg:left-[52px]" : "lg:left-[216px]"
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
@@ -456,8 +456,8 @@ export function WorkspaceShell({
           tabIndex={-1}
           className={cn(
             "workspace-scrollbar-hidden h-[calc(100dvh_-_68px_-_env(safe-area-inset-bottom))] overflow-y-auto bg-[var(--app-canvas)] pt-12 outline-none lg:fixed lg:bottom-1.5 lg:right-1.5 lg:top-[54px] lg:h-auto lg:min-h-0 lg:overscroll-contain lg:rounded-md lg:border lg:border-[var(--app-border)] lg:pt-0 lg:transition-[left] lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
-            reduceMotion ? "lg:duration-0" : "lg:duration-300",
-            collapsed ? "lg:left-[62px]" : "lg:left-[246px]"
+            reduceMotion ? "lg:duration-0" : "lg:duration-[220ms]",
+            collapsed ? "lg:left-[58px]" : "lg:left-[222px]"
           )}
         >
           <div className="min-h-full lg:h-full">{children}</div>
@@ -537,7 +537,7 @@ function DesktopSidebar({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 56 : 240 }}
+      animate={{ width: collapsed ? 52 : 216 }}
       transition={reduceMotion ? { duration: 0 } : shellTransition}
       className="fixed inset-y-0 left-0 z-40 hidden overflow-hidden bg-[var(--app-sidebar)] lg:flex lg:flex-col"
     >
@@ -565,7 +565,7 @@ function DesktopSidebar({
 
       <nav
         aria-label="Primary navigation"
-        className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1"
+        className="min-h-0 flex-1 overflow-y-auto px-1 py-1"
       >
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.label} className="mb-2.5">
@@ -574,7 +574,7 @@ function DesktopSidebar({
                 initial={reduceMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={reduceMotion ? { duration: 0 } : shellTransition}
-                className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--app-subtle)]"
+                className="mb-1.5 px-2 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--app-subtle)]"
               >
                 {group.label}
               </motion.p>
@@ -694,8 +694,8 @@ function SidebarRoute({
       aria-label={collapsed ? item.label : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex h-8 items-center overflow-hidden rounded text-[13px] font-medium outline-none transition-[background-color,color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
-        collapsed ? "mx-auto w-9 justify-center px-0" : "gap-2.5 px-2.5",
+        "group relative flex h-8 items-center overflow-hidden rounded text-[12px] font-medium outline-none transition-[background-color,color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] focus-visible:ring-inset",
+        collapsed ? "mx-auto w-9 justify-center px-0" : "gap-2 px-2",
         active
           ? "bg-[var(--app-active)] text-[var(--app-ink)]"
           : "text-[var(--app-muted)] hover:bg-[var(--app-hover)] hover:text-[var(--app-ink)]"

@@ -100,16 +100,55 @@ const integrationLinkValidator = v.record(
   })
 );
 
+function identityKeys(identity: {
+  tokenIdentifier: string;
+  subject: string;
+}): string[] {
+  const keys = [
+    identity.tokenIdentifier,
+    identity.subject,
+    `https://relay-dev.cc.cd|${identity.subject}`,
+    `https://relay-app.cc.cd|${identity.subject}`,
+    `https://clerk.relay-app.cc.cd|${identity.subject}`,
+  ];
+  return [...new Set(keys)];
+}
+
+function clientRecordCount(settings: {
+  clients?: unknown[];
+  customClients?: string[];
+}) {
+  return (
+    (settings.clients?.length ?? 0) + (settings.customClients?.length ?? 0)
+  );
+}
+
 export const get = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
-    const settings = await ctx.db
-      .query("settings")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.tokenIdentifier))
-      .take(1);
-    return settings[0] ?? null;
+    const rows = (
+      await Promise.all(
+        identityKeys(identity).map((userId) =>
+          ctx.db
+            .query("settings")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .order("desc")
+            .take(10)
+        )
+      )
+    ).flat();
+
+    return (
+      rows.sort((a, b) => {
+        const clientDifference = clientRecordCount(b) - clientRecordCount(a);
+        if (clientDifference) return clientDifference;
+        const aCanonical = a.userId === identity.tokenIdentifier ? 1 : 0;
+        const bCanonical = b.userId === identity.tokenIdentifier ? 1 : 0;
+        return bCanonical - aCanonical || b._creationTime - a._creationTime;
+      })[0] ?? null
+    );
   },
 });
 

@@ -303,8 +303,8 @@ export const migrateSettingsIdentityV2 = migrations.define({
       .order("desc")
       .take(10);
 
-    // Keep a single canonical settings row. A previous identity migration
-    // could rewrite a legacy row onto an already-created canonical row.
+    // Keep a single canonical settings row. Prefer the row with client data so
+    // an empty row created after the identity change cannot erase the directory.
     if (userId === doc.userId) {
       if (canonicalRows[0]?._id !== doc._id) {
         await ctx.db.delete(doc._id);
@@ -312,6 +312,18 @@ export const migrateSettingsIdentityV2 = migrations.define({
       return;
     }
     if (canonicalRows.length > 0) {
+      const canonical = canonicalRows[0];
+      const legacyClientCount =
+        (doc.clients?.length ?? 0) + (doc.customClients?.length ?? 0);
+      const canonicalClientCount =
+        (canonical.clients?.length ?? 0) +
+        (canonical.customClients?.length ?? 0);
+      if (legacyClientCount > canonicalClientCount) {
+        await ctx.db.patch(canonical._id, {
+          clients: doc.clients,
+          customClients: doc.customClients,
+        });
+      }
       await ctx.db.delete(doc._id);
       return;
     }

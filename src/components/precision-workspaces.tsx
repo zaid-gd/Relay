@@ -196,7 +196,7 @@ export function PrecisionClients({
   const reduceMotion = useHydratedReducedMotion();
 
   const clients = useMemo(() => {
-    const records = settings.clients.length
+    const savedRecords = settings.clients.length
       ? settings.clients
       : settings.customClients.map((name) => ({
           id: `client-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -208,6 +208,37 @@ export function PrecisionClients({
           notes: "",
           archived: false,
         }));
+    const records = [...savedRecords];
+    const knownIds = new Set(records.map((client) => client.id));
+    const knownNames = new Set(
+      records.map((client) => client.name.trim().toLowerCase())
+    );
+    for (const project of projects) {
+      const name = project.client?.trim();
+      const normalizedName = name?.toLowerCase();
+      if (!name || !normalizedName) continue;
+      if (
+        (project.clientId && knownIds.has(project.clientId)) ||
+        knownNames.has(normalizedName)
+      ) {
+        continue;
+      }
+      const id =
+        project.clientId ||
+        `client-${normalizedName.replace(/[^a-z0-9]+/g, "-")}`;
+      records.push({
+        id,
+        name,
+        company: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        notes: "",
+        archived: false,
+      });
+      knownIds.add(id);
+      knownNames.add(normalizedName);
+    }
     const map = new Map(
       records.map((client) => [
         client.id,
@@ -345,30 +376,35 @@ export function PrecisionClients({
       />
 
       <PageContent mode="fill">
-        <MetricStrip columns={3}>
-          <MetricItem
-            label="Clients"
-            value={clients.length}
-            icon={<UsersRound className="size-4" />}
-          />
-          <MetricItem
-            label="Active projects"
-            value={projects.filter(active).length}
-            icon={<FolderKanban className="size-4" />}
-          />
-          <MetricItem
-            label="Delivered"
-            value={projects.filter(delivered).length}
-            icon={<CheckCircle2 className="size-4" />}
-          />
-        </MetricStrip>
+        {clients.length ? (
+          <MetricStrip columns={3}>
+            <MetricItem
+              label="Clients"
+              value={clients.length}
+              icon={<UsersRound className="size-4" />}
+            />
+            <MetricItem
+              label="Active projects"
+              value={projects.filter(active).length}
+              icon={<FolderKanban className="size-4" />}
+            />
+            <MetricItem
+              label="Delivered"
+              value={projects.filter(delivered).length}
+              icon={<CheckCircle2 className="size-4" />}
+            />
+          </MetricStrip>
+        ) : null}
 
         <FillViewport
           bodyLabel="Client workspace"
           bodyClassName="overflow-visible lg:overflow-hidden"
         >
           <MasterDetail
-            className="min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden"
+            className={cn(
+              "min-h-full lg:h-full lg:min-h-0 lg:overflow-hidden",
+              !clients.length && "lg:grid-cols-1 [&>div:first-child]:hidden"
+            )}
             master={
               <aside className="flex min-h-0 flex-col border-b border-[var(--app-border)] bg-[var(--app-soft-panel)] lg:h-full lg:border-b-0 lg:border-r">
                 <div className="border-b border-[var(--app-border)] p-3">
