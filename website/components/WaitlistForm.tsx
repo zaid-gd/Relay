@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import SpecularButton from "./react-bits/SpecularButton";
+import SiteButton from "./SiteButton";
 
 type FormState =
   | { kind: "idle" }
@@ -63,7 +63,12 @@ export default function WaitlistForm() {
 
   if (state.kind === "success") {
     return (
-      <section className="waitlist-card waitlist-success" id="waitlist">
+      <section
+        className="waitlist-card waitlist-success"
+        id="waitlist"
+        role="status"
+        aria-live="polite"
+      >
         <p className="waitlist-kicker">Request received</p>
         <h2>You are on the list.</h2>
         <p>
@@ -128,17 +133,23 @@ export default function WaitlistForm() {
         <input name="website" type="text" tabIndex={-1} autoComplete="off" />
       </label>
 
-      <SpecularButton
+      <SiteButton
         className="waitlist-submit"
         type="submit"
         disabled={state.kind === "submitting"}
       >
         {state.kind === "submitting" ? "Sending request" : "Join the waitlist"}
-      </SpecularButton>
+      </SiteButton>
 
       <p className="waitlist-disclosure">
         Early access is still changing. Storage, plan limits, and some features
         may differ from the plans shown.
+      </p>
+      <p className="waitlist-disclosure">
+        We use these details to manage early-access requests. Read our{" "}
+        <a href="https://relay-app.cc.cd/privacy">privacy policy</a>. For
+        questions or removal, email{" "}
+        <a href="mailto:zns.studioss@gmail.com">zns.studioss@gmail.com</a>.
       </p>
       <p className="waitlist-status" role="status" aria-live="polite">
         {state.kind === "error" ? state.message : ""}

@@ -18,10 +18,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import GradientBlinds from "./react-bits/GradientBlinds";
-import { MagicBentoSurface } from "./react-bits/MagicBento";
-import SpecularButton from "./react-bits/SpecularButton";
-import SplitText from "./react-bits/SplitText";
+import SiteButton from "./SiteButton";
 import Stepper, { Step } from "./react-bits/Stepper";
 
 const workflowStages = ["Plan", "Edit", "Client review", "Deliver"] as const;
@@ -81,11 +78,11 @@ const plans = [
     description: "For freelancers getting their workflow organized.",
     features: [
       "Unlimited Projects and Clients",
-      "Project tracking, reviews, and delivery",
+      "Project tracking and delivery",
       "Client Portals",
       "External video embeds",
     ],
-    note: null,
+    note: "Comments are not available on embedded videos.",
     cta: "Join waitlist",
   },
   {
@@ -97,7 +94,8 @@ const plans = [
     description: "For freelance editors running their business in Relay.",
     features: [
       "Everything in Free",
-      "5 GB of file storage",
+      "5 GB for uploaded videos",
+      "Comments on uploaded videos",
       "Custom Workflow Templates",
       "Salary Plans and advanced reports",
       "Client Hub and custom portal branding",
@@ -115,12 +113,12 @@ const plans = [
     features: [
       "Everything in Creator",
       "Three editing seats",
-      "15 GB of shared storage",
+      "15 GB for shared video uploads",
       "Roles and Project assignments",
       "Team payouts and workload reports",
       "Free Viewer access",
     ],
-    note: "Extra Editor seats cost $5/month and add 2 GB of shared storage.",
+    note: "Extra Editor seats cost $5/month and add 2 GB for shared video uploads.",
     cta: "Join waitlist",
   },
 ] as const;
@@ -251,19 +249,7 @@ const proofWeeks = [
 ] as const;
 
 function SectionTitle({ children }: { children: string }) {
-  return (
-    <SplitText
-      text={children}
-      tag="h2"
-      className="story-title"
-      splitType="words"
-      delay={45}
-      duration={0.7}
-      textAlign="left"
-      from={{ opacity: 0, y: 28 }}
-      to={{ opacity: 1, y: 0 }}
-    />
-  );
+  return <h2 className="story-title">{children}</h2>;
 }
 
 export default function ProductStory() {
@@ -416,7 +402,10 @@ export default function ProductStory() {
         <div className="review-heading">
           <p className="story-index">02 / Client review</p>
           <h2 className="story-title">Feedback, on the frame.</h2>
-          <p>Clients leave a note on the exact moment and the right version.</p>
+          <p>
+            Clients comment on the exact moment in an uploaded video. Comments
+            are not available on embedded videos.
+          </p>
         </div>
 
         <div className="review-room">
@@ -430,7 +419,7 @@ export default function ProductStory() {
               />
               Relay
             </span>
-            <strong>v4 / Client review</strong>
+            <strong>Demo / v4 client review</strong>
             <span>{comments.length} comments</span>
           </div>
           <div className="review-room-grid">
@@ -576,24 +565,17 @@ export default function ProductStory() {
       <section
         className="story-section proof-story"
         id="proof"
-        aria-label="Proof"
+        aria-label="Activity tracking"
       >
         <div className="story-heading">
-          <p className="story-index">04 / Proof</p>
+          <p className="story-index">04 / Activity</p>
           <SectionTitle>See what moved.</SectionTitle>
           <p>
             Recent changes and the week ahead stay visible without another
             status meeting.
           </p>
         </div>
-        <MagicBentoSurface
-          className="proof-workspace"
-          spotlightRadius={360}
-          glowColor="198, 255, 0"
-          enableTilt={false}
-          enableMagnetism={false}
-          clickEffect={false}
-        >
+        <div className="proof-workspace">
           <section className="proof-activity" aria-label="Project activity">
             <div className="proof-panel-head">
               <h3>Project activity</h3>
@@ -735,7 +717,7 @@ export default function ProductStory() {
               View current week <ArrowRight size={14} />
             </button>
           </section>
-        </MagicBentoSurface>
+        </div>
       </section>
 
       <section
@@ -785,30 +767,15 @@ export default function ProductStory() {
               {plan.note ? (
                 <small className="plan-note">{plan.note}</small>
               ) : null}
-              <SpecularButton href="/waitlist">
+              <SiteButton href="/waitlist">
                 {plan.cta} <ArrowRight size={15} />
-              </SpecularButton>
+              </SiteButton>
             </article>
           ))}
         </div>
       </section>
 
       <footer className="story-footer">
-        <GradientBlinds
-          className="footer-gradient-blinds"
-          gradientColors={["#C4FF9F", "#30FF27"]}
-          angle={20}
-          noise={0.5}
-          blindCount={16}
-          blindMinWidth={60}
-          spotlightRadius={0.5}
-          spotlightSoftness={1}
-          spotlightOpacity={1}
-          mouseDampening={0.15}
-          distortAmount={0}
-          shineDirection="left"
-          mixBlendMode="lighten"
-        />
         <div className="footer-main">
           <div className="footer-statement">
             <a className="footer-brand" href="#top" aria-label="Relay home">
@@ -826,9 +793,9 @@ export default function ProductStory() {
               Projects, client notes, approvals, and delivery in one production
               workspace.
             </p>
-            <SpecularButton href="/waitlist">
+            <SiteButton href="/waitlist">
               Join the waitlist <ArrowRight size={17} />
-            </SpecularButton>
+            </SiteButton>
             <nav className="footer-socials" aria-label="Social links">
               <a
                 href="https://www.instagram.com/zns.studios/"
@@ -844,7 +811,7 @@ export default function ProductStory() {
               >
                 X
               </a>
-              <a href="mailto:zns.stuioss@gmail.com">Email</a>
+              <a href="mailto:zns.studioss@gmail.com">Email</a>
             </nav>
           </div>
         </div>
@@ -855,6 +822,7 @@ export default function ProductStory() {
             <a href="#client-review">Review</a>
             <a href="#delivery">Delivery</a>
             <a href="#pricing">Pricing</a>
+            <a href="https://relay-app.cc.cd/privacy">Privacy</a>
           </nav>
           <p>© 2026 Relay</p>
         </div>

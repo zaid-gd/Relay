@@ -39,7 +39,7 @@ const seedProjects: Project[] = [
     id: "summer-launch",
     name: "Summer launch film",
     type: "Client project",
-    dueDate: "Jul 24",
+    dueDate: "May 5",
     status: "In progress",
     progress: 72,
     value: "$1,800",
@@ -51,7 +51,7 @@ const seedProjects: Project[] = [
     id: "founder-story",
     name: "Founder story cutdown",
     type: "Client project",
-    dueDate: "Jul 23",
+    dueDate: "May 7",
     status: "Review",
     progress: 86,
     value: "$950",
@@ -63,7 +63,7 @@ const seedProjects: Project[] = [
     id: "field-notes",
     name: "Field Notes episode 12",
     type: "Client project",
-    dueDate: "Jul 11",
+    dueDate: "May 8",
     status: "Delivered",
     progress: 100,
     value: "$1,200",
@@ -75,9 +75,9 @@ const seedProjects: Project[] = [
     id: "campaign-cutdowns",
     name: "Campaign cutdowns",
     type: "Client project",
-    dueDate: "Jul 29",
-    status: "In progress",
-    progress: 48,
+    dueDate: "May 2",
+    status: "Delivered",
+    progress: 100,
     value: "$760",
     priority: "Low",
     client: "Aperture Coffee",
@@ -87,7 +87,7 @@ const seedProjects: Project[] = [
     id: "product-teaser",
     name: "Product teaser",
     type: "Client project",
-    dueDate: "Aug 2",
+    dueDate: "Apr 29",
     status: "Review",
     progress: 91,
     value: "$1,050",
@@ -242,7 +242,7 @@ export default function InteractiveDashboard() {
         <div className="demo-main">
           <section className="demo-dashboard-heading">
             <div>
-              <span>Production desk</span>
+              <span>Interactive demo / Sample data</span>
               <h3>Good to see you, Maya.</h3>
               <p>
                 Scan commitments, deadlines, handoffs, and earnings from one
@@ -291,7 +291,7 @@ export default function InteractiveDashboard() {
           <section className="demo-overview-grid">
             <div className="demo-attention">
               <strong>Attention queue</strong>
-              <p>No deadlines, blockers, or reviews need attention.</p>
+              <p>Two projects are waiting for client review.</p>
             </div>
             <div className="demo-activity">
               <div className="demo-panel-title">
@@ -337,8 +337,8 @@ export default function InteractiveDashboard() {
               <small>of {projects.length} projects</small>
             </div>
             <div>
-              <span>Due this week</span>
-              <b>0</b>
+              <span>Due May 5 to 11</span>
+              <b>2</b>
               <small>upcoming handoffs</small>
             </div>
             <div>

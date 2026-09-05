@@ -8,9 +8,11 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: [
         "/account",
+        "/api/early-access",
         "/calendar",
         "/client-portal/",
         "/clients",
+        "/early-access",
         "/feedback",
         "/integrations",
         "/media",
@@ -23,10 +25,10 @@ export default function robots(): MetadataRoute.Robots {
         "/team",
         "/team-chat",
         "/templates",
-        "/timeline"
-      ]
+        "/timeline",
+      ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
-    host: siteUrl
+    host: siteUrl,
   };
 }
